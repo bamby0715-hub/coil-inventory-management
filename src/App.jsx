@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   LayoutDashboard, PackagePlus, Truck, Boxes, BarChart3, Palette,
-  Lock, Search, Download, Plus, ChevronDown, ChevronRight, Check,
-  Trash2, Pencil, X, AlertTriangle, Clock, Menu, Printer, ArrowRight,
-  Play, Factory, MapPin, Sparkles
+  Search, Download, Plus, ChevronDown, ChevronRight, Check,
+  Trash2, Pencil, X, AlertTriangle, Clock, Menu, ArrowRight,
+  Factory, MapPin, LogOut
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -16,11 +16,6 @@ import * as XLSX from "xlsx";
    · 상단 우측 메뉴 버튼 → 위에서 아래로 펼쳐지는 드로어
    · YouTube RSS 자동 연동 (HN METALIC TV)
    ========================================================================= */
-
-/* ---------- YouTube 채널 (실제 페이지에서 확인한 값) ---------- */
-const YT_CHANNEL_ID = "UCQWhb-m80kq7oqdWG1kRztA";          // HN METALIC TV
-const YT_RSS = `https://www.youtube.com/feeds/videos.xml?channel_id=${YT_CHANNEL_ID}`;
-const YT_CHANNEL_URL = "https://www.youtube.com/@hn메탈릭";
 
 /* ---------- 색상 마스터 (회사 색상표 PDF 기준) ---------- */
 const COLOR_HEX = {
@@ -185,13 +180,6 @@ function Toolbar({ q, setQ, children }) {
     </div>
   );
 }
-function PrintBtn() {
-  return (
-    <button onClick={() => window.print()} className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-600 inline-flex items-center gap-1.5 hover:bg-slate-50 no-print">
-      <Printer size={16} />인쇄 / PDF
-    </button>
-  );
-}
 function ExcelBtn({ onClick }) {
   return (
     <button onClick={onClick} className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-600 inline-flex items-center gap-1.5 hover:bg-slate-50 no-print">
@@ -204,30 +192,6 @@ function downloadXlsx(rows, sheetName, fileName) {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
   XLSX.writeFile(wb, fileName);
-}
-
-/* 인쇄용 결재란 */
-function ApprovalBar({ title }) {
-  return (
-    <div className="hidden print:block mb-4">
-      <div className="flex items-center justify-between mb-2">
-        <h1 className="text-xl font-bold">HN메탈릭 · {title}</h1>
-        <div className="text-sm">출력일: {todayStr()}</div>
-      </div>
-      <table className="border-collapse text-xs ml-auto">
-        <tbody>
-          <tr>
-            <td className="border border-slate-400 px-3 py-1 bg-slate-100">담당</td>
-            <td className="border border-slate-400 px-6 py-4"></td>
-            <td className="border border-slate-400 px-3 py-1 bg-slate-100">검토</td>
-            <td className="border border-slate-400 px-6 py-4"></td>
-            <td className="border border-slate-400 px-3 py-1 bg-slate-100">승인</td>
-            <td className="border border-slate-400 px-6 py-4"></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  );
 }
 
 /* =========================================================================
@@ -266,26 +230,19 @@ export default function CoilInventory() {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-slate-800">
       <GlobalStyle />
       {/* 상단 바 */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-slate-200 no-print">
-        <div className="max-w-[1400px] mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
+      <header className="sticky top-0 z-50 bg-white/65 backdrop-blur-xl border-b border-white/70 shadow-sm">
+        <div className="max-w-[1400px] mx-auto px-3 md:px-8 h-16 md:h-20 flex items-center justify-between">
           <button onClick={() => goto("dashboard")} className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md shadow-indigo-200">
-              <Boxes size={18} className="text-white" />
-            </div>
+            <img src="/coil-inventory-management/assets/mascot.gif" alt="" className="w-11 h-11 md:w-14 md:h-14 object-contain drop-shadow-sm" />
             <div className="text-left">
-              <div className="font-extrabold tracking-tight leading-none text-slate-800">HN메탈릭</div>
-              <div className="text-[11px] text-slate-400 leading-none mt-0.5">코일 재고관리</div>
+              <div className="font-extrabold tracking-tight leading-tight text-slate-800 text-sm sm:text-base md:text-xl">HN 코인 재고관리</div>
+              <div className="hidden sm:block text-[11px] md:text-xs text-slate-400 leading-none mt-0.5">{current?.label}</div>
             </div>
           </button>
-          <div className="flex items-center gap-2">
-            <span className="hidden sm:inline-flex items-center gap-1.5 text-sm text-slate-500 mr-1">
-              {current && <current.icon size={15} className="text-indigo-500" />}{current?.label}
-            </span>
-            <button onClick={() => setDrawer(true)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition">
-              <Menu size={18} />메뉴
-            </button>
-          </div>
+          <button onClick={() => setDrawer(true)} aria-label="메뉴 열기"
+            className="w-11 h-11 md:w-12 md:h-12 rounded-2xl bg-white/25 border border-white/60 backdrop-blur-xl shadow-lg shadow-indigo-200/30 flex items-center justify-center transition hover:bg-white/45 hover:-translate-y-0.5">
+            <Menu size={22} className="text-indigo-500/80" />
+          </button>
         </div>
       </header>
 
@@ -298,7 +255,7 @@ export default function CoilInventory() {
         {menu === "outbound" && <Outbound ctx={ctx} />}
         {menu === "inventory" && <Inventory ctx={ctx} />}
         {menu === "sales" && <Sales ctx={ctx} />}
-        {menu === "colors" && <Colors />}
+        {menu === "colors" && <Colors ctx={ctx} />}
       </main>
     </div>
   );
@@ -311,9 +268,12 @@ function GlobalStyle() {
       @keyframes glowPulse { 0%,100%{box-shadow:0 0 0 0 rgba(146,168,209,.55),0 0 22px 4px rgba(247,202,201,.45);} 50%{box-shadow:0 0 0 10px rgba(146,168,209,0),0 0 34px 10px rgba(247,202,201,.65);} }
       @keyframes twinkle { 0%,100%{opacity:.15; transform:scale(.7);} 50%{opacity:.9; transform:scale(1.15);} }
       @keyframes slideDown { from{transform:translateY(-12px); opacity:0;} to{transform:translateY(0); opacity:1;} }
+      @keyframes cardSlide { from{transform:translateY(-18px) scale(.96); opacity:0;} to{transform:translateY(0) scale(1); opacity:1;} }
       .glow-lock{ animation:glowPulse 2.6s ease-in-out infinite; }
       .twinkle{ animation:twinkle 3s ease-in-out infinite; }
       .drawer-anim{ animation:slideDown .28s ease-out; }
+      .menu-card{ animation:cardSlide .38s ease-out both; }
+      .gradient-icon svg{ stroke:url(#menuIconGradient); }
       @media print {
         .no-print{ display:none !important; }
         body{ background:#fff !important; }
@@ -341,10 +301,10 @@ function Login({ pw, setPw, pwErr, tryLogin }) {
       ))}
       <div className="w-full max-w-sm relative">
         <div className="text-center mb-7">
-          <div className="glow-lock inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white/70 backdrop-blur mb-4">
-            <Lock className="text-indigo-500" size={34} />
+          <div className="glow-lock inline-flex items-center justify-center w-36 h-36 rounded-[2.5rem] bg-white/35 backdrop-blur mb-4 border border-white/60">
+            <img src="/coil-inventory-management/assets/mascot.gif" alt="HN 마스코트" className="w-32 h-32 object-contain" />
           </div>
-          <h1 className="text-2xl font-extrabold text-slate-700 tracking-tight">HN메탈릭 코일 재고관리</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-700 tracking-tight">HN 코인 재고관리</h1>
           <p className="text-slate-600/80 text-sm mt-1">접속 비밀번호 4자리를 입력하세요</p>
         </div>
         <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 shadow-2xl border border-white/60">
@@ -353,10 +313,9 @@ function Login({ pw, setPw, pwErr, tryLogin }) {
             onKeyDown={(e) => e.key === "Enter" && tryLogin()} placeholder="● ● ● ●"
             className="w-full text-center tracking-[0.6em] text-2xl font-semibold py-3 rounded-2xl border-2 border-slate-200 focus:outline-none focus:border-indigo-400 bg-white/90" />
           {pwErr && <p className="text-rose-500 text-sm mt-2 text-center">{pwErr}</p>}
-          <button onClick={tryLogin} className="w-full mt-4 py-3 rounded-2xl bg-gradient-to-r from-rose-300 via-violet-400 to-indigo-400 text-white font-semibold shadow-lg hover:opacity-95 transition inline-flex items-center justify-center gap-1.5">
-            <Sparkles size={16} />접속하기
+          <button onClick={tryLogin} className="block mx-auto mt-3 text-xs font-semibold text-indigo-500 hover:text-rose-500 transition">
+            로그인
           </button>
-          <p className="text-center text-xs text-slate-500 mt-4">숫자 4자리 · 누구나 확인 및 수정 가능</p>
         </div>
       </div>
     </div>
@@ -368,37 +327,37 @@ function Login({ pw, setPw, pwErr, tryLogin }) {
    ========================================================================= */
 function Drawer({ open, onClose, menu, goto, onLogout }) {
   if (!open) return null;
-  const groups = ["현황", "입출고", "분석", "기타"];
   return (
-    <div className="fixed inset-0 z-[55] no-print" onClick={onClose}>
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
-      <div onClick={(e) => e.stopPropagation()} className="drawer-anim absolute top-0 inset-x-0 bg-slate-900 text-white shadow-2xl rounded-b-3xl">
-        <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-6">
-          <div className="flex items-center justify-between mb-6">
+    <div className="fixed inset-0 z-[55]" onClick={onClose}>
+      <div className="absolute inset-0 bg-slate-700/15 backdrop-blur-sm" />
+      <div onClick={(e) => e.stopPropagation()} className="drawer-anim absolute top-0 inset-x-0 text-slate-700 shadow-2xl rounded-b-[2rem] border-b border-white/70"
+        style={{ background: "linear-gradient(135deg,rgba(247,202,201,.94),rgba(225,207,228,.94),rgba(146,168,209,.94))" }}>
+        <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-5 md:py-7">
+          <svg width="0" height="0" aria-hidden="true"><defs><linearGradient id="menuIconGradient" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#ef9aaf" /><stop offset=".5" stopColor="#a78bfa" /><stop offset="1" stopColor="#6387ca" /></linearGradient></defs></svg>
+          <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center"><Boxes size={18} /></div>
-              <span className="font-extrabold tracking-tight">HN메탈릭 메뉴</span>
+              <img src="/coil-inventory-management/assets/mascot.gif" alt="" className="w-12 h-12 object-contain" />
+              <span className="font-extrabold tracking-tight">HN 코인 재고관리</span>
             </div>
-            <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/10"><X size={22} /></button>
+            <button onClick={onClose} className="p-2 rounded-xl bg-white/25 hover:bg-white/45"><X size={22} /></button>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
             {NAV.map((n) => {
               const Icon = n.icon; const active = menu === n.key;
               return (
-                <button key={n.key} onClick={() => goto(n.key)}
-                  className={`group text-left rounded-2xl p-4 border transition ${active ? "bg-indigo-600 border-indigo-500 shadow-lg shadow-indigo-900/40" : "bg-white/5 border-white/10 hover:bg-white/10"}`}>
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-3 ${active ? "bg-white/20" : "bg-gradient-to-br from-indigo-500/30 to-violet-500/30 group-hover:from-indigo-500/50"}`}>
-                    <Icon size={22} />
+                <button key={n.key} onClick={() => goto(n.key)} title={n.label} aria-label={n.label}
+                  style={{ animationDelay: `${NAV.indexOf(n) * 45}ms` }}
+                  className={`menu-card group rounded-2xl p-3 md:p-4 border transition flex flex-col items-center gap-2 ${active ? "bg-white/60 border-white shadow-xl" : "bg-white/25 border-white/45 hover:bg-white/45 hover:-translate-y-1"}`}>
+                  <div className="gradient-icon w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center bg-white/35 border border-white/50 shadow-lg backdrop-blur">
+                    <Icon size={26} />
                   </div>
-                  <div className="text-[11px] text-indigo-200/70 mb-0.5">{n.group}</div>
-                  <div className="font-semibold leading-tight">{n.label}</div>
-                  <div className="text-xs text-slate-300/70 mt-0.5">{n.desc}</div>
+                  <div className="text-xs font-semibold text-slate-700 text-center">{n.label}</div>
                 </button>
               );
             })}
           </div>
           <div className="mt-5 flex justify-end">
-            <button onClick={onLogout} className="text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-white/10">접속 종료</button>
+            <button onClick={onLogout} className="text-xs text-slate-600 hover:text-rose-600 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/40 inline-flex items-center gap-1"><LogOut size={13} />로그아웃</button>
           </div>
         </div>
       </div>
@@ -411,42 +370,18 @@ function Drawer({ open, onClose, menu, goto, onLogout }) {
    ========================================================================= */
 function Dashboard({ ctx, goto }) {
   const { coils, outbound } = ctx;
-  const [slides, setSlides] = useState(null); // null=로딩, []=실패시 폴백
   const [slide, setSlide] = useState(0);
   const t = useRef();
-
-  // YouTube RSS 자동 연동 (CORS 프록시 경유, 실패 시 폴백)
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const url = "https://api.allorigins.win/raw?url=" + encodeURIComponent(YT_RSS);
-        const res = await fetch(url);
-        const xml = await res.text();
-        const doc = new DOMParser().parseFromString(xml, "text/xml");
-        const entries = [...doc.getElementsByTagName("entry")].slice(0, 3).map((e) => {
-          const vid = e.getElementsByTagName("yt:videoId")[0]?.textContent || "";
-          const title = e.getElementsByTagName("title")[0]?.textContent || "";
-          const pub = (e.getElementsByTagName("published")[0]?.textContent || "").slice(0, 10);
-          return { videoId: vid, title, date: pub, link: `https://www.youtube.com/watch?v=${vid}` };
-        });
-        if (alive && entries.length) setSlides(entries); else if (alive) setSlides([]);
-      } catch { if (alive) setSlides([]); }
-    })();
-    return () => { alive = false; };
-  }, []);
-
-  const fallback = [
-    { videoId: "", title: "HN메탈릭 칼라강판·징크 외장재", date: "", link: YT_CHANNEL_URL, grad: "from-blue-700 to-indigo-900" },
-    { videoId: "", title: "금속외장재 원스톱 시공", date: "", link: YT_CHANNEL_URL, grad: "from-violet-700 to-slate-900" },
-    { videoId: "", title: "HN METALIC TV 채널 바로가기", date: "", link: YT_CHANNEL_URL, grad: "from-slate-700 to-blue-900" },
+  const slides = [
+    { title: "HN메탈릭 홈페이지", image: "/coil-inventory-management/assets/slide-company.jpg", link: "https://hnmt.co.kr/" },
+    { title: "HN메탈릭 유튜브", image: "/coil-inventory-management/assets/slide-youtube.jpg", link: "https://www.youtube.com/@hn메탈릭" },
+    { title: "HN메탈릭 네이버 블로그", image: "/coil-inventory-management/assets/slide-blog.jpg", link: "https://blog.naver.com/hnmt_blog" },
   ];
-  const show = slides && slides.length ? slides : fallback;
 
   useEffect(() => {
-    t.current = setInterval(() => setSlide((s) => (s + 1) % show.length), 4500);
+    t.current = setInterval(() => setSlide((s) => (s + 1) % slides.length), 4500);
     return () => clearInterval(t.current);
-  }, [show.length]);
+  }, [slides.length]);
 
   const totalCoils = coils.length;
   const totalRolls = coils.reduce((a, c) => a + (c.current_meter > 0 ? (c.current_roll_count || 1) : 0), 0);
@@ -473,31 +408,29 @@ function Dashboard({ ctx, goto }) {
     <div className="space-y-6">
       <div className="flex items-end justify-between">
         <div>
-          <h2 className="text-2xl font-extrabold tracking-tight">대시보드</h2>
-          <p className="text-slate-500 text-sm mt-0.5">재고 현황을 한눈에 확인하세요</p>
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight">HN 코인 재고 현황</h2>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">입고·출고·재고 현황을 한눈에 확인하세요</p>
         </div>
         <div className="text-sm font-bold text-slate-700 bg-white px-3 py-1.5 rounded-xl border border-slate-200">{todayStr()} 기준</div>
       </div>
 
       {/* 슬라이더 */}
       <div className="relative rounded-3xl overflow-hidden shadow-lg h-52 md:h-72">
-        {show.map((s, i) => (
+        {slides.map((s, i) => (
           <a key={i} href={s.link} target="_blank" rel="noreferrer"
-            className={`absolute inset-0 transition-opacity duration-700 bg-gradient-to-br ${s.grad || "from-slate-800 to-indigo-900"} ${i === slide ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-            style={s.videoId ? { backgroundImage: `url(https://i.ytimg.com/vi/${s.videoId}/hqdefault.jpg)`, backgroundSize: "cover", backgroundPosition: "center" } : {}}>
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+            className={`absolute inset-0 transition-opacity duration-700 ${i === slide ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+            style={{ backgroundImage: `url(${s.image})`, backgroundSize: "cover", backgroundPosition: "center" }}>
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/65 via-transparent to-white/5" />
             <div className="absolute bottom-0 left-0 p-6 md:p-8 text-white">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-600 text-xs font-semibold mb-3"><Play size={12} fill="white" /> HN METALIC TV</div>
               <h3 className="text-lg md:text-2xl font-bold mb-1 line-clamp-2">{s.title}</h3>
-              <p className="text-white/80 text-sm">{s.date ? s.date + " · " : ""}클릭 시 영상으로 이동</p>
+              <p className="text-white/80 text-sm">이미지를 클릭하면 새 창으로 이동합니다</p>
             </div>
           </a>
         ))}
-        {slides === null && <div className="absolute top-3 left-4 text-white/70 text-xs">최신 영상 불러오는 중…</div>}
-        <button onClick={() => setSlide((slide - 1 + show.length) % show.length)} className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/30 hover:bg-white/50 text-white backdrop-blur">‹</button>
-        <button onClick={() => setSlide((slide + 1) % show.length)} className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/30 hover:bg-white/50 text-white backdrop-blur">›</button>
+        <button onClick={() => setSlide((slide - 1 + slides.length) % slides.length)} className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/30 hover:bg-white/50 text-white backdrop-blur">‹</button>
+        <button onClick={() => setSlide((slide + 1) % slides.length)} className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/30 hover:bg-white/50 text-white backdrop-blur">›</button>
         <div className="absolute bottom-4 right-5 flex gap-1.5">
-          {show.map((_, i) => <button key={i} onClick={() => setSlide(i)} className={`h-2 rounded-full transition-all ${i === slide ? "w-6 bg-white" : "w-2 bg-white/50"}`} />)}
+          {slides.map((_, i) => <button key={i} onClick={() => setSlide(i)} className={`h-2 rounded-full transition-all ${i === slide ? "w-6 bg-white" : "w-2 bg-white/50"}`} />)}
         </div>
       </div>
 
@@ -592,13 +525,13 @@ function ColorPicker({ product, maker, value, onPick }) {
 const blankInbound = () => ({ inbound_date: todayStr(), product_type: "강판", manufacturer: "", color_name: "", thickness: "", coil_meter: 0, purchaser: "", memo: "" });
 
 function Inbound({ ctx }) {
-  const { inbound, setInbound, setCoils } = ctx;
+  const { inbound, setInbound, coils, setCoils } = ctx;
   const [q, setQ] = useState("");
   const [from, setFrom] = useState(""); const [to, setTo] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blankInbound());
   const [editId, setEditId] = useState(null);
-  const [expanded, setExpanded] = useState(null);
+  const [detail, setDetail] = useState(null);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const makers = makersFor(form.product_type);
@@ -607,11 +540,21 @@ function Inbound({ ctx }) {
   const onColor = (name, thick) => setForm((f) => ({ ...f, color_name: name, thickness: thick != null ? thick : f.thickness }));
 
   const submit = () => {
-    if (!form.manufacturer) { alert("제조사를 선택하세요."); return; }
-    if (!form.color_name) { alert("색상명을 입력하세요."); return; }
     const meter = Number(form.coil_meter) || 0;
+    if (!form.inbound_date || !form.product_type || !form.manufacturer || !form.color_name || !form.thickness || meter <= 0) {
+      alert("*필수입력을 작성해주세요");
+      return;
+    }
     if (editId) {
       setInbound((l) => l.map((r) => r.id === editId ? { ...r, ...form, coil_meter: meter, updated_at: todayStr() } : r));
+      const original = inbound.find((r) => r.id === editId);
+      if (original) {
+        setCoils((l) => l.map((c) => c.id === original.coil_id || c.coil_number === original.coil_number ? {
+          ...c, product_type: form.product_type, manufacturer: form.manufacturer, color_name: form.color_name,
+          thickness: form.thickness, purchaser: form.purchaser, memo: form.memo, inbound_date: form.inbound_date,
+          initial_meter: meter, current_meter: Math.max(0, meter - (c.total_outbound_meter || 0)), updated_at: todayStr(),
+        } : c));
+      }
     } else {
       const coilNo = makeCoilNo(form.inbound_date);
       const coilId = uid();
@@ -626,7 +569,13 @@ function Inbound({ ctx }) {
     setOpen(false); setForm(blankInbound()); setEditId(null);
   };
   const startEdit = (r) => { setForm({ ...r }); setEditId(r.id); setOpen(true); };
-  const remove = (id) => { if (confirm("정말 삭제하시겠습니까?")) setInbound((l) => l.filter((r) => r.id !== id)); };
+  const remove = (id) => {
+    if (!confirm("정말 삭제하시겠습니까?")) return;
+    const target = inbound.find((r) => r.id === id);
+    setInbound((l) => l.filter((r) => r.id !== id));
+    if (target) setCoils((l) => l.filter((c) => c.id !== target.coil_id && c.coil_number !== target.coil_number));
+    if (detail?.id === id) setDetail(null);
+  };
 
   const rows = inbound
     .filter((r) => inRange(r.inbound_date, from, to))
@@ -642,14 +591,13 @@ function Inbound({ ctx }) {
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div><h2 className="text-2xl font-extrabold tracking-tight">입고관리</h2><p className="text-slate-500 text-sm mt-0.5">코일번호는 자동 생성됩니다 (C-YYYYMMDD-####)</p></div>
         <div className="flex gap-2">
-          <PrintBtn /><ExcelBtn onClick={exportXlsx} />
+          <ExcelBtn onClick={exportXlsx} />
           <button onClick={() => { setForm(blankInbound()); setEditId(null); setOpen(true); }} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium inline-flex items-center gap-1.5 hover:bg-indigo-700 no-print"><Plus size={16} />입고 등록</button>
         </div>
       </div>
       <Toolbar q={q} setQ={setQ}><DateRange from={from} to={to} setFrom={setFrom} setTo={setTo} /></Toolbar>
 
       <Card className="overflow-hidden print-card">
-        <ApprovalBar title="입고 대장" />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs">
@@ -657,10 +605,11 @@ function Inbound({ ctx }) {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {rows.map((r) => (
-                <React.Fragment key={r.id}>
-                  <tr className="hover:bg-slate-50/50">
+                  <tr key={r.id} className="hover:bg-slate-50/50">
                     <td className="px-3 py-2.5 whitespace-nowrap">{r.inbound_date}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap font-medium text-indigo-700">{r.coil_number}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <button onClick={() => setDetail(r)} className="font-semibold text-indigo-700 hover:text-rose-500 hover:underline">{r.coil_number}</button>
+                    </td>
                     <td className="px-3 py-2.5">{r.product_type}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap">{r.manufacturer}</td>
                     <td className="px-3 py-2.5"><Swatch name={r.color_name} /></td>
@@ -670,28 +619,33 @@ function Inbound({ ctx }) {
                     <td className="px-3 py-2.5 text-slate-500 max-w-[160px] truncate">{r.memo}</td>
                     <td className="px-3 py-2.5 no-print">
                       <div className="flex items-center gap-1">
-                        <button onClick={() => setExpanded(expanded === r.id ? null : r.id)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500">{expanded === r.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
                         <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><Pencil size={15} /></button>
                         <button onClick={() => remove(r.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500"><Trash2 size={15} /></button>
                       </div>
                     </td>
                   </tr>
-                  {expanded === r.id && (
-                    <tr><td colSpan={10} className="p-0">
-                      <DetailPanel rows={[
-                        ["제품 구분", r.product_type], ["제조사", r.manufacturer], ["매입처", r.purchaser || "-"],
-                        ["입고일", r.inbound_date], ["색상", r.color_name], ["두께", r.thickness + "T"],
-                        ["코일 M", fmt(r.coil_meter) + " M"], ["비고", r.memo || "-"],
-                      ]} />
-                    </td></tr>
-                  )}
-                </React.Fragment>
               ))}
               {rows.length === 0 && <tr><td colSpan={10} className="px-3 py-8 text-center text-slate-400">입고 내역이 없습니다.</td></tr>}
             </tbody>
           </table>
         </div>
       </Card>
+
+      <Modal open={!!detail} onClose={() => setDetail(null)} title={`코일 상세 · ${detail?.coil_number || ""}`}>
+        {detail && (
+          <>
+            <DetailPanel rows={[
+              ["제품 구분", detail.product_type], ["제조사", detail.manufacturer], ["매입처", detail.purchaser || "-"],
+              ["입고일", detail.inbound_date], ["색상", detail.color_name], ["두께", detail.thickness + "T"],
+              ["코일 M", fmt(detail.coil_meter) + " M"], ["비고", detail.memo || "-"],
+            ]} />
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => { setDetail(null); startEdit(detail); }} className="px-4 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-sm font-semibold inline-flex items-center gap-1"><Pencil size={14} />수정</button>
+              <button onClick={() => remove(detail.id)} className="px-4 py-2 rounded-xl bg-rose-50 text-rose-600 text-sm font-semibold inline-flex items-center gap-1"><Trash2 size={14} />삭제</button>
+            </div>
+          </>
+        )}
+      </Modal>
 
       <Modal open={open} onClose={() => setOpen(false)} title={editId ? "입고 수정" : "입고 등록"} wide>
         <div className="grid sm:grid-cols-2 gap-3">
@@ -815,7 +769,7 @@ function Outbound({ ctx }) {
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div><h2 className="text-2xl font-extrabold tracking-tight">출고관리</h2><p className="text-slate-500 text-sm mt-0.5">출고는 미완료로 홀드되고 [완료 승인] 시 재고가 차감됩니다</p></div>
         <div className="flex gap-2">
-          <PrintBtn /><ExcelBtn onClick={exportXlsx} />
+          <ExcelBtn onClick={exportXlsx} />
           <button onClick={() => { setForm(blankOutbound()); setOpen(true); }} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium inline-flex items-center gap-1.5 hover:bg-indigo-700 no-print"><Plus size={16} />출고등록</button>
         </div>
       </div>
@@ -855,7 +809,6 @@ function Outbound({ ctx }) {
       {/* 하단: 전체 이력 */}
       <Toolbar q={q} setQ={setQ}><DateRange from={from} to={to} setFrom={setFrom} setTo={setTo} /></Toolbar>
       <Card className="overflow-hidden print-card">
-        <ApprovalBar title="출고 대장" />
         <div className="px-5 py-4 border-b border-slate-100 no-print"><h3 className="font-semibold">전체 출고 이력</h3></div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -958,7 +911,7 @@ function Inventory({ ctx }) {
     <div className="space-y-5">
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div><h2 className="text-2xl font-extrabold tracking-tight">재고현황</h2><p className="text-slate-500 text-sm mt-0.5">현재 남은 코일을 M 기준으로 확인합니다</p></div>
-        <div className="flex gap-2"><PrintBtn /><ExcelBtn onClick={exportXlsx} /></div>
+        <div className="flex gap-2"><ExcelBtn onClick={exportXlsx} /></div>
       </div>
       <Toolbar q={q} setQ={setQ}>
         <DateRange from={from} to={to} setFrom={setFrom} setTo={setTo} />
@@ -967,7 +920,6 @@ function Inventory({ ctx }) {
       </Toolbar>
 
       <Card className="overflow-hidden print-card">
-        <ApprovalBar title="재고 현황" />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs">
@@ -1063,7 +1015,7 @@ function Sales({ ctx }) {
     <div className="space-y-5">
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div><h2 className="text-2xl font-extrabold tracking-tight">거래처별 현황</h2><p className="text-slate-500 text-sm mt-0.5">매입처별 입고 · 현장별 출고 (완료 기준) · M 집계</p></div>
-        <div className="flex gap-2"><PrintBtn /><ExcelBtn onClick={exportXlsx} /></div>
+        <div className="flex gap-2"><ExcelBtn onClick={exportXlsx} /></div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-5">
@@ -1115,30 +1067,149 @@ function Sales({ ctx }) {
 /* =========================================================================
    색상표
    ========================================================================= */
-function Colors() {
+function Colors({ ctx }) {
+  const { inbound, setInbound, outbound, setOutbound, coils, setCoils } = ctx;
   const [q, setQ] = useState(""); const [pf, setPf] = useState("전체");
+  const [selected, setSelected] = useState(null);
+  const [editing, setEditing] = useState(null);
   const rows = COLOR_MASTER.filter((c) => (pf === "전체" || c.product === pf) && [c.product, c.maker, c.color, c.thickness].join(" ").toLowerCase().includes(q.toLowerCase()));
+
+  const relatedInbound = selected ? inbound.filter((r) =>
+    r.product_type === selected.product && r.manufacturer === selected.maker &&
+    r.color_name === selected.color && String(r.thickness) === String(selected.thickness)
+  ) : [];
+  const relatedCoils = selected ? coils.filter((c) =>
+    c.product_type === selected.product && c.manufacturer === selected.maker &&
+    c.color_name === selected.color && String(c.thickness) === String(selected.thickness)
+  ) : [];
+  const relatedOutbound = selected ? outbound.filter((o) => o.product_type === selected.product) : [];
+  const currentMeter = relatedCoils.reduce((sum, c) => sum + (Number(c.current_meter) || 0), 0);
+
+  const removeInbound = (r) => {
+    if (!confirm("선택한 입고 내역을 삭제하시겠습니까?")) return;
+    setInbound((list) => list.filter((x) => x.id !== r.id));
+    setCoils((list) => list.filter((c) => c.id !== r.coil_id && c.coil_number !== r.coil_number));
+  };
+  const removeOutbound = (o) => {
+    if (!confirm("선택한 출고 내역을 삭제하시겠습니까?")) return;
+    setOutbound((list) => list.filter((x) => x.id !== o.id));
+  };
+  const saveEditing = () => {
+    if (!editing) return;
+    if (editing.type === "inbound") {
+      const meter = Number(editing.data.coil_meter) || 0;
+      if (!editing.data.inbound_date || !editing.data.manufacturer || !editing.data.color_name || !editing.data.thickness || meter <= 0) {
+        alert("*필수입력을 작성해주세요");
+        return;
+      }
+      setInbound((list) => list.map((r) => r.id === editing.data.id ? { ...editing.data, coil_meter: meter, updated_at: todayStr() } : r));
+      setCoils((list) => list.map((c) => c.id === editing.data.coil_id || c.coil_number === editing.data.coil_number ? {
+        ...c, manufacturer: editing.data.manufacturer, color_name: editing.data.color_name, thickness: editing.data.thickness,
+        purchaser: editing.data.purchaser, memo: editing.data.memo, inbound_date: editing.data.inbound_date,
+        initial_meter: meter, current_meter: Math.max(0, meter - (c.total_outbound_meter || 0)), updated_at: todayStr(),
+      } : c));
+    } else {
+      const meter = Number(editing.data.outbound_meter) || 0;
+      if (!editing.data.outbound_date || !editing.data.site_address || meter <= 0) {
+        alert("*필수입력을 작성해주세요");
+        return;
+      }
+      setOutbound((list) => list.map((o) => o.id === editing.data.id ? { ...editing.data, outbound_meter: meter, updated_at: todayStr() } : o));
+    }
+    setEditing(null);
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex items-end justify-between gap-3 flex-wrap">
-        <div><h2 className="text-2xl font-extrabold tracking-tight">색상표</h2><p className="text-slate-500 text-sm mt-0.5">회사 색상표 기준 · 입고 등록 시 자동 검색에 사용됩니다</p></div>
-        <PrintBtn />
+        <div><h2 className="text-2xl font-extrabold tracking-tight">색상표</h2><p className="text-slate-500 text-sm mt-0.5">색상을 클릭하면 관련 입고·출고·재고 현황을 확인하고 수정할 수 있습니다</p></div>
       </div>
       <Toolbar q={q} setQ={setQ}>
         <select className="px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white no-print" value={pf} onChange={(e) => setPf(e.target.value)}><option>전체</option><option>강판</option><option>징크</option></select>
       </Toolbar>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {rows.map((c, i) => (
-          <Card key={i} className="overflow-hidden print-card">
-            <div className="h-20" style={{ background: hexOf(c.color) }} />
+          <button key={i} onClick={() => setSelected(c)} className="text-left group">
+          <Card className="overflow-hidden transition group-hover:-translate-y-1 group-hover:shadow-lg">
+            <div className="h-20 relative" style={{ background: hexOf(c.color) }}>
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition bg-white/20 flex items-center justify-center text-xs font-bold text-white drop-shadow">현황 보기</div>
+            </div>
             <div className="p-3">
               <div className="font-semibold text-slate-800 text-sm">{c.color}</div>
               <div className="text-xs text-slate-500 mt-0.5">{c.product} · {c.thickness}T</div>
               <div className="text-xs text-slate-400">{c.maker}</div>
             </div>
           </Card>
+          </button>
         ))}
       </div>
+
+      <Modal open={!!selected} onClose={() => setSelected(null)} title={selected ? `${selected.color} · ${selected.product} ${selected.thickness}T` : ""} wide>
+        {selected && (
+          <div className="space-y-5">
+            <div className="grid grid-cols-3 gap-3">
+              <Card className="p-3 text-center"><div className="text-xs text-slate-400">입고 건수</div><div className="text-xl font-extrabold">{relatedInbound.length}</div></Card>
+              <Card className="p-3 text-center"><div className="text-xs text-slate-400">현재 재고</div><div className="text-xl font-extrabold text-indigo-600">{fmt(currentMeter)} M</div></Card>
+              <Card className="p-3 text-center"><div className="text-xs text-slate-400">관련 출고</div><div className="text-xl font-extrabold">{relatedOutbound.length}</div></Card>
+            </div>
+
+            <div>
+              <h4 className="font-bold text-sm mb-2">입고 내역</h4>
+              <div className="border border-slate-200 rounded-xl overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50"><tr>{["입고일","코일번호","제조사","M","매입처",""].map((h) => <th key={h} className="px-2 py-2 text-left whitespace-nowrap">{h}</th>)}</tr></thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {relatedInbound.map((r) => <tr key={r.id}>
+                      <td className="px-2 py-2 whitespace-nowrap">{r.inbound_date}</td><td className="px-2 py-2 font-semibold text-indigo-600 whitespace-nowrap">{r.coil_number}</td>
+                      <td className="px-2 py-2">{r.manufacturer}</td><td className="px-2 py-2">{fmt(r.coil_meter)}</td><td className="px-2 py-2">{r.purchaser || "-"}</td>
+                      <td className="px-2 py-2 whitespace-nowrap"><button onClick={() => setEditing({ type: "inbound", data: { ...r } })} className="p-1 text-indigo-600"><Pencil size={14} /></button><button onClick={() => removeInbound(r)} className="p-1 text-rose-500"><Trash2 size={14} /></button></td>
+                    </tr>)}
+                    {!relatedInbound.length && <tr><td colSpan={6} className="p-5 text-center text-slate-400">관련 입고 내역이 없습니다.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="font-bold text-sm mb-2">제품 구분 관련 출고 내역</h4>
+              <div className="border border-slate-200 rounded-xl overflow-x-auto max-h-56">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 sticky top-0"><tr>{["출고일","현장","M","상태",""].map((h) => <th key={h} className="px-2 py-2 text-left whitespace-nowrap">{h}</th>)}</tr></thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {relatedOutbound.map((o) => <tr key={o.id}>
+                      <td className="px-2 py-2 whitespace-nowrap">{o.outbound_date}</td><td className="px-2 py-2 max-w-[220px] truncate">{o.site_address}</td>
+                      <td className="px-2 py-2">{fmt(o.outbound_meter)}</td><td className="px-2 py-2">{o.is_completed ? "완료" : "미완료"}</td>
+                      <td className="px-2 py-2 whitespace-nowrap"><button onClick={() => setEditing({ type: "outbound", data: { ...o } })} className="p-1 text-indigo-600"><Pencil size={14} /></button><button onClick={() => removeOutbound(o)} className="p-1 text-rose-500"><Trash2 size={14} /></button></td>
+                    </tr>)}
+                    {!relatedOutbound.length && <tr><td colSpan={5} className="p-5 text-center text-slate-400">관련 출고 내역이 없습니다.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-2">출고 데이터에는 색상값이 없어 같은 제품 구분의 출고 내역을 표시합니다.</p>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={!!editing} onClose={() => setEditing(null)} title={editing?.type === "inbound" ? "입고 내역 수정" : "출고 내역 수정"}>
+        {editing && (
+          <div className="space-y-3">
+            {editing.type === "inbound" ? <>
+              <Field label="입고일" required><input type="date" className={inputCls} value={editing.data.inbound_date} onChange={(e) => setEditing({ ...editing, data: { ...editing.data, inbound_date: e.target.value } })} /></Field>
+              <Field label="제조사" required><input className={inputCls} value={editing.data.manufacturer} onChange={(e) => setEditing({ ...editing, data: { ...editing.data, manufacturer: e.target.value } })} /></Field>
+              <Field label="색상" required><input className={inputCls} value={editing.data.color_name} onChange={(e) => setEditing({ ...editing, data: { ...editing.data, color_name: e.target.value } })} /></Field>
+              <div className="grid grid-cols-2 gap-3"><Field label="두께" required><input className={inputCls} value={editing.data.thickness} onChange={(e) => setEditing({ ...editing, data: { ...editing.data, thickness: e.target.value } })} /></Field><Field label="코일 M" required><input type="number" className={inputCls} value={editing.data.coil_meter} onChange={(e) => setEditing({ ...editing, data: { ...editing.data, coil_meter: e.target.value } })} /></Field></div>
+              <Field label="매입처"><input className={inputCls} value={editing.data.purchaser || ""} onChange={(e) => setEditing({ ...editing, data: { ...editing.data, purchaser: e.target.value } })} /></Field>
+            </> : <>
+              <Field label="출고일" required><input type="date" className={inputCls} value={editing.data.outbound_date} onChange={(e) => setEditing({ ...editing, data: { ...editing.data, outbound_date: e.target.value } })} /></Field>
+              <Field label="현장주소" required><input className={inputCls} value={editing.data.site_address} onChange={(e) => setEditing({ ...editing, data: { ...editing.data, site_address: e.target.value } })} /></Field>
+              <Field label="출고 M" required><input type="number" className={inputCls} value={editing.data.outbound_meter} onChange={(e) => setEditing({ ...editing, data: { ...editing.data, outbound_meter: e.target.value } })} /></Field>
+              <Field label="비고"><input className={inputCls} value={editing.data.memo || ""} onChange={(e) => setEditing({ ...editing, data: { ...editing.data, memo: e.target.value } })} /></Field>
+            </>}
+            <div className="flex justify-end gap-2 pt-2"><button onClick={() => setEditing(null)} className="px-4 py-2 rounded-xl border text-sm">취소</button><button onClick={saveEditing} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold">저장</button></div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
