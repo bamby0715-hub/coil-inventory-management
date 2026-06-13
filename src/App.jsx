@@ -3,7 +3,7 @@ import {
   LayoutDashboard, PackagePlus, Truck, Boxes, BarChart3, Palette,
   Search, Download, Plus, ChevronDown, ChevronRight, Check,
   Trash2, Pencil, X, AlertTriangle, Clock, Menu, ArrowRight,
-  Factory, MapPin, LogOut, Layers3, CalendarDays
+  Factory, MapPin, LogOut, Layers3, CalendarDays, Eye, EyeOff
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -29,46 +29,48 @@ const COLOR_HEX = {
 const hexOf = (n) => COLOR_HEX[n] || "#9aa0a6";
 
 const COLOR_MASTER = [
-  { product: "강판", thickness: "0.4", maker: "동국", color: "차콜" },
-  { product: "강판", thickness: "0.45", maker: "동국", color: "검정" },
-  { product: "강판", thickness: "0.45", maker: "동국", color: "밤색" },
-  { product: "강판", thickness: "0.45", maker: "동국", color: "쑥색" },
-  { product: "강판", thickness: "0.45", maker: "동국", color: "적색" },
-  { product: "강판", thickness: "0.45", maker: "동국", color: "차콜" },
-  { product: "강판", thickness: "0.45", maker: "동국", color: "청색" },
-  { product: "강판", thickness: "0.45", maker: "동국", color: "칼그레이" },
-  { product: "강판", thickness: "0.45", maker: "동국", color: "백색" },
-  { product: "강판", thickness: "0.45", maker: "포스코", color: "검정" },
-  { product: "강판", thickness: "0.45", maker: "포스코", color: "밤색" },
-  { product: "강판", thickness: "0.45", maker: "포스코", color: "쑥색" },
-  { product: "강판", thickness: "0.45", maker: "포스코", color: "연그레이" },
-  { product: "강판", thickness: "0.45", maker: "포스코", color: "적색" },
-  { product: "강판", thickness: "0.45", maker: "포스코", color: "차콜" },
-  { product: "강판", thickness: "0.45", maker: "포스코", color: "청색" },
-  { product: "강판", thickness: "0.45", maker: "포스코", color: "황토" },
-  { product: "징크", thickness: "0.45", maker: "동국", color: "다크그레이" },
-  { product: "징크", thickness: "0.5", maker: "동국", color: "다크그레이" },
-  { product: "징크", thickness: "0.45", maker: "동국", color: "라이트그레이" },
-  { product: "징크", thickness: "0.5", maker: "동국", color: "라이트그레이" },
-  { product: "징크", thickness: "0.45", maker: "동국", color: "차콜" },
-  { product: "징크", thickness: "0.5", maker: "동국", color: "차콜" },
-  { product: "징크", thickness: "0.45", maker: "동국", color: "칼그레이" },
-  { product: "징크", thickness: "0.5", maker: "동국", color: "칼그레이" },
-  { product: "징크", thickness: "0.45", maker: "동국", color: "메탈그레이" },
-  { product: "징크", thickness: "0.5", maker: "동국", color: "메탈그레이" },
-  { product: "징크", thickness: "0.45", maker: "동국", color: "백색" },
-  { product: "징크", thickness: "0.5", maker: "동국", color: "백색" },
-  { product: "징크", thickness: "0.45", maker: "세아", color: "메탈실버" },
-  { product: "징크", thickness: "0.5", maker: "세아", color: "메탈실버" },
-  { product: "징크", thickness: "0.45", maker: "세아", color: "베이지우드" },
-  { product: "징크", thickness: "0.5", maker: "세아", color: "베이지우드" },
-  { product: "징크", thickness: "0.45", maker: "세아", color: "브론즈우드" },
-  { product: "징크", thickness: "0.5", maker: "세아", color: "브론즈우드" },
-  { product: "징크", thickness: "0.45", maker: "DK동신", color: "월넛우드" },
-  { product: "징크", thickness: "0.5", maker: "DK동신", color: "월넛우드" },
-  { product: "징크", thickness: "0.5", maker: "해외", color: "백색" },
-  { product: "징크", thickness: "0.5", maker: "세아", color: "코르텐" },
-  { product: "징크", thickness: "0.5", maker: "포스코", color: "라이트그레이" },
+  { product: "강판", maker: "동국", code: "SU090", thickness: "0.4", color: "차콜" },
+  { product: "강판", maker: "동국", code: "K0450", thickness: "0.45", color: "검정" },
+  { product: "강판", maker: "동국", code: "Q4611", thickness: "0.45", color: "밤색" },
+  { product: "강판", maker: "동국", code: "D2990", thickness: "0.45", color: "쑥색" },
+  { product: "강판", maker: "동국", code: "Q4171", thickness: "0.45", color: "적색" },
+  { product: "강판", maker: "동국", code: "SU090", thickness: "0.45", color: "차콜" },
+  { product: "강판", maker: "동국", code: "A4170", thickness: "0.45", color: "청색" },
+  { product: "강판", maker: "동국", code: "SU100", thickness: "0.45", color: "칼그레이" },
+  { product: "강판", maker: "동국", code: "H4406", thickness: "0.45", color: "백색" },
+  { product: "강판", maker: "포스코", code: "KS2", thickness: "0.45", color: "검정" },
+  { product: "강판", maker: "포스코", code: "KM6", thickness: "0.45", color: "밤색" },
+  { product: "강판", maker: "포스코", code: "GP4", thickness: "0.45", color: "쑥색" },
+  { product: "강판", maker: "포스코", code: "N08", thickness: "0.45", color: "연그레이" },
+  { product: "강판", maker: "포스코", code: "RB2", thickness: "0.45", color: "적색" },
+  { product: "강판", maker: "포스코", code: "R01", thickness: "0.45", color: "차콜" },
+  { product: "강판", maker: "포스코", code: "KT4", thickness: "0.45", color: "차콜" },
+  { product: "강판", maker: "포스코", code: "BW2", thickness: "0.45", color: "청색" },
+  { product: "강판", maker: "포스코", code: "", thickness: "0.45", color: "황토" },
+  { product: "강판", maker: "동국", code: "SU090", thickness: "0.5", color: "차콜" },
+  { product: "징크", maker: "동국", code: "N6250", thickness: "0.45", color: "다크그레이" },
+  { product: "징크", maker: "동국", code: "N6250", thickness: "0.5", color: "다크그레이" },
+  { product: "징크", maker: "동국", code: "PZ102", thickness: "0.45", color: "라이트그레이" },
+  { product: "징크", maker: "동국", code: "PZ102", thickness: "0.5", color: "라이트그레이" },
+  { product: "징크", maker: "동국", code: "SU090", thickness: "0.45", color: "차콜" },
+  { product: "징크", maker: "동국", code: "SU090", thickness: "0.5", color: "차콜" },
+  { product: "징크", maker: "동국", code: "SU100", thickness: "0.45", color: "칼그레이" },
+  { product: "징크", maker: "동국", code: "SU100", thickness: "0.5", color: "칼그레이" },
+  { product: "징크", maker: "동국", code: "PZ104", thickness: "0.45", color: "메탈그레이" },
+  { product: "징크", maker: "동국", code: "PZ104", thickness: "0.5", color: "메탈그레이" },
+  { product: "징크", maker: "동국", code: "H4406", thickness: "0.45", color: "백색" },
+  { product: "징크", maker: "동국", code: "H4406", thickness: "0.5", color: "백색" },
+  { product: "징크", maker: "세아", code: "I022", thickness: "0.45", color: "메탈실버" },
+  { product: "징크", maker: "세아", code: "I022", thickness: "0.5", color: "메탈실버" },
+  { product: "징크", maker: "세아", code: "I606", thickness: "0.45", color: "베이지우드" },
+  { product: "징크", maker: "세아", code: "I606", thickness: "0.5", color: "베이지우드" },
+  { product: "징크", maker: "세아", code: "I605", thickness: "0.45", color: "브론즈우드" },
+  { product: "징크", maker: "세아", code: "I605", thickness: "0.5", color: "브론즈우드" },
+  { product: "징크", maker: "DK동신", code: "", thickness: "0.45", color: "월넛우드" },
+  { product: "징크", maker: "DK동신", code: "", thickness: "0.5", color: "월넛우드" },
+  { product: "징크", maker: "해외", code: "", thickness: "0.5", color: "백색" },
+  { product: "징크", maker: "세아", code: "I098", thickness: "0.5", color: "코르텐" },
+  { product: "징크", maker: "포스코", code: "Z14", thickness: "0.5", color: "라이트그레이" },
 ];
 
 const makersFor = (product) => [...new Set(COLOR_MASTER.filter((c) => c.product === product).map((c) => c.maker))];
@@ -86,12 +88,29 @@ const todayLabel = () => {
 };
 const fmt = (n) => (Number(n) || 0).toLocaleString("ko-KR");
 const uid = () => Math.random().toString(36).slice(2, 10);
-const rand4 = () => String(Math.floor(1000 + Math.random() * 9000));
-const makeCoilNo = (dateStr) => `C-${(dateStr || todayStr()).replace(/-/g, "")}-${rand4()}`;
+const comboNo = (...parts) => String(parts.join("|").split("").reduce((sum, ch) => (sum * 31 + ch.charCodeAt(0)) % 100, 0)).padStart(2, "0");
+const makeCoilNo = (dateStr, product, maker, color, thickness) =>
+  `C-${(dateStr || todayStr()).replace(/-/g, "").slice(2)}-${comboNo(product, maker, color, thickness)}`;
 
-/* ---------- 저장소 훅 (미리보기=메모리 / 다운로드HTML=localStorage 자동교체) ---------- */
+/* ---------- 브라우저 저장소 훅 ---------- */
 function useStore(key, initialValue) {
-  return useState(initialValue);
+  const storageKey = `hnmt-coil-${key}`;
+  const [value, setValue] = useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      return saved ? JSON.parse(saved) : initialValue;
+    } catch {
+      return initialValue;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(value));
+    } catch {
+      // Storage can be unavailable in private or restricted browser contexts.
+    }
+  }, [storageKey, value]);
+  return [value, setValue];
 }
 
 /* ---------- 초기 샘플 데이터 ---------- */
@@ -136,12 +155,13 @@ function StatusBadge({ status }) {
   };
   return <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${map[status] || map.정상}`}>{status}</span>;
 }
-function Modal({ open, onClose, title, children, wide }) {
+function Modal({ open, onClose, title, children, wide, plainHeader = false }) {
   if (!open) return null;
+  const widthClass = wide === "medium" ? "max-w-3xl" : wide ? "max-w-5xl" : "max-w-xl";
   return (
     <div className="fixed inset-0 z-[60] flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto bg-slate-900/50 backdrop-blur-sm no-print">
-      <div className={`bg-white rounded-2xl shadow-2xl w-full ${wide ? "max-w-3xl" : "max-w-xl"} my-2 sm:my-6 max-h-[96vh] overflow-y-auto`}>
-        <div className="sticky top-0 z-10 bg-white flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100">
+      <div className={`bg-white rounded-2xl shadow-2xl w-full ${widthClass} my-2 sm:my-6 max-h-[96vh] overflow-y-auto`}>
+        <div className={`sticky top-0 z-10 bg-white flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 ${plainHeader ? "" : "border-b border-slate-100"}`}>
           <h3 className="text-base sm:text-lg font-semibold text-slate-800">{title}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><X size={20} /></button>
         </div>
@@ -207,7 +227,6 @@ const NAV = [
   { key: "outbound", label: "출고관리", icon: Truck, group: "입출고", desc: "출고 등록·승인" },
   { key: "inventory", label: "재고현황", icon: Boxes, group: "현황", desc: "M 기준 재고" },
   { key: "sales", label: "거래처별 현황", icon: BarChart3, group: "분석", desc: "매입·출고 분석" },
-  { key: "colors", label: "색상표", icon: Palette, group: "기타", desc: "강판·징크 색상" },
 ];
 
 export default function CoilInventory() {
@@ -216,19 +235,22 @@ export default function CoilInventory() {
   const [pwErr, setPwErr] = useState("");
   const [menu, setMenu] = useState("dashboard");
   const [drawer, setDrawer] = useState(false);
+  const [quickAction, setQuickAction] = useState(null);
 
   const initial = useMemo(seed, []);
   const [coils, setCoils] = useStore("coils", initial.coils);
   const [inbound, setInbound] = useStore("inbound", initial.inbound);
   const [outbound, setOutbound] = useStore("outbound", initial.outbound);
+  const [baseStock, setBaseStock] = useStore("baseStock", {});
+  const [stockHistory, setStockHistory] = useStore("stockHistory", []);
 
   const tryLogin = () => { if (pw === "0707") { setAuthed(true); setPwErr(""); } else setPwErr("비밀번호가 일치하지 않습니다."); };
 
   if (!authed) return <Login pw={pw} setPw={setPw} pwErr={pwErr} tryLogin={tryLogin} />;
 
-  const ctx = { coils, setCoils, inbound, setInbound, outbound, setOutbound };
+  const ctx = { coils, setCoils, inbound, setInbound, outbound, setOutbound, baseStock, setBaseStock, stockHistory, setStockHistory };
   const goto = (k) => { setMenu(k); setDrawer(false); };
-  const current = NAV.find((n) => n.key === menu);
+  const openQuick = (kind) => { setQuickAction(kind); setMenu(kind); setDrawer(false); };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
@@ -250,12 +272,11 @@ export default function CoilInventory() {
       <Drawer open={drawer} onClose={() => setDrawer(false)} menu={menu} goto={goto} onLogout={() => { setAuthed(false); setPw(""); setDrawer(false); }} />
 
       <main className="max-w-[1400px] mx-auto p-4 md:p-8">
-        {menu === "dashboard" && <Dashboard ctx={ctx} goto={goto} />}
-        {menu === "inbound" && <Inbound ctx={ctx} />}
-        {menu === "outbound" && <Outbound ctx={ctx} />}
+        {menu === "dashboard" && <Dashboard ctx={ctx} openQuick={openQuick} />}
+        {menu === "inbound" && <Inbound ctx={ctx} quickOpen={quickAction === "inbound"} clearQuick={() => setQuickAction(null)} />}
+        {menu === "outbound" && <Outbound ctx={ctx} quickOpen={quickAction === "outbound"} clearQuick={() => setQuickAction(null)} />}
         {menu === "inventory" && <Inventory ctx={ctx} />}
         {menu === "sales" && <Sales ctx={ctx} />}
-        {menu === "colors" && <Colors ctx={ctx} />}
       </main>
     </div>
   );
@@ -269,12 +290,27 @@ function GlobalStyle() {
       @keyframes twinkle { 0%,100%{opacity:.15; transform:scale(.7);} 50%{opacity:.9; transform:scale(1.15);} }
       @keyframes slideDown { from{transform:translateY(-12px); opacity:0;} to{transform:translateY(0); opacity:1;} }
       @keyframes cardSlide { from{transform:translateY(-18px) scale(.96); opacity:0;} to{transform:translateY(0) scale(1); opacity:1;} }
+      @keyframes pendingPulse { 0%,100%{border-color:#d8dee9;box-shadow:0 0 0 0 rgba(167,139,250,0);} 50%{border-color:#a78bfa;box-shadow:0 0 0 4px rgba(247,202,201,.22),0 5px 16px rgba(146,168,209,.14);} }
       .glow-lock{ animation:glowPulse 2.6s ease-in-out infinite; }
       .twinkle{ animation:twinkle 3s ease-in-out infinite; }
       .drawer-anim{ animation:slideDown .28s ease-out; }
       .menu-card{ animation:cardSlide .38s ease-out both; }
       .gradient-icon svg{ stroke:url(#menuIconGradient); }
       .metric-icon svg{ stroke:url(#metricIconGradient); }
+      .pastel-outline{
+        border:1px solid #d8dee9;
+        background:#fff;
+      }
+      .pastel-outline:hover,.pastel-outline:focus-visible{
+        border-color:transparent;
+        background:linear-gradient(#fff,#fff) padding-box,linear-gradient(135deg,#c89bf0,#758df1) border-box;
+      }
+      .pending-active{
+        background:#fff;
+        animation:pendingPulse 2.3s ease-in-out infinite;
+      }
+      input[type="password"]::-ms-reveal,
+      input[type="password"]::-ms-clear{ display:none; }
       @media print {
         .no-print{ display:none !important; }
         body{ background:#fff !important; }
@@ -290,6 +326,7 @@ function GlobalStyle() {
    로그인 (로즈쿼츠 & 세레니티 파스텔 테마)
    ========================================================================= */
 function Login({ pw, setPw, pwErr, tryLogin }) {
+  const [showPw, setShowPw] = useState(false);
   const stars = useMemo(() => Array.from({ length: 26 }, () => ({
     top: Math.random() * 100, left: Math.random() * 100, s: 4 + Math.random() * 7, d: Math.random() * 3,
   })), []);
@@ -308,11 +345,19 @@ function Login({ pw, setPw, pwErr, tryLogin }) {
           <p className="text-slate-600/75 text-sm">접속 비밀번호 4자리를 입력하세요</p>
         </div>
         <div className="bg-white/75 backdrop-blur-xl rounded-3xl px-6 py-5 shadow-2xl border border-white/60">
-          <input autoFocus type="password" inputMode="numeric" maxLength={4} value={pw}
-            onChange={(e) => setPw(e.target.value.replace(/\D/g, "").slice(0, 4))}
-            onKeyDown={(e) => e.key === "Enter" && tryLogin()} placeholder="•  •  •  •"
-            aria-label="비밀번호 4자리"
-            className="block w-60 sm:w-64 mx-auto text-center tracking-[0.55em] text-xl font-medium text-slate-300 placeholder:text-slate-300 py-2.5 pl-[0.55em] rounded-2xl border border-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-300/60 bg-white/70 shadow-inner" />
+          <div className="relative w-60 sm:w-64 mx-auto">
+            <input autoFocus type={showPw ? "text" : "password"} inputMode="numeric" maxLength={4} value={pw}
+              onChange={(e) => setPw(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              onKeyDown={(e) => e.key === "Enter" && tryLogin()} placeholder="•  •  •  •"
+              aria-label="비밀번호 4자리"
+              className="block w-full text-center tracking-[0.45em] text-xl font-medium text-slate-300 placeholder:text-slate-300 py-2.5 px-11 rounded-2xl border border-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-300/60 bg-white/70 shadow-inner" />
+            {pw.length > 0 && (
+              <button type="button" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? "비밀번호 숨기기" : "비밀번호 보기"}
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center text-slate-300 hover:text-slate-400">
+                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            )}
+          </div>
           {pwErr && <p className="text-rose-500 text-sm mt-2 text-center">{pwErr}</p>}
           <button onClick={tryLogin}
             className="block w-60 sm:w-64 mx-auto mt-4 py-2.5 rounded-full text-sm font-bold text-white tracking-[0.18em] shadow-lg shadow-indigo-300/35 transition hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0"
@@ -334,8 +379,7 @@ function Drawer({ open, onClose, menu, goto, onLogout }) {
   return (
     <div className="fixed inset-0 z-[55]" onClick={onClose}>
       <div className="absolute inset-0 bg-slate-700/15 backdrop-blur-sm" />
-      <div onClick={(e) => e.stopPropagation()} className="drawer-anim absolute top-0 inset-x-0 text-slate-700 shadow-2xl rounded-b-[2rem] border-b border-white/70"
-        style={{ background: "linear-gradient(135deg,rgba(247,202,201,.94),rgba(225,207,228,.94),rgba(146,168,209,.94))" }}>
+      <div onClick={(e) => e.stopPropagation()} className="drawer-anim absolute top-0 inset-x-0 text-slate-700 shadow-2xl rounded-b-[2rem] border-b border-slate-200 bg-white">
         <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-5 md:py-7">
           <svg width="0" height="0" aria-hidden="true"><defs><linearGradient id="menuIconGradient" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#ef9aaf" /><stop offset=".5" stopColor="#a78bfa" /><stop offset="1" stopColor="#6387ca" /></linearGradient></defs></svg>
           <div className="flex items-center justify-between mb-5">
@@ -344,13 +388,13 @@ function Drawer({ open, onClose, menu, goto, onLogout }) {
             </div>
             <button onClick={onClose} className="p-2 rounded-xl bg-white/25 hover:bg-white/45"><X size={22} /></button>
           </div>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {NAV.map((n) => {
               const Icon = n.icon; const active = menu === n.key;
               return (
                 <button key={n.key} onClick={() => goto(n.key)} title={n.label} aria-label={n.label}
                   style={{ animationDelay: `${NAV.indexOf(n) * 45}ms` }}
-                  className={`menu-card group rounded-2xl p-3 md:p-4 border transition flex flex-col items-center gap-2 ${active ? "bg-white/60 border-white shadow-xl" : "bg-white/25 border-white/45 hover:bg-white/45 hover:-translate-y-1"}`}>
+                  className={`menu-card group h-[114px] md:h-[126px] w-full rounded-2xl p-3 md:p-4 border transition flex flex-col items-center justify-center gap-2 backdrop-blur-xl ${active ? "bg-gradient-to-br from-rose-100/65 to-indigo-100/65 border-white/75 shadow-xl" : "bg-gradient-to-br from-white/45 to-indigo-50/35 border-white/65 hover:from-rose-50/65 hover:to-blue-50/65 hover:-translate-y-1"}`}>
                   <div className="gradient-icon w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center bg-white/35 border border-white/50 shadow-lg backdrop-blur">
                     <Icon size={26} />
                   </div>
@@ -360,7 +404,7 @@ function Drawer({ open, onClose, menu, goto, onLogout }) {
             })}
           </div>
           <div className="mt-5 flex justify-end">
-            <button onClick={onLogout} className="text-xs text-slate-600 hover:text-rose-600 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/40 inline-flex items-center gap-1"><LogOut size={13} />로그아웃</button>
+            <button onClick={onLogout} className="text-xs text-slate-600 hover:text-rose-600 px-3 py-1.5 rounded-lg bg-white/25 border border-white/60 hover:bg-white/45 inline-flex items-center gap-1 backdrop-blur"><LogOut size={13} />로그아웃</button>
           </div>
         </div>
       </div>
@@ -371,7 +415,7 @@ function Drawer({ open, onClose, menu, goto, onLogout }) {
 /* =========================================================================
    대시보드
    ========================================================================= */
-function completeOutboundRecord(o, coils, setCoils, setOutbound) {
+function completeOutboundRecord(o, coils, setCoils, setOutbound, confirmed = false) {
   const pool = coils
     .filter((c) => c.product_type === o.product_type && c.current_meter > 0)
     .sort((a, b) => {
@@ -383,7 +427,7 @@ function completeOutboundRecord(o, coils, setCoils, setOutbound) {
     alert("현재 재고 M보다 출고 예정 M이 커서 완료할 수 없습니다.");
     return;
   }
-  if (!confirm("이 출고 건을 출고 완료 처리하시겠습니까? 재고가 차감됩니다.")) return;
+  if (!confirmed && !confirm("이 출고 건을 출고 완료 처리하시겠습니까? 재고가 차감됩니다.")) return;
 
   let remain = o.outbound_meter;
   const updates = {};
@@ -431,11 +475,18 @@ function ProductStockCard({ stat, open, onToggle }) {
         {stat.groups.map((group) => (
           <div key={group.manufacturer} className="px-4 sm:px-5 py-3 border-b last:border-b-0 border-slate-100">
             <div className="font-bold text-sm text-slate-700 mb-2">{group.manufacturer}</div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
-              {group.colors.map((item) => (
-                <div key={item.color} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-white border border-slate-200/70 text-sm">
-                  <Swatch name={item.color} size={12} />
-                  <span className="font-bold text-indigo-800 whitespace-nowrap">{fmt(item.meter)} M</span>
+            <div className={group.specs.length === 1 ? "" : "space-y-2"}>
+              {group.specs.map((spec) => (
+                <div key={spec.thickness} className={`flex ${group.specs.length === 1 ? "items-center" : "items-start"} gap-2`}>
+                  <span className="shrink-0 min-w-[42px] px-2 py-1 rounded-md bg-slate-200/70 text-[11px] font-bold text-slate-600 text-center">{spec.thickness}T</span>
+                  <div className="flex flex-wrap gap-1.5 flex-1">
+                    {spec.colors.map((item) => (
+                      <div key={`${spec.thickness}-${item.color}`} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white border border-slate-200/70 text-xs">
+                        <Swatch name={item.color} size={10} />
+                        <span className="font-bold text-indigo-800 whitespace-nowrap">{fmt(item.meter)}M</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -446,16 +497,18 @@ function ProductStockCard({ stat, open, onToggle }) {
   );
 }
 
-function Dashboard({ ctx }) {
+function Dashboard({ ctx, openQuick }) {
   const { coils, setCoils, outbound, setOutbound } = ctx;
   const [slide, setSlide] = useState(0);
   const [mobileProduct, setMobileProduct] = useState("");
   const [selectedTodo, setSelectedTodo] = useState(null);
+  const [completeTarget, setCompleteTarget] = useState(null);
+  const [todoOpen, setTodoOpen] = useState(false);
   const t = useRef();
   const slides = [
-    { label: "HN메탈릭 홈페이지", image: "/coil-inventory-management/assets/slide-shop.png", link: "https://hnmt.co.kr/" },
-    { label: "HN메탈릭 유튜브", image: "/coil-inventory-management/assets/slide-youtube-new.png", link: "https://www.youtube.com/@hn메탈릭" },
-    { label: "HN메탈릭 인스타그램", image: "/coil-inventory-management/assets/slide-instagram.png", link: "https://www.instagram.com/hnmt1555" },
+    { label: "HN Shop", description: "HN메탈릭 공식 쇼핑몰입니다.", image: "/coil-inventory-management/assets/slide-shop.png", link: "https://hnmt.co.kr/" },
+    { label: "YouTube", description: "HN메탈릭 공식 영상 채널입니다.", image: "/coil-inventory-management/assets/slide-youtube-new.png", link: "https://www.youtube.com/@hn메탈릭" },
+    { label: "Instagram", description: "HN메탈릭의 새로운 소식을 확인하세요.", image: "/coil-inventory-management/assets/slide-instagram.png", link: "https://www.instagram.com/hnmt1555" },
   ];
 
   useEffect(() => {
@@ -467,7 +520,7 @@ function Dashboard({ ctx }) {
   const incomplete = outbound.filter((o) => !o.is_completed);
   const currentDate = todayStr();
   const todayShip = incomplete.filter((o) => o.outbound_date === currentDate).length;
-  const held = incomplete.filter((o) => o.outbound_date < currentDate).length;
+  const held = incomplete.filter((o) => o.outbound_date < currentDate && o.arrival_date < currentDate).length;
   const productStats = ["강판", "징크"].map((product) => {
     const rows = coils.filter((c) => c.product_type === product && c.current_meter > 0);
     const manufacturers = [...new Set(rows.map((c) => c.manufacturer || "미지정"))].sort((a, b) => a.localeCompare(b, "ko"));
@@ -477,14 +530,20 @@ function Dashboard({ ctx }) {
       meter: rows.reduce((sum, c) => sum + (Number(c.current_meter) || 0), 0),
       groups: manufacturers.map((manufacturer) => {
         const makerRows = rows.filter((c) => (c.manufacturer || "미지정") === manufacturer);
-        const colors = [...new Set(makerRows.map((c) => c.color_name || "미지정"))]
-          .sort((a, b) => a.localeCompare(b, "ko"))
-          .map((color) => ({
-            color,
-            meter: makerRows.filter((c) => (c.color_name || "미지정") === color)
-              .reduce((sum, c) => sum + (Number(c.current_meter) || 0), 0),
-          }));
-        return { manufacturer, colors };
+        const specs = [...new Set(makerRows.map((c) => String(c.thickness || "-")))]
+          .sort((a, b) => Number(a) - Number(b))
+          .map((thickness) => {
+            const specRows = makerRows.filter((c) => String(c.thickness || "-") === thickness);
+            const colors = [...new Set(specRows.map((c) => c.color_name || "미지정"))]
+              .sort((a, b) => a.localeCompare(b, "ko"))
+              .map((color) => ({
+                color,
+                meter: specRows.filter((c) => (c.color_name || "미지정") === color)
+                  .reduce((sum, c) => sum + (Number(c.current_meter) || 0), 0),
+              }));
+            return { thickness, colors };
+          });
+        return { manufacturer, specs };
       }),
     };
   });
@@ -497,14 +556,14 @@ function Dashboard({ ctx }) {
   const summaryCards = [
     { label: "총 보유 재고", value: fmt(totalMeter), unit: "M", icon: Layers3 },
     { label: "오늘 출고 예정", value: todayShip, unit: "건", icon: CalendarDays },
-    { label: "미완료 출고", value: incomplete.length, unit: "건", icon: Clock },
+    { label: "출고 대기", value: incomplete.length, unit: "건", icon: Clock },
     { label: "출고 보류", value: held, unit: "건", icon: AlertTriangle },
   ];
 
   return (
     <div className="space-y-6">
       <svg width="0" height="0" aria-hidden="true"><defs><linearGradient id="metricIconGradient" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#ef9aaf" /><stop offset=".52" stopColor="#b49ad7" /><stop offset="1" stopColor="#7897cf" /></linearGradient></defs></svg>
-      <div className="flex items-start justify-between gap-3">
+      <div className="min-h-[108px] flex items-center justify-between gap-3">
         <div>
           <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight">대시보드</h2>
           <p className="text-slate-500 text-xs sm:text-sm mt-0.5">입고·출고·재고 현황을 한눈에 확인하세요</p>
@@ -516,8 +575,15 @@ function Dashboard({ ctx }) {
       <div className="relative rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm h-52 md:h-72 bg-white">
         {slides.map((s, i) => (
           <a key={i} href={s.link} target="_blank" rel="noreferrer" aria-label={s.label}
-            className={`group absolute inset-0 transition-opacity duration-700 ${i === slide ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-            style={{ backgroundImage: `url(${s.image})`, backgroundSize: "cover", backgroundPosition: "center" }} />
+            className={`group absolute inset-0 transition-opacity duration-700 bg-white ${i === slide ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+            <img src={s.image} alt="" className="w-full h-full object-cover md:object-contain bg-white" />
+            <div className="absolute inset-x-0 bottom-0 h-16 sm:h-20 bg-black/60 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out flex items-center px-5 sm:px-8 py-3 sm:py-4">
+              <div>
+                <div className="text-white text-lg sm:text-xl font-semibold tracking-tight">{s.label}</div>
+                <div className="text-white/75 text-[11px] sm:text-xs mt-1">{s.description}</div>
+              </div>
+            </div>
+          </a>
         ))}
         <button onClick={() => setSlide((slide - 1 + slides.length) % slides.length)} className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/30 hover:bg-white/50 text-white backdrop-blur">‹</button>
         <button onClick={() => setSlide((slide + 1) % slides.length)} className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/30 hover:bg-white/50 text-white backdrop-blur">›</button>
@@ -526,27 +592,24 @@ function Dashboard({ ctx }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-2 md:gap-4">
-        {summaryCards.map((card) => {
-          const Icon = card.icon;
-          return <Card key={card.label} className="p-2.5 sm:p-3 md:p-5">
-            <div className="flex flex-col md:flex-row items-center gap-1.5 md:gap-3 text-center md:text-left">
-              <div className="metric-icon flex items-center justify-center shrink-0"><Icon size={20} /></div>
-              <div><div className="text-[10px] sm:text-xs md:text-sm font-semibold text-slate-500 leading-tight">{card.label}</div><div className="text-xl sm:text-2xl md:text-3xl font-black mt-0.5">{card.value}<span className="text-[10px] sm:text-xs md:text-sm text-slate-400 ml-0.5">{card.unit}</span></div></div>
-            </div>
-          </Card>;
-        })}
-      </div>
-
-      <div className="space-y-3">
-        {productStats.map((stat) => (
-          <ProductStockCard key={stat.product} stat={stat} open={mobileProduct === stat.product}
-            onToggle={() => setMobileProduct((current) => current === stat.product ? "" : stat.product)} />
-        ))}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={() => openQuick("inbound")} className="pastel-outline h-11 min-w-32 px-5 rounded-xl text-sm font-medium text-slate-700 transition inline-flex items-center justify-center gap-2 focus-visible:outline-none">
+          <span className="metric-icon w-[18px] h-[18px] flex items-center justify-center shrink-0"><PackagePlus size={18} strokeWidth={2} /></span>
+          <span className="leading-none">입고등록</span>
+        </button>
+        <button onClick={() => openQuick("outbound")} className="pastel-outline h-11 min-w-32 px-5 rounded-xl text-sm font-medium text-slate-700 transition inline-flex items-center justify-center gap-2 focus-visible:outline-none">
+          <span className="metric-icon w-[18px] h-[18px] flex items-center justify-center shrink-0"><Truck size={18} strokeWidth={2} /></span>
+          <span className="leading-none">출고등록</span>
+        </button>
+        <button onClick={() => setTodoOpen((open) => !open)} className={`pastel-outline h-11 min-w-[188px] px-4 rounded-xl text-sm font-medium text-slate-700 transition inline-flex items-center justify-center gap-2 focus-visible:outline-none ${todo.length > 0 ? "pending-active" : ""}`}>
+          <span className="metric-icon w-[18px] h-[18px] flex items-center justify-center shrink-0"><Clock size={18} strokeWidth={2} /></span>
+          <span className="leading-none">미완료 내역 <span className="ml-1.5 text-indigo-700">{todo.length}건</span></span>
+          <span className={`text-base leading-none text-slate-400 transition-transform ${todoOpen ? "rotate-90" : ""}`}>&gt;</span>
+        </button>
       </div>
 
       {/* 미완료 출고 투두리스트 */}
-      <Card className="overflow-hidden">
+      {todoOpen && <Card className="overflow-hidden">
         <div className="px-4 sm:px-5 py-4 border-b border-slate-100 flex items-center gap-3">
           <div className="metric-icon shrink-0"><Clock size={22} /></div>
           <div><div className="flex items-center gap-2"><h3 className="font-bold">미완료 내역</h3><span className="text-xs text-slate-400">{todo.length}건</span></div><p className="text-xs text-slate-400 mt-0.5">출고일 기준 오름차순으로 표시됩니다.</p></div>
@@ -561,28 +624,60 @@ function Dashboard({ ctx }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 min-w-0 text-sm sm:text-base">
                     <button onClick={() => setSelectedTodo(o)} className="font-extrabold text-indigo-800 hover:underline truncate">{o.customer || "거래처 미입력"}</button>
-                    <span className="text-slate-500 truncate">{o.manufacturer || "-"} / {o.color_name || "-"}</span>
-                    <span className="font-black text-slate-800 whitespace-nowrap">{fmt(o.outbound_meter)} M</span>
+                    <span className="text-slate-800 font-normal truncate">{o.manufacturer || "-"} · {o.color_name || "-"}{o.thickness ? `(${o.thickness}T)` : ""}</span>
+                    <span className="font-normal text-slate-800 whitespace-nowrap">{fmt(o.outbound_meter)} M</span>
                   </div>
-                  <div className="text-[11px] text-slate-400 mt-1">출고일 {o.outbound_date} · 도착 {o.arrival_date} {o.arrival_time}</div>
+                  <div className="text-[11px] text-slate-400 mt-1">{o.outbound_date} → {o.arrival_date} {o.arrival_time}</div>
                 </div>
-                <button onClick={() => completeOutboundRecord(o, coils, setCoils, setOutbound)} className="shrink-0 px-2.5 sm:px-3 py-2 rounded-xl bg-gradient-to-r from-rose-300 via-violet-400 to-blue-400 text-white text-xs sm:text-sm font-bold shadow-sm"><Check size={14} className="inline mr-1" />완료</button>
+                <button onClick={() => setCompleteTarget(o)} className="pastel-outline shrink-0 px-3 py-2 rounded-xl text-slate-700 text-xs sm:text-sm font-medium transition hover:text-violet-700 focus-visible:outline-none">완료</button>
               </div>
             );
           })}
         </div>
-      </Card>
+      </Card>}
+
+      <div className="grid grid-cols-4 gap-2 md:gap-4">
+        {summaryCards.map((card) => {
+          const Icon = card.icon;
+          return <Card key={card.label} className="p-3.5 sm:p-5 md:p-6 min-h-[104px] md:min-h-[132px] flex items-center">
+            <div className="w-full flex flex-col md:flex-row items-center justify-center md:justify-start gap-2.5 md:gap-4 text-center md:text-left">
+              <div className="metric-icon w-11 h-11 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br from-rose-50/90 to-indigo-50/90 border border-white shadow-sm flex items-center justify-center shrink-0">
+                <Icon size={26} className="md:hidden" strokeWidth={1.9} />
+                <Icon size={31} className="hidden md:block" strokeWidth={1.9} />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs sm:text-sm md:text-base font-semibold text-slate-600 leading-tight">{card.label}</div>
+                <div className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-800 mt-1 leading-none">{card.value}<span className="text-xs sm:text-sm md:text-base font-semibold text-slate-400 ml-1">{card.unit}</span></div>
+              </div>
+            </div>
+          </Card>;
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 items-start">
+        {productStats.map((stat) => (
+          <ProductStockCard key={stat.product} stat={stat} open={mobileProduct === stat.product}
+            onToggle={() => setMobileProduct((current) => current === stat.product ? "" : stat.product)} />
+        ))}
+      </div>
 
       <Modal open={!!selectedTodo} onClose={() => setSelectedTodo(null)} title={`${selectedTodo?.customer || "거래처"} 출고 요약`}>
-        {selectedTodo && <div className="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
-          {[
-            ["출고일", selectedTodo.outbound_date], ["거래처", selectedTodo.customer || "-"],
-            ["도착일", selectedTodo.arrival_date], ["도착시간", selectedTodo.arrival_time],
-            ["제품 구분", selectedTodo.product_type], ["코일번호", selectedTodo.coil_number || "-"],
-            ["제조사", selectedTodo.manufacturer || "-"], ["색상명", selectedTodo.color_name || "-"],
-            ["출고량", `${fmt(selectedTodo.outbound_meter)} M`], ["현장주소", selectedTodo.site_address || "-"],
-            ["비고", selectedTodo.memo || "-"],
-          ].map(([label, value]) => <div key={label} className={label === "현장주소" || label === "비고" ? "col-span-2" : ""}><div className="text-xs text-slate-400">{label}</div><div className="font-semibold mt-0.5">{value}</div></div>)}
+        {selectedTodo && <div className="space-y-3 text-sm">
+          <div className="font-semibold text-slate-700">{selectedTodo.outbound_date} <span className="text-slate-400 mx-1">→</span> {selectedTodo.arrival_date} {selectedTodo.arrival_time}</div>
+          <div className="font-bold">{selectedTodo.product_type} · {selectedTodo.manufacturer || "-"} · {selectedTodo.color_name || "-"} · <span className="text-indigo-700">{fmt(selectedTodo.outbound_meter)} M</span></div>
+          <div className="flex items-start gap-1.5 text-slate-600"><MapPin size={15} className="mt-0.5 shrink-0" />{selectedTodo.site_address || "-"}</div>
+          {selectedTodo.memo && <div className="pt-3 border-t border-slate-100 text-xs text-slate-500">{selectedTodo.memo}</div>}
+        </div>}
+      </Modal>
+
+      <Modal open={!!completeTarget} onClose={() => setCompleteTarget(null)} title="출고 완료 확인" plainHeader>
+        {completeTarget && <div className="text-center py-2">
+          <div className="metric-icon mx-auto mb-4 w-20 h-20 flex items-center justify-center"><Truck size={48} /></div>
+          <p className="font-bold text-slate-800">이 출고 건을 완료 처리하시겠습니까?</p>
+          <div className="grid grid-cols-2 gap-2 mt-5">
+            <button onClick={() => setCompleteTarget(null)} className="py-2.5 rounded-xl border border-slate-200 text-sm font-semibold">취소</button>
+            <button onClick={() => { completeOutboundRecord(completeTarget, coils, setCoils, setOutbound, true); setCompleteTarget(null); }} className="py-2.5 rounded-xl bg-white border border-indigo-300 text-indigo-700 text-sm font-bold hover:bg-indigo-50">완료</button>
+          </div>
         </div>}
       </Modal>
     </div>
@@ -596,7 +691,7 @@ function ColorPicker({ product, maker, value, onPick }) {
   const [focus, setFocus] = useState(false);
   const opts = colorsFor(product, maker);
   const list = value ? opts.filter((o) => o.color.includes(value)) : opts;
-  const uniq = [...new Map(list.map((o) => [o.color, o])).values()];
+  const uniq = [...new Map(list.map((o) => [`${o.color}-${o.code}-${o.thickness}`, o])).values()];
   return (
     <div className="relative">
       <div className="flex items-center gap-2">
@@ -605,13 +700,13 @@ function ColorPicker({ product, maker, value, onPick }) {
           onChange={(e) => onPick(e.target.value, null)} onFocus={() => setFocus(true)} onBlur={() => setTimeout(() => setFocus(false), 150)} />
       </div>
       {focus && uniq.length > 0 && (
-        <div className="absolute z-20 mt-1 w-full max-h-52 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg">
+        <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl">
           {uniq.map((o, i) => (
-            <button key={i} type="button" onMouseDown={() => onPick(o.color, o.thickness)}
+            <button key={i} type="button" onMouseDown={() => onPick(o.color, o.thickness, o.code)}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-indigo-50 text-left">
               <span style={{ background: hexOf(o.color) }} className="w-5 h-5 rounded-md border border-slate-300" />
               <span className="font-medium">{o.color}</span>
-              <span className="text-xs text-slate-400 ml-auto">{o.thickness}T</span>
+              <span className="text-xs text-slate-400 ml-auto">{o.code || "코드없음"} · {o.thickness}T</span>
             </button>
           ))}
         </div>
@@ -623,26 +718,39 @@ function ColorPicker({ product, maker, value, onPick }) {
 /* =========================================================================
    입고관리
    ========================================================================= */
-const blankInbound = () => ({ inbound_date: todayStr(), product_type: "강판", manufacturer: "", color_name: "", thickness: "", coil_meter: 0, purchaser: "", memo: "" });
+const blankInbound = () => ({ inbound_date: todayStr(), product_type: "강판", manufacturer: "", color_name: "", color_code: "", thickness: "", coil_meter: 0, purchaser: "", memo: "" });
 
-function Inbound({ ctx }) {
-  const { inbound, setInbound, coils, setCoils } = ctx;
+function Inbound({ ctx, quickOpen, clearQuick }) {
+  const { inbound, setInbound, coils, setCoils, baseStock, setBaseStock, stockHistory, setStockHistory } = ctx;
   const [q, setQ] = useState("");
-  const [from, setFrom] = useState(""); const [to, setTo] = useState("");
+  const [purchaserFilter, setPurchaserFilter] = useState("전체");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blankInbound());
   const [editId, setEditId] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [colorStockOpen, setColorStockOpen] = useState(false);
+
+  useEffect(() => {
+    if (!quickOpen) return;
+    setForm(blankInbound());
+    setEditId(null);
+    setOpen(true);
+    clearQuick();
+  }, [quickOpen, clearQuick]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const makers = makersFor(form.product_type);
+  const purchaserOptions = [...new Set(inbound.map((r) => r.purchaser).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "ko"));
 
   const onProduct = (p) => setForm((f) => ({ ...f, product_type: p, manufacturer: "", color_name: "", thickness: "" }));
-  const onColor = (name, thick) => setForm((f) => ({ ...f, color_name: name, thickness: thick != null ? thick : f.thickness }));
+  const onColor = (name, thick, code) => setForm((f) => ({ ...f, color_name: name, color_code: code || "", thickness: thick != null ? thick : f.thickness }));
 
   const submit = () => {
     const meter = Number(form.coil_meter) || 0;
-    if (!form.inbound_date || !form.product_type || !form.manufacturer || !form.color_name || !form.thickness || meter <= 0) {
+    if (!form.inbound_date || !form.product_type || !form.manufacturer || !form.color_name || !form.thickness) {
       alert("*필수입력을 작성해주세요");
       return;
     }
@@ -652,17 +760,17 @@ function Inbound({ ctx }) {
       if (original) {
         setCoils((l) => l.map((c) => c.id === original.coil_id || c.coil_number === original.coil_number ? {
           ...c, product_type: form.product_type, manufacturer: form.manufacturer, color_name: form.color_name,
-          thickness: form.thickness, purchaser: form.purchaser, memo: form.memo, inbound_date: form.inbound_date,
+          color_code: form.color_code, thickness: form.thickness, purchaser: form.purchaser, memo: form.memo, inbound_date: form.inbound_date,
           initial_meter: meter, current_meter: Math.max(0, meter - (c.total_outbound_meter || 0)), updated_at: todayStr(),
         } : c));
       }
     } else {
-      const coilNo = makeCoilNo(form.inbound_date);
+      const coilNo = makeCoilNo(form.inbound_date, form.product_type, form.manufacturer, form.color_name, form.thickness);
       const coilId = uid();
       setInbound((l) => [{ id: uid(), coil_id: coilId, coil_number: coilNo, ...form, coil_meter: meter, created_at: todayStr(), updated_at: todayStr() }, ...l]);
       setCoils((l) => [{
         id: coilId, coil_number: coilNo, product_type: form.product_type, manufacturer: form.manufacturer,
-        color_name: form.color_name, thickness: form.thickness, purchaser: form.purchaser,
+        color_name: form.color_name, color_code: form.color_code, thickness: form.thickness, purchaser: form.purchaser,
         initial_meter: meter, current_meter: meter, total_outbound_meter: 0, current_roll_count: 1,
         status: "정상", memo: form.memo, inbound_date: form.inbound_date, created_at: todayStr(), updated_at: todayStr(),
       }, ...l]);
@@ -679,8 +787,13 @@ function Inbound({ ctx }) {
   };
 
   const rows = inbound
+    .filter((r) => purchaserFilter === "전체" || r.purchaser === purchaserFilter)
     .filter((r) => inRange(r.inbound_date, from, to))
     .filter((r) => [r.coil_number, r.manufacturer, r.color_name, r.purchaser].join(" ").toLowerCase().includes(q.toLowerCase()));
+  const groupedRows = ["강판", "징크"].map((product) => ({
+    product,
+    rows: rows.filter((r) => r.product_type === product),
+  }));
 
   const exportXlsx = () => downloadXlsx(rows.map((r) => ({
     입고일: r.inbound_date, 코일번호: r.coil_number, 제품구분: r.product_type, 제조사: r.manufacturer,
@@ -689,48 +802,78 @@ function Inbound({ ctx }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-end justify-between gap-3 flex-wrap">
-        <div><h2 className="text-2xl font-extrabold tracking-tight">입고관리</h2><p className="text-slate-500 text-sm mt-0.5">코일번호는 자동 생성됩니다 (C-YYYYMMDD-####)</p></div>
+      <div className="min-h-[108px] flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-extrabold tracking-tight">입고관리</h2>
+          <div className="flex flex-wrap items-center gap-x-2 text-sm mt-0.5">
+            <p className="text-slate-500">제품 정보와 매입처를 간단히 확인합니다.</p>
+            <span className="text-slate-400">(코일번호는 자동생성)</span>
+          </div>
+        </div>
         <div className="flex gap-2">
           <ExcelBtn onClick={exportXlsx} />
           <button onClick={() => { setForm(blankInbound()); setEditId(null); setOpen(true); }} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium inline-flex items-center gap-1.5 hover:bg-indigo-700 no-print"><Plus size={16} />입고 등록</button>
         </div>
       </div>
-      <Toolbar q={q} setQ={setQ}><DateRange from={from} to={to} setFrom={setFrom} setTo={setTo} /></Toolbar>
+      <button onClick={() => setColorStockOpen(true)} className="w-full text-left rounded-2xl border border-slate-200 bg-white px-4 sm:px-5 py-4 shadow-sm hover:border-indigo-300 transition flex items-center gap-3">
+        <div className="metric-icon w-11 h-11 rounded-xl bg-gradient-to-br from-rose-50 to-indigo-50 flex items-center justify-center"><Palette size={24} /></div>
+        <div>
+          <div className="font-bold text-slate-800">Color Stock Settings</div>
+          <div className="text-xs text-slate-400 mt-0.5">색상별 기초재고 M를 확인하고 직접 수정합니다.</div>
+        </div>
+        <ChevronRight size={18} className="ml-auto text-slate-400" />
+      </button>
+      <div className="grid grid-cols-1 sm:grid-cols-[120px_150px_18px_150px_minmax(180px,1fr)] gap-2 items-center no-print">
+          <select value={purchaserFilter} onChange={(e) => setPurchaserFilter(e.target.value)} className={inputCls}>
+            <option>전체</option>
+            {purchaserOptions.map((purchaser) => <option key={purchaser} value={purchaser}>{purchaser}</option>)}
+          </select>
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={`${inputCls} text-center`} />
+          <span className="hidden sm:block text-center text-slate-400">~</span>
+          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={`${inputCls} text-center`} />
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="제조사 색상 검색" className={`${inputCls} pl-9`} />
+        </div>
+      </div>
 
-      <Card className="overflow-hidden print-card">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-xs">
-              <tr>{["입고일", "코일번호", "구분", "제조사", "색상", "두께", "코일M", "매입처", "비고", ""].map((h) => <th key={h} className="px-3 py-2.5 text-left font-medium whitespace-nowrap">{h}</th>)}</tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {rows.map((r) => (
+      <div className="space-y-4">
+        {groupedRows.map((group) => (
+          <Card key={group.product} className="overflow-hidden print-card">
+            <div className="px-4 sm:px-5 py-3.5 bg-white border-b border-slate-200">
+              <h3 className="font-bold text-slate-800">{group.product} 입고 목록 <span className="ml-1 text-xs font-normal text-slate-400">{group.rows.length}건</span></h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm table-auto">
+                <thead className="bg-slate-50 text-slate-600">
+                  <tr>{["코일번호", "입고일", "구분", "제조사", "색상 / 두께", "매입처", ""].map((h) => <th key={h} className="px-3 py-3 text-left text-sm font-semibold whitespace-nowrap">{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                {group.rows.map((r) => (
                   <tr key={r.id} className="hover:bg-slate-50/50">
-                    <td className="px-3 py-2.5 whitespace-nowrap">{r.inbound_date}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap min-w-[130px]">
                       <button onClick={() => setDetail(r)} className="font-semibold text-indigo-700 hover:text-rose-500 hover:underline">{r.coil_number}</button>
                     </td>
-                    <td className="px-3 py-2.5">{r.product_type}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">{r.manufacturer}</td>
-                    <td className="px-3 py-2.5"><Swatch name={r.color_name} /></td>
-                    <td className="px-3 py-2.5">{r.thickness}</td>
-                    <td className="px-3 py-2.5 font-medium">{fmt(r.coil_meter)}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">{r.purchaser}</td>
-                    <td className="px-3 py-2.5 text-slate-500 max-w-[160px] truncate">{r.memo}</td>
-                    <td className="px-3 py-2.5 no-print">
-                      <div className="flex items-center gap-1">
+                    <td className="px-3 py-3 whitespace-nowrap">{r.inbound_date}</td>
+                    <td className="px-3 py-3">{r.product_type}</td>
+                    <td className="px-3 py-3 whitespace-nowrap">{r.manufacturer}</td>
+                    <td className="px-3 py-3 whitespace-nowrap"><Swatch name={r.color_name} /> <span className="text-slate-400 text-xs ml-1">{r.thickness}T</span></td>
+                    <td className="px-3 py-3 whitespace-nowrap">{r.purchaser}</td>
+                    <td className="px-4 py-3 no-print">
+                      <div className="flex items-center gap-2 justify-end min-w-[68px]">
                         <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><Pencil size={15} /></button>
                         <button onClick={() => remove(r.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500"><Trash2 size={15} /></button>
                       </div>
                     </td>
                   </tr>
-              ))}
-              {rows.length === 0 && <tr><td colSpan={10} className="px-3 py-8 text-center text-slate-400">입고 내역이 없습니다.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                ))}
+                {group.rows.length === 0 && <tr><td colSpan={7} className="px-3 py-5 text-center text-xs text-slate-400">등록된 {group.product} 입고 내역이 없습니다.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        ))}
+      </div>
 
       <Modal open={!!detail} onClose={() => setDetail(null)} title={`코일 상세 · ${detail?.coil_number || ""}`}>
         {detail && (
@@ -748,9 +891,13 @@ function Inbound({ ctx }) {
         )}
       </Modal>
 
-      <Modal open={open} onClose={() => setOpen(false)} title={editId ? "입고 수정" : "입고 등록"} wide>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <Field label="입고일" required><input type="date" className={inputCls} value={form.inbound_date} onChange={(e) => set("inbound_date", e.target.value)} /></Field>
+      <Modal open={open} onClose={() => setOpen(false)} title={editId ? "입고 수정" : "입고 등록"} wide="medium">
+        <div className="space-y-4 min-h-[430px] sm:min-h-[480px]">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="입고일" required><input type="date" className={`${inputCls} text-center`} value={form.inbound_date} onChange={(e) => set("inbound_date", e.target.value)} /></Field>
+            <Field label="매입처"><input className={inputCls} value={form.purchaser} onChange={(e) => set("purchaser", e.target.value)} placeholder="예: 동국제강" /></Field>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
           <Field label="제품 구분" required>
             <div className="flex gap-2">
               {["강판", "징크"].map((p) => (
@@ -765,20 +912,127 @@ function Inbound({ ctx }) {
               {makers.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           </Field>
-          <Field label="두께 (자동 입력 · 수정 가능)"><input className={inputCls} value={form.thickness} onChange={(e) => set("thickness", e.target.value)} placeholder="색상 선택 시 자동" /></Field>
-          <Field label="색상명 (자동 검색)" required>
+          </div>
+          <div className="grid sm:grid-cols-[1fr_110px] gap-3">
+          <Field label="색상명 (코드 · 두께 구분)" required>
             <ColorPicker product={form.product_type} maker={form.manufacturer} value={form.color_name} onPick={onColor} />
           </Field>
-          <Field label="코일 M" required><input type="number" className={inputCls} value={form.coil_meter} onChange={(e) => set("coil_meter", e.target.value)} /></Field>
-          <Field label="매입처"><input className={inputCls} value={form.purchaser} onChange={(e) => set("purchaser", e.target.value)} placeholder="예: 동국제강" /></Field>
-          <Field label="비고"><input className={inputCls} value={form.memo} onChange={(e) => set("memo", e.target.value)} /></Field>
+          <Field label="두께"><input className={inputCls} value={form.thickness} onChange={(e) => set("thickness", e.target.value)} /></Field>
+          </div>
+          <Field label="비고"><textarea rows={3} className={inputCls} value={form.memo} onChange={(e) => set("memo", e.target.value)} /></Field>
         </div>
         <div className="mt-5 grid grid-cols-2 sm:flex sm:justify-end gap-2">
           <button onClick={() => setOpen(false)} className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600">취소</button>
           <button onClick={submit} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">{editId ? "저장" : "등록"}</button>
         </div>
       </Modal>
+
+      <ColorStockModal open={colorStockOpen} onClose={() => setColorStockOpen(false)} values={baseStock} setValues={setBaseStock} history={stockHistory} setHistory={setStockHistory} />
     </div>
+  );
+}
+
+function ColorStockModal({ open, onClose, values, setValues, history, setHistory }) {
+  const [product, setProduct] = useState("강판");
+  const [draft, setDraft] = useState({});
+  const keyOf = (c) => `${c.product}|${c.maker}|${c.code}|${c.color}|${c.thickness}`;
+  useEffect(() => {
+    if (open) setDraft(values);
+  }, [open, values]);
+  const makers = [...new Set(COLOR_MASTER.filter((c) => c.product === product).map((c) => c.maker))]
+    .sort((a, b) => a.localeCompare(b, "ko"));
+  const groups = makers.map((maker) => {
+    const makerRows = COLOR_MASTER.filter((c) => c.product === product && c.maker === maker);
+    const colors = [...new Set(makerRows.map((c) => c.color))].sort((a, b) => a.localeCompare(b, "ko"));
+    return {
+      maker,
+      colors: colors.map((color) => ({
+        color,
+        variants: makerRows.filter((c) => c.color === color)
+          .sort((a, b) => Number(a.thickness) - Number(b.thickness) || String(a.code).localeCompare(String(b.code))),
+      })),
+    };
+  });
+  const register = () => {
+    const entries = COLOR_MASTER
+      .map((color) => ({ color, key: keyOf(color), meter: Number(draft[keyOf(color)]) }))
+      .filter((item) => Number.isFinite(item.meter) && item.meter >= 0 && draft[item.key] !== "");
+    if (entries.length === 0) {
+      alert("등록할 기초재고 M를 입력해주세요.");
+      return;
+    }
+    setValues(draft);
+    const registeredAt = todayStr();
+    setHistory((current) => [
+      ...entries.map(({ color, key, meter }) => ({
+        id: uid(), registered_at: registeredAt, key, meter,
+        product: color.product, maker: color.maker, color: color.color, code: color.code, thickness: color.thickness,
+      })),
+      ...current,
+    ]);
+    alert("색상 재고가 등록되었습니다.");
+  };
+  return (
+    <Modal open={open} onClose={onClose} title="Color Stock Settings" wide>
+      <div className="flex gap-2 mb-4">
+        {["강판", "징크"].map((item) => <button key={item} onClick={() => setProduct(item)} className={`px-4 py-2 rounded-xl text-sm border ${product === item ? "bg-indigo-600 border-indigo-600 text-white" : "bg-white border-slate-200 text-slate-600"}`}>{item}</button>)}
+      </div>
+      <div className="space-y-5">
+        {groups.map((group) => (
+          <section key={group.maker}>
+            <h4 className="font-bold text-slate-800 mb-2 pb-2 border-b border-slate-200">{group.maker}</h4>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {group.colors.map((item) => (
+                <div key={`${group.maker}-${item.color}`} className="rounded-2xl border border-slate-200 bg-white p-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="w-7 h-7 rounded-lg border border-slate-200" style={{ background: hexOf(item.color) }} />
+                    <span className="font-semibold text-sm">{item.color}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {item.variants.map((variant) => {
+                      const key = keyOf(variant);
+                      return (
+                        <label key={key} className="grid grid-cols-[1fr_110px_auto] items-center gap-2">
+                          <span className="text-xs text-slate-500">{variant.code || "코드없음"} · {variant.thickness}T</span>
+                          <input type="number" min="0" value={draft[key] ?? ""} onChange={(e) => setDraft((current) => ({ ...current, [key]: e.target.value }))} className={`${inputCls} text-right py-2`} placeholder="0" />
+                          <span className="text-xs text-slate-400">M</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+      <div className="mt-5 flex justify-end">
+        <button onClick={register} className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">등록하기</button>
+      </div>
+      <div className="mt-6 border-t border-slate-200 pt-5">
+        <h4 className="font-bold text-slate-800 mb-3">색상 재고 등록 내역</h4>
+        <div className="overflow-x-auto rounded-2xl border border-slate-200">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-slate-500 text-xs">
+              <tr>{["등록일", "구분", "제조사", "색상명", "코드 / 두께", "재고 M"].map((h) => <th key={h} className="px-3 py-2.5 text-left font-medium whitespace-nowrap">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {history.map((item) => (
+                <tr key={item.id}>
+                  <td className="px-3 py-2.5 whitespace-nowrap">{item.registered_at}</td>
+                  <td className="px-3 py-2.5">{item.product}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">{item.maker}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">{item.color}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">{item.code || "코드없음"} / {item.thickness}T</td>
+                  <td className="px-3 py-2.5 font-semibold text-indigo-700 whitespace-nowrap">{fmt(item.meter)} M</td>
+                </tr>
+              ))}
+              {history.length === 0 && <tr><td colSpan={6} className="px-3 py-7 text-center text-slate-400">등록된 색상 재고가 없습니다.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -801,11 +1055,11 @@ function DetailPanel({ rows, extra }) {
    ========================================================================= */
 const blankOutbound = () => ({
   outbound_date: todayStr(), customer: "", arrival_date: todayStr(), arrival_time: "09:00",
-  product_type: "강판", coil_number: "", manufacturer: "", color_name: "",
+  product_type: "강판", coil_number: "", manufacturer: "", color_name: "", thickness: "",
   site_address: "", outbound_meter: 0, memo: "",
 });
 
-function Outbound({ ctx }) {
+function Outbound({ ctx, quickOpen, clearQuick }) {
   const { outbound, setOutbound, coils, setCoils } = ctx;
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blankOutbound());
@@ -813,6 +1067,14 @@ function Outbound({ ctx }) {
   const [pendingOpen, setPendingOpen] = useState(true);
   const [q, setQ] = useState("");
   const [from, setFrom] = useState(""); const [to, setTo] = useState("");
+
+  useEffect(() => {
+    if (!quickOpen) return;
+    setEditId(null);
+    setForm(blankOutbound());
+    setOpen(true);
+    clearQuick();
+  }, [quickOpen, clearQuick]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const availOf = (pt) => coils.filter((c) => c.product_type === pt && c.current_meter > 0).reduce((a, c) => a + c.current_meter, 0);
@@ -822,7 +1084,7 @@ function Outbound({ ctx }) {
     const coil = coils.find((c) => c.coil_number === coilNumber);
     setForm((f) => coil ? {
       ...f, coil_number: coil.coil_number, product_type: coil.product_type,
-      manufacturer: coil.manufacturer, color_name: coil.color_name,
+      manufacturer: coil.manufacturer, color_name: coil.color_name, thickness: coil.thickness,
     } : { ...f, coil_number: coilNumber });
   };
 
@@ -869,8 +1131,8 @@ function Outbound({ ctx }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-end justify-between gap-3 flex-wrap">
-        <div><h2 className="text-2xl font-extrabold tracking-tight">출고관리</h2><p className="text-slate-500 text-sm mt-0.5">출고는 미완료로 홀드되고 [완료 승인] 시 재고가 차감됩니다</p></div>
+      <div className="min-h-[108px] flex items-center justify-between gap-3 flex-wrap">
+        <div><h2 className="text-2xl font-extrabold tracking-tight">출고관리</h2><p className="text-slate-500 text-sm mt-0.5">출고 대기 건을 확인하고 완료 처리하면 재고가 차감됩니다.</p></div>
         <div className="flex gap-2">
           <ExcelBtn onClick={exportXlsx} />
           <button onClick={() => { setEditId(null); setForm(blankOutbound()); setOpen(true); }} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium inline-flex items-center gap-1.5 hover:bg-indigo-700 no-print"><Plus size={16} />출고등록</button>
@@ -880,32 +1142,29 @@ function Outbound({ ctx }) {
       {/* 상단: 미완료(승인대기) */}
       <Card className="overflow-hidden print-card">
         <button onClick={() => setPendingOpen((v) => !v)} className="w-full px-5 py-4 flex items-center gap-2 no-print">
-          <AlertTriangle size={18} className="text-amber-500" /><h3 className="font-semibold">승인 대기</h3><span className="text-xs text-slate-400">{incomplete.length}건</span>
+          <Clock size={18} className="text-indigo-400" /><h3 className="font-semibold">출고 대기</h3><span className="text-xs text-slate-400">{incomplete.length}건</span>
           <span className="ml-auto w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500">{pendingOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}</span>
         </button>
         {pendingOpen && <div className="overflow-x-auto border-t border-slate-100">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs">
-              <tr>{["출고일", "거래처", "구분", "색상명", "도착일", "도착시간", "현장주소", "출고량M", "승인"].map((h) => <th key={h} className="px-3 py-2.5 text-left font-medium whitespace-nowrap">{h}</th>)}</tr>
+              <tr>{["출고일", "거래처", "구분", "색상 / 두께", "출고량", "완료"].map((h) => <th key={h} className="px-3 py-2.5 text-left font-medium whitespace-nowrap">{h}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {incomplete.map((o) => {
                 const overdue = o.outbound_date < todayStr(); const today = o.outbound_date === todayStr();
                 return (
                   <tr key={o.id} className={overdue ? "bg-rose-50/50" : today ? "bg-amber-50/40" : ""}>
-                    <td className="px-3 py-2.5 whitespace-nowrap font-medium">{overdue && <AlertTriangle size={13} className="inline text-rose-500 mr-1" />}{o.outbound_date}</td>
-                    <td className="px-3 py-2.5 font-semibold whitespace-nowrap">{o.customer || "-"}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">{o.outbound_date}</td>
+                    <td className="px-3 py-2.5 font-normal whitespace-nowrap">{o.customer || "-"}</td>
                     <td className="px-3 py-2.5">{o.product_type}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">{o.color_name || "-"}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">{o.arrival_date}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">{o.arrival_time}</td>
-                    <td className="px-3 py-2.5 text-slate-600 max-w-[320px]">{o.site_address}</td>
-                    <td className="px-3 py-2.5 font-medium">{fmt(o.outbound_meter)}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">{o.color_name || "-"}{o.thickness ? ` / ${o.thickness}T` : ""}</td>
+                    <td className="px-3 py-2.5 font-medium whitespace-nowrap">{fmt(o.outbound_meter)} M</td>
                     <td className="px-3 py-2.5 no-print"><button onClick={() => approve(o)} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium inline-flex items-center gap-1 hover:bg-emerald-700"><Check size={13} />완료 승인</button></td>
                   </tr>
                 );
               })}
-              {incomplete.length === 0 && <tr><td colSpan={9} className="px-3 py-8 text-center text-slate-400">승인 대기 건이 없습니다.</td></tr>}
+              {incomplete.length === 0 && <tr><td colSpan={6} className="px-3 py-8 text-center text-slate-400">출고 대기 건이 없습니다.</td></tr>}
             </tbody>
           </table>
         </div>}
@@ -1007,7 +1266,7 @@ function Inventory({ ctx }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-end justify-between gap-3 flex-wrap">
+      <div className="min-h-[108px] flex items-center justify-between gap-3 flex-wrap">
         <div><h2 className="text-2xl font-extrabold tracking-tight">재고현황</h2><p className="text-slate-500 text-sm mt-0.5">현재 남은 코일을 M 기준으로 확인합니다</p></div>
         <div className="flex gap-2"><ExcelBtn onClick={exportXlsx} /></div>
       </div>
@@ -1111,7 +1370,7 @@ function Sales({ ctx }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-end justify-between gap-3 flex-wrap">
+      <div className="min-h-[108px] flex items-center justify-between gap-3 flex-wrap">
         <div><h2 className="text-2xl font-extrabold tracking-tight">거래처별 현황</h2><p className="text-slate-500 text-sm mt-0.5">매입처별 입고 · 현장별 출고 (완료 기준) · M 집계</p></div>
         <div className="flex gap-2"><ExcelBtn onClick={exportXlsx} /></div>
       </div>
@@ -1170,7 +1429,7 @@ function Colors({ ctx }) {
   const [q, setQ] = useState(""); const [pf, setPf] = useState("전체");
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
-  const rows = COLOR_MASTER.filter((c) => (pf === "전체" || c.product === pf) && [c.product, c.maker, c.color, c.thickness].join(" ").toLowerCase().includes(q.toLowerCase()));
+  const rows = COLOR_MASTER.filter((c) => (pf === "전체" || c.product === pf) && [c.product, c.maker, c.code, c.color, c.thickness].join(" ").toLowerCase().includes(q.toLowerCase()));
 
   const relatedInbound = selected ? inbound.filter((r) =>
     r.product_type === selected.product && r.manufacturer === selected.maker &&
@@ -1219,7 +1478,7 @@ function Colors({ ctx }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-end justify-between gap-3 flex-wrap">
+      <div className="min-h-[108px] flex items-center justify-between gap-3 flex-wrap">
         <div><h2 className="text-2xl font-extrabold tracking-tight">색상표</h2><p className="text-slate-500 text-sm mt-0.5">색상을 클릭하면 관련 입고·출고·재고 현황을 확인하고 수정할 수 있습니다</p></div>
       </div>
       <Toolbar q={q} setQ={setQ}>
@@ -1235,7 +1494,7 @@ function Colors({ ctx }) {
             <div className="p-3">
               <div className="font-semibold text-slate-800 text-sm">{c.color}</div>
               <div className="text-xs text-slate-500 mt-0.5">{c.product} · {c.thickness}T</div>
-              <div className="text-xs text-slate-400">{c.maker}</div>
+              <div className="text-xs text-slate-400">{c.maker} · {c.code || "코드없음"}</div>
             </div>
           </Card>
           </button>
