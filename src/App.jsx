@@ -3,7 +3,7 @@ import {
   LayoutDashboard, PackagePlus, Truck, Boxes, BarChart3, Palette,
   Search, Download, Plus, ChevronDown, ChevronRight, Check,
   Trash2, Pencil, X, AlertTriangle, Clock, Menu, ArrowRight,
-  Factory, MapPin, LogOut, Layers3, CalendarDays, Eye, EyeOff
+  Factory, MapPin, LogOut, Layers3, CalendarDays, Eye, EyeOff, ClipboardCheck, RotateCcw
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -92,6 +92,58 @@ const comboNo = (...parts) => String(parts.join("|").split("").reduce((sum, ch) 
 const makeCoilNo = (dateStr, product, maker, color, thickness) =>
   `C-${(dateStr || todayStr()).replace(/-/g, "").slice(2)}-${comboNo(product, maker, color, thickness)}`;
 
+const DIALOG_EVENT = "hnmt-app-dialog";
+const appAlert = (message, options = {}) => {
+  window.dispatchEvent(new CustomEvent(DIALOG_EVENT, {
+    detail: { mode: "alert", message, submessage: options.submessage || "", title: options.title || "알림", type: options.type || "success" },
+  }));
+};
+const appConfirm = (message, options = {}) => new Promise((resolve) => {
+  window.dispatchEvent(new CustomEvent(DIALOG_EVENT, {
+    detail: { mode: "confirm", message, title: options.title || "확인", type: options.type || "warning", resolve },
+  }));
+});
+
+function AppDialog() {
+  const [dialog, setDialog] = useState(null);
+  useEffect(() => {
+    const open = (event) => setDialog(event.detail);
+    window.addEventListener(DIALOG_EVENT, open);
+    return () => window.removeEventListener(DIALOG_EVENT, open);
+  }, []);
+  if (!dialog) return null;
+  const close = (result) => {
+    dialog.resolve?.(result);
+    setDialog(null);
+  };
+  const Icon = dialog.type === "success" ? Check : dialog.type === "danger" ? Trash2 : AlertTriangle;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center overflow-y-auto p-2 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
+      <div className="w-full max-w-xl my-2 sm:my-4 rounded-2xl bg-white shadow-2xl overflow-hidden max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col">
+        <div className="shrink-0 px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+          <h3 className="text-base sm:text-lg font-bold text-slate-800 break-keep">{dialog.title}</h3>
+          <button onClick={() => close(false)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"><X size={20} /></button>
+        </div>
+        <div className="overflow-y-auto px-4 sm:px-6 py-5 sm:py-7 text-center">
+          <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center">
+            <Icon size={36} className={dialog.type === "success" ? "text-indigo-400" : dialog.type === "danger" ? "text-rose-400" : "text-amber-400"} />
+          </div>
+          <p className="mt-3 text-sm sm:text-base font-medium leading-relaxed text-slate-800 break-keep">{dialog.message}</p>
+          {dialog.submessage && <p className="mt-2 text-xs font-medium text-rose-500">{dialog.submessage}</p>}
+          <div className={`mt-5 sm:mt-6 grid gap-2 ${dialog.mode === "confirm" ? "grid-cols-2" : "grid-cols-1"}`}>
+            {dialog.mode === "confirm" && (
+              <button onClick={() => close(false)} className="h-11 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50">취소</button>
+            )}
+            <button onClick={() => close(true)} className="h-11 rounded-xl border border-indigo-200 bg-white text-sm font-bold text-indigo-600 hover:bg-indigo-50">
+              {dialog.mode === "confirm" ? "확인" : "확인"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- 브라우저 저장소 훅 ---------- */
 function useStore(key, initialValue) {
   const storageKey = `hnmt-coil-${key}`;
@@ -155,17 +207,20 @@ function StatusBadge({ status }) {
   };
   return <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${map[status] || map.정상}`}>{status}</span>;
 }
-function Modal({ open, onClose, title, children, wide, plainHeader = false }) {
+function Modal({ open, onClose, title, children, wide, plainHeader = false, hideClose = false, headerActions }) {
   if (!open) return null;
   const widthClass = wide === "medium" ? "max-w-3xl" : wide ? "max-w-5xl" : "max-w-xl";
   return (
     <div className="fixed inset-0 z-[60] flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto bg-slate-900/50 backdrop-blur-sm no-print">
-      <div className={`bg-white rounded-2xl shadow-2xl w-full ${widthClass} my-2 sm:my-6 max-h-[96vh] overflow-y-auto`}>
-        <div className={`sticky top-0 z-10 bg-white flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 ${plainHeader ? "" : "border-b border-slate-100"}`}>
-          <h3 className="text-base sm:text-lg font-semibold text-slate-800">{title}</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><X size={20} /></button>
+      <div className={`bg-white rounded-2xl shadow-2xl w-full ${widthClass} my-2 sm:my-4 max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col`}>
+        <div className={`shrink-0 bg-white flex items-center justify-between gap-3 px-4 sm:px-6 py-3.5 sm:py-4 ${plainHeader ? "" : "border-b border-slate-100"}`}>
+          <h3 className="min-w-0 text-base sm:text-lg font-semibold text-slate-800 truncate">{title}</h3>
+          <div className="flex items-center gap-2">
+            {headerActions}
+            {!hideClose && <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><X size={20} /></button>}
+          </div>
         </div>
-        <div className="px-4 sm:px-6 py-4 sm:py-5">{children}</div>
+        <div className="min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 sm:py-5">{children}</div>
       </div>
     </div>
   );
@@ -225,8 +280,8 @@ const NAV = [
   { key: "dashboard", label: "대시보드", icon: LayoutDashboard, group: "현황", desc: "전체 요약 보기" },
   { key: "inbound", label: "입고관리", icon: PackagePlus, group: "입출고", desc: "신규 코일 입고" },
   { key: "outbound", label: "출고관리", icon: Truck, group: "입출고", desc: "출고 등록·승인" },
+  { key: "coil", label: "코일관리", icon: Layers3, group: "현황", desc: "코일 재고 등록" },
   { key: "inventory", label: "재고현황", icon: Boxes, group: "현황", desc: "M 기준 재고" },
-  { key: "sales", label: "거래처별 현황", icon: BarChart3, group: "분석", desc: "매입·출고 분석" },
 ];
 
 export default function CoilInventory() {
@@ -236,6 +291,7 @@ export default function CoilInventory() {
   const [menu, setMenu] = useState("dashboard");
   const [drawer, setDrawer] = useState(false);
   const [quickAction, setQuickAction] = useState(null);
+  const [briefingOpen, setBriefingOpen] = useState(false);
 
   const initial = useMemo(seed, []);
   const [coils, setCoils] = useStore("coils", initial.coils);
@@ -243,18 +299,50 @@ export default function CoilInventory() {
   const [outbound, setOutbound] = useStore("outbound", initial.outbound);
   const [baseStock, setBaseStock] = useStore("baseStock", {});
   const [stockHistory, setStockHistory] = useStore("stockHistory", []);
+  const [customColors, setCustomColors] = useStore("customColors", []);
+  const [discontinuedColors, setDiscontinuedColors] = useStore("discontinuedColors", []);
+  const [zoneStock, setZoneStock] = useStore("zoneStock", {});
+  const [baseStockDates, setBaseStockDates] = useStore("baseStockDates", {});
+  useEffect(() => {
+    const migrationKey = "hnmt-coil-timeline-reset-v1";
+    if (!localStorage.getItem(migrationKey)) {
+      setStockHistory([]);
+      localStorage.setItem(migrationKey, "done");
+    }
+  }, [setStockHistory]);
 
-  const tryLogin = () => { if (pw === "0707") { setAuthed(true); setPwErr(""); } else setPwErr("비밀번호가 일치하지 않습니다."); };
+  const tryLogin = () => {
+    if (pw === "0707") {
+      setAuthed(true);
+      setMenu("dashboard");
+      setBriefingOpen(true);
+      setPwErr("");
+    } else setPwErr("비밀번호가 일치하지 않습니다.");
+  };
 
   if (!authed) return <Login pw={pw} setPw={setPw} pwErr={pwErr} tryLogin={tryLogin} />;
 
-  const ctx = { coils, setCoils, inbound, setInbound, outbound, setOutbound, baseStock, setBaseStock, stockHistory, setStockHistory };
+  const ctx = { coils, setCoils, inbound, setInbound, outbound, setOutbound, baseStock, setBaseStock, stockHistory, setStockHistory, customColors, setCustomColors, discontinuedColors, setDiscontinuedColors, zoneStock, setZoneStock, baseStockDates, setBaseStockDates };
   const goto = (k) => { setMenu(k); setDrawer(false); };
   const openQuick = (kind) => { setQuickAction(kind); setMenu(kind); setDrawer(false); };
+  const resetAllData = () => {
+    setCoils([]);
+    setInbound([]);
+    setOutbound([]);
+    setBaseStock({});
+    setStockHistory([]);
+    setCustomColors([]);
+    setDiscontinuedColors([]);
+    setZoneStock({});
+    setBaseStockDates({});
+    localStorage.removeItem("hnmt-coil-inboundTodos");
+    setQuickAction(null);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
       <GlobalStyle />
+      <AppDialog />
       {/* 상단 바 */}
       <header className="sticky top-0 z-50 bg-white/65 backdrop-blur-xl border-b border-white/70 shadow-sm">
         <div className="max-w-[1400px] mx-auto px-3 md:px-8 h-16 md:h-20 flex items-center justify-between">
@@ -270,13 +358,14 @@ export default function CoilInventory() {
 
       {/* 상단에서 아래로 펼쳐지는 드로어 */}
       <Drawer open={drawer} onClose={() => setDrawer(false)} menu={menu} goto={goto} onLogout={() => { setAuthed(false); setPw(""); setDrawer(false); }} />
+      {briefingOpen && <TodayBriefing ctx={ctx} onClose={() => setBriefingOpen(false)} />}
 
       <main className="max-w-[1400px] mx-auto p-4 md:p-8">
-        {menu === "dashboard" && <Dashboard ctx={ctx} openQuick={openQuick} />}
+        {menu === "dashboard" && <Dashboard ctx={ctx} openQuick={openQuick} resetAllData={resetAllData} />}
         {menu === "inbound" && <Inbound ctx={ctx} quickOpen={quickAction === "inbound"} clearQuick={() => setQuickAction(null)} />}
         {menu === "outbound" && <Outbound ctx={ctx} quickOpen={quickAction === "outbound"} clearQuick={() => setQuickAction(null)} />}
+        {menu === "coil" && <CoilManagement ctx={ctx} />}
         {menu === "inventory" && <Inventory ctx={ctx} />}
-        {menu === "sales" && <Sales ctx={ctx} />}
       </main>
     </div>
   );
@@ -290,11 +379,13 @@ function GlobalStyle() {
       @keyframes twinkle { 0%,100%{opacity:.15; transform:scale(.7);} 50%{opacity:.9; transform:scale(1.15);} }
       @keyframes slideDown { from{transform:translateY(-12px); opacity:0;} to{transform:translateY(0); opacity:1;} }
       @keyframes cardSlide { from{transform:translateY(-18px) scale(.96); opacity:0;} to{transform:translateY(0) scale(1); opacity:1;} }
+      @keyframes rankingRise { from{transform:translateY(18px); opacity:0;} to{transform:translateY(0); opacity:1;} }
       @keyframes pendingPulse { 0%,100%{border-color:#d8dee9;box-shadow:0 0 0 0 rgba(167,139,250,0);} 50%{border-color:#a78bfa;box-shadow:0 0 0 4px rgba(247,202,201,.22),0 5px 16px rgba(146,168,209,.14);} }
       .glow-lock{ animation:glowPulse 2.6s ease-in-out infinite; }
       .twinkle{ animation:twinkle 3s ease-in-out infinite; }
       .drawer-anim{ animation:slideDown .28s ease-out; }
       .menu-card{ animation:cardSlide .38s ease-out both; }
+      .ranking-rise{ animation:rankingRise .42s ease-out both; }
       .gradient-icon svg{ stroke:url(#menuIconGradient); }
       .metric-icon svg{ stroke:url(#metricIconGradient); }
       .pastel-outline{
@@ -311,6 +402,10 @@ function GlobalStyle() {
       }
       input[type="password"]::-ms-reveal,
       input[type="password"]::-ms-clear{ display:none; }
+      @media (max-width: 639px) {
+        input, select, textarea{ font-size:16px !important; }
+        .mobile-safe-actions{ position:sticky; bottom:0; background:rgba(255,255,255,.96); padding-bottom:max(.5rem,env(safe-area-inset-bottom)); }
+      }
       @media print {
         .no-print{ display:none !important; }
         body{ background:#fff !important; }
@@ -415,7 +510,88 @@ function Drawer({ open, onClose, menu, goto, onLogout }) {
 /* =========================================================================
    대시보드
    ========================================================================= */
-function completeOutboundRecord(o, coils, setCoils, setOutbound, confirmed = false) {
+function TodayBriefing({ ctx, onClose }) {
+  const { outbound, baseStock, customColors, discontinuedColors } = ctx;
+  const catalog = [...COLOR_MASTER, ...customColors];
+  const stockRows = catalog
+    .map((item) => {
+      const key = `${item.product}|${item.maker}|${item.code}|${item.color}|${item.thickness}`;
+      return { ...item, key, meter: Number(baseStock[key]) || 0 };
+    })
+    .filter((item) => item.meter > 0 && !discontinuedColors.includes(item.key));
+  const total = stockRows.reduce((sum, item) => sum + item.meter, 0);
+  const steel = stockRows.filter((item) => item.product === "강판").reduce((sum, item) => sum + item.meter, 0);
+  const zinc = stockRows.filter((item) => item.product === "징크").reduce((sum, item) => sum + item.meter, 0);
+  const pending = outbound.filter((item) => !item.is_completed);
+  const today = todayStr();
+  const todayShip = pending.filter((item) => item.outbound_date === today).length;
+  const overdue = pending.filter((item) => item.outbound_date < today && item.arrival_date < today).length;
+  const completedToday = outbound.filter((item) => item.is_completed && String(item.completed_at || "").startsWith(today)).length;
+  const topColors = [...stockRows].sort((a, b) => b.meter - a.meter).slice(0, 5);
+  const maxMeter = Math.max(...topColors.map((item) => item.meter), 1);
+  return (
+    <div onClick={onClose} className="fixed inset-0 z-[90] overflow-y-auto bg-black/30 backdrop-blur-sm flex items-center justify-center">
+      <div onClick={onClose}
+        className="min-h-screen w-full bg-black/75 text-white flex items-center justify-center">
+        <div onClick={(event) => event.stopPropagation()} className="w-full max-w-6xl px-5 py-10 sm:px-10">
+          <div className="text-center max-w-4xl mx-auto">
+            <h2 className="text-2xl sm:text-5xl font-black tracking-[0.08em] text-[#ff4f91]">HNMT COIL SYSTEM BRIEFING</h2>
+            <p className="mt-5 text-sm sm:text-xl font-semibold text-white">{todayLabel()} 확인해야 할 내용입니다.</p>
+            <p className="mt-3 text-sm sm:text-base text-white/70">
+              오늘 {completedToday}건 출고되었고 대기 중인 {pending.length}건이 있습니다.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-[0.8fr_1.2fr] gap-4 mt-10">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5">
+              <h3 className="font-bold">제품별 재고 비중</h3>
+              {[["강판", steel, "from-rose-300 to-indigo-400"], ["징크", zinc, "from-indigo-300 to-blue-500"]].map(([label, meter, color]) => (
+                <div key={label} className="mt-5">
+                  <div className="flex justify-between text-sm"><span>{label}</span><span className="font-bold">{fmt(meter)} M</span></div>
+                  <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
+                    <div className={`h-full rounded-full bg-gradient-to-r ${color}`} style={{ width: `${total ? meter / total * 100 : 0}%` }} />
+                  </div>
+                </div>
+              ))}
+              <div className="mt-6 pt-4 border-t border-white/10 text-xs leading-6 text-white/55">
+                {total > 0 ? `현재 총 재고는 ${fmt(total)} M입니다.` : "현재 등록된 재고가 없습니다."}
+                <br />
+                {todayShip > 0 ? `오늘 출고 예정은 ${todayShip}건입니다.` : "오늘 출고 예정이 없습니다."}
+                <br />
+                {overdue > 0 ? `출고 일정이 지난 보류 건이 ${overdue}건 있습니다.` : "현재 일정이 지난 출고 보류 건은 없습니다."}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold">보유 재고 TOP 5</h3>
+                <span className="text-[11px] text-white/40">실시간 M 기준</span>
+              </div>
+              <div className="mt-4 space-y-3">
+                {topColors.map((item, index) => (
+                  <div key={item.key} className="grid grid-cols-[20px_minmax(0,1fr)_70px] gap-2 items-center text-sm">
+                    <span className="font-black text-indigo-300">{index + 1}</span>
+                    <div className="min-w-0">
+                      <div className="flex justify-between gap-2"><span className="font-medium truncate">{item.color} <span className="text-white/40 text-xs">({item.maker}/{item.thickness}T)</span></span></div>
+                      <div className="mt-1.5 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-rose-300 to-indigo-400" style={{ width: `${item.meter / maxMeter * 100}%` }} />
+                      </div>
+                    </div>
+                    <span className="text-right font-bold">{fmt(item.meter)} M</span>
+                  </div>
+                ))}
+                {topColors.length === 0 && <div className="py-8 text-center text-sm text-white/40">등록된 재고가 없습니다.</div>}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+async function completeOutboundRecord(o, coils, setCoils, setOutbound, confirmed = false) {
   const pool = coils
     .filter((c) => c.product_type === o.product_type && c.current_meter > 0)
     .sort((a, b) => {
@@ -424,10 +600,10 @@ function completeOutboundRecord(o, coils, setCoils, setOutbound, confirmed = fal
     });
   const avail = pool.reduce((a, c) => a + c.current_meter, 0);
   if (o.outbound_meter > avail) {
-    alert("현재 재고 M보다 출고 예정 M이 커서 완료할 수 없습니다.");
+    appAlert("현재 재고 M보다 출고 예정 M이 커서 완료할 수 없습니다.", { title: "출고 처리 안내", type: "warning" });
     return;
   }
-  if (!confirmed && !confirm("이 출고 건을 출고 완료 처리하시겠습니까? 재고가 차감됩니다.")) return;
+  if (!confirmed && !await appConfirm("이 출고 건을 출고 완료 처리하시겠습니까? 재고가 차감됩니다.", { title: "출고 완료 확인" })) return;
 
   let remain = o.outbound_meter;
   const updates = {};
@@ -497,13 +673,14 @@ function ProductStockCard({ stat, open, onToggle }) {
   );
 }
 
-function Dashboard({ ctx, openQuick }) {
-  const { coils, setCoils, outbound, setOutbound } = ctx;
+function Dashboard({ ctx, openQuick, resetAllData }) {
+  const { coils, setCoils, outbound, setOutbound, baseStock, customColors, discontinuedColors } = ctx;
   const [slide, setSlide] = useState(0);
   const [mobileProduct, setMobileProduct] = useState("");
   const [selectedTodo, setSelectedTodo] = useState(null);
   const [completeTarget, setCompleteTarget] = useState(null);
   const [todoOpen, setTodoOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
   const t = useRef();
   const slides = [
     { label: "HN Shop", description: "HN메탈릭 공식 쇼핑몰입니다.", image: "/coil-inventory-management/assets/slide-shop.png", link: "https://hnmt.co.kr/" },
@@ -516,29 +693,36 @@ function Dashboard({ ctx, openQuick }) {
     return () => clearInterval(t.current);
   }, [slides.length]);
 
-  const totalMeter = coils.reduce((a, c) => a + (c.current_meter || 0), 0);
+  const stockCatalog = [...COLOR_MASTER, ...customColors];
+  const stockRows = stockCatalog
+    .map((c) => ({
+      ...c,
+      current_meter: Number(baseStock[`${c.product}|${c.maker}|${c.code}|${c.color}|${c.thickness}`]) || 0,
+    }))
+    .filter((c) => c.current_meter > 0 && !discontinuedColors.includes(`${c.product}|${c.maker}|${c.code}|${c.color}|${c.thickness}`));
+  const totalMeter = stockRows.reduce((a, c) => a + c.current_meter, 0);
   const incomplete = outbound.filter((o) => !o.is_completed);
   const currentDate = todayStr();
   const todayShip = incomplete.filter((o) => o.outbound_date === currentDate).length;
   const held = incomplete.filter((o) => o.outbound_date < currentDate && o.arrival_date < currentDate).length;
   const productStats = ["강판", "징크"].map((product) => {
-    const rows = coils.filter((c) => c.product_type === product && c.current_meter > 0);
-    const manufacturers = [...new Set(rows.map((c) => c.manufacturer || "미지정"))].sort((a, b) => a.localeCompare(b, "ko"));
+    const rows = stockRows.filter((c) => c.product === product);
+    const manufacturers = [...new Set(rows.map((c) => c.maker || "미지정"))].sort((a, b) => a.localeCompare(b, "ko"));
     return {
       product,
-      kinds: new Set(rows.map((c) => `${c.manufacturer}-${c.color_name}-${c.thickness}`)).size,
+      kinds: new Set(rows.map((c) => `${c.maker}-${c.color}-${c.code}-${c.thickness}`)).size,
       meter: rows.reduce((sum, c) => sum + (Number(c.current_meter) || 0), 0),
       groups: manufacturers.map((manufacturer) => {
-        const makerRows = rows.filter((c) => (c.manufacturer || "미지정") === manufacturer);
+        const makerRows = rows.filter((c) => (c.maker || "미지정") === manufacturer);
         const specs = [...new Set(makerRows.map((c) => String(c.thickness || "-")))]
           .sort((a, b) => Number(a) - Number(b))
           .map((thickness) => {
             const specRows = makerRows.filter((c) => String(c.thickness || "-") === thickness);
-            const colors = [...new Set(specRows.map((c) => c.color_name || "미지정"))]
+            const colors = [...new Set(specRows.map((c) => c.color || "미지정"))]
               .sort((a, b) => a.localeCompare(b, "ko"))
               .map((color) => ({
                 color,
-                meter: specRows.filter((c) => (c.color_name || "미지정") === color)
+                meter: specRows.filter((c) => (c.color || "미지정") === color)
                   .reduce((sum, c) => sum + (Number(c.current_meter) || 0), 0),
               }));
             return { thickness, colors };
@@ -563,12 +747,18 @@ function Dashboard({ ctx, openQuick }) {
   return (
     <div className="space-y-6">
       <svg width="0" height="0" aria-hidden="true"><defs><linearGradient id="metricIconGradient" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#ef9aaf" /><stop offset=".52" stopColor="#b49ad7" /><stop offset="1" stopColor="#7897cf" /></linearGradient></defs></svg>
-      <div className="min-h-[108px] flex items-center justify-between gap-3">
+      <div className="h-[108px] flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight">대시보드</h2>
+          <h2 className="text-2xl font-extrabold tracking-tight">대시보드</h2>
           <p className="text-slate-500 text-xs sm:text-sm mt-0.5">입고·출고·재고 현황을 한눈에 확인하세요</p>
         </div>
-        <div className="text-[11px] sm:text-sm font-semibold text-slate-500 whitespace-nowrap pt-1">{todayLabel()}</div>
+        <div className="flex flex-col items-end gap-2">
+          <div className="text-[11px] sm:text-sm font-semibold text-slate-500 whitespace-nowrap">{todayLabel()}</div>
+          <button onClick={() => setResetOpen(true)}
+            className="text-xs font-medium text-slate-400 transition-colors hover:text-rose-500">
+            초기화
+          </button>
+        </div>
       </div>
 
       {/* 슬라이더 */}
@@ -591,6 +781,25 @@ function Dashboard({ ctx, openQuick }) {
           {slides.map((_, i) => <button key={i} onClick={() => setSlide(i)} className={`h-2 rounded-full transition-all ${i === slide ? "w-6 bg-white" : "w-2 bg-white/50"}`} />)}
         </div>
       </div>
+      <Modal open={resetOpen} onClose={() => setResetOpen(false)} title="전체 초기화" hideClose>
+        <div className="text-center py-2">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center">
+            <AlertTriangle size={28} />
+          </div>
+          <p className="mt-4 text-base font-bold text-slate-800">전체 초기화 하시겠습니까?</p>
+          <p className="mt-2 text-xs text-slate-400">입고·출고·미완료·재고 및 기록 데이터가 모두 삭제되며 PDF 기본 색상표만 유지됩니다.</p>
+          <div className="grid grid-cols-2 gap-2 mt-6">
+            <button onClick={() => setResetOpen(false)}
+              className="h-11 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50">
+              아니오
+            </button>
+            <button onClick={() => { resetAllData(); setResetOpen(false); }}
+              className="h-11 rounded-xl border border-rose-200 bg-rose-50 text-sm font-bold text-rose-600 hover:bg-rose-100">
+              네
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <div className="flex items-center gap-2 flex-wrap">
         <button onClick={() => openQuick("inbound")} className="pastel-outline h-11 min-w-32 px-5 rounded-xl text-sm font-medium text-slate-700 transition inline-flex items-center justify-center gap-2 focus-visible:outline-none">
@@ -600,6 +809,10 @@ function Dashboard({ ctx, openQuick }) {
         <button onClick={() => openQuick("outbound")} className="pastel-outline h-11 min-w-32 px-5 rounded-xl text-sm font-medium text-slate-700 transition inline-flex items-center justify-center gap-2 focus-visible:outline-none">
           <span className="metric-icon w-[18px] h-[18px] flex items-center justify-center shrink-0"><Truck size={18} strokeWidth={2} /></span>
           <span className="leading-none">출고등록</span>
+        </button>
+        <button onClick={() => openQuick("coil")} className="pastel-outline h-11 min-w-32 px-5 rounded-xl text-sm font-medium text-slate-700 transition inline-flex items-center justify-center gap-2 focus-visible:outline-none">
+          <span className="metric-icon w-[18px] h-[18px] flex items-center justify-center shrink-0"><Layers3 size={18} strokeWidth={2} /></span>
+          <span className="leading-none">코일관리</span>
         </button>
         <button onClick={() => setTodoOpen((open) => !open)} className={`pastel-outline h-11 min-w-[188px] px-4 rounded-xl text-sm font-medium text-slate-700 transition inline-flex items-center justify-center gap-2 focus-visible:outline-none ${todo.length > 0 ? "pending-active" : ""}`}>
           <span className="metric-icon w-[18px] h-[18px] flex items-center justify-center shrink-0"><Clock size={18} strokeWidth={2} /></span>
@@ -721,7 +934,7 @@ function ColorPicker({ product, maker, value, onPick }) {
 const blankInbound = () => ({ inbound_date: todayStr(), product_type: "강판", manufacturer: "", color_name: "", color_code: "", thickness: "", coil_meter: 0, purchaser: "", memo: "" });
 
 function Inbound({ ctx, quickOpen, clearQuick }) {
-  const { inbound, setInbound, coils, setCoils, baseStock, setBaseStock, stockHistory, setStockHistory } = ctx;
+  const { inbound, setInbound, coils, setCoils, baseStock, setBaseStock, stockHistory, setStockHistory, customColors, setCustomColors, discontinuedColors, setDiscontinuedColors } = ctx;
   const [q, setQ] = useState("");
   const [purchaserFilter, setPurchaserFilter] = useState("전체");
   const [from, setFrom] = useState("");
@@ -731,6 +944,10 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
   const [editId, setEditId] = useState(null);
   const [detail, setDetail] = useState(null);
   const [colorStockOpen, setColorStockOpen] = useState(false);
+  const [stockDate, setStockDate] = useState("");
+  const [todos, setTodos] = useStore("inboundTodos", []);
+  const [todoInputOpen, setTodoInputOpen] = useState(false);
+  const [todoText, setTodoText] = useState("");
 
   useEffect(() => {
     if (!quickOpen) return;
@@ -751,7 +968,7 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
   const submit = () => {
     const meter = Number(form.coil_meter) || 0;
     if (!form.inbound_date || !form.product_type || !form.manufacturer || !form.color_name || !form.thickness) {
-      alert("*필수입력을 작성해주세요");
+      appAlert("*필수입력을 작성해주세요", { title: "필수입력 안내", type: "warning" });
       return;
     }
     if (editId) {
@@ -778,8 +995,8 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
     setOpen(false); setForm(blankInbound()); setEditId(null);
   };
   const startEdit = (r) => { setForm({ ...r }); setEditId(r.id); setOpen(true); };
-  const remove = (id) => {
-    if (!confirm("정말 삭제하시겠습니까?")) return;
+  const remove = async (id) => {
+    if (!await appConfirm("정말 삭제하시겠습니까?", { title: "입고 내역 삭제", type: "danger" })) return;
     const target = inbound.find((r) => r.id === id);
     setInbound((l) => l.filter((r) => r.id !== id));
     if (target) setCoils((l) => l.filter((c) => c.id !== target.coil_id && c.coil_number !== target.coil_number));
@@ -794,85 +1011,168 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
     product,
     rows: rows.filter((r) => r.product_type === product),
   }));
+  const stockSource = stockDate ? stockHistory.filter((item) => item.registered_at === stockDate) : stockHistory;
+  const latestStockHistory = Object.values(stockSource.reduce((latest, item) => {
+    if (!latest[item.key] || item.registered_at > latest[item.key].registered_at) latest[item.key] = item;
+    return latest;
+  }, {}))
+    .filter((item) => !discontinuedColors.includes(item.key))
+    .sort((a, b) =>
+      b.registered_at.localeCompare(a.registered_at) ||
+      a.product.localeCompare(b.product, "ko") ||
+      a.maker.localeCompare(b.maker, "ko") ||
+      a.color.localeCompare(b.color, "ko") ||
+      Number(a.thickness) - Number(b.thickness)
+    );
 
   const exportXlsx = () => downloadXlsx(rows.map((r) => ({
     입고일: r.inbound_date, 코일번호: r.coil_number, 제품구분: r.product_type, 제조사: r.manufacturer,
     색상명: r.color_name, 두께: r.thickness, 코일M: r.coil_meter, 매입처: r.purchaser, 비고: r.memo,
   })), "입고내역", "입고내역.xlsx");
+  const exportStockXlsx = () => downloadXlsx(latestStockHistory.map((item) => ({
+    등록일: item.registered_at, 구분: item.product, 제조사: item.maker, 색상명: item.color,
+    코드: item.code, 두께: item.thickness, 재고M: item.meter,
+  })), "코일재고", "코일재고내역.xlsx");
+  const addTodo = () => {
+    const text = todoText.trim();
+    if (!text) return;
+    setTodos((current) => [...current, { id: uid(), text }]);
+    setTodoText("");
+    setTodoInputOpen(false);
+  };
+  const completeTodo = async (id) => {
+    if (!await appConfirm("체크하면 입력한 할 일이 삭제됩니다. 삭제하시겠습니까?", { title: "할 일 삭제", type: "danger" })) return;
+    setTodos((current) => current.filter((item) => item.id !== id));
+  };
 
   return (
     <div className="space-y-5">
-      <div className="min-h-[108px] flex items-center justify-between gap-3 flex-wrap">
+      <div className="h-[108px] flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-2xl font-extrabold tracking-tight">입고관리</h2>
           <div className="flex flex-wrap items-center gap-x-2 text-sm mt-0.5">
-            <p className="text-slate-500">제품 정보와 매입처를 간단히 확인합니다.</p>
-            <span className="text-slate-400">(코일번호는 자동생성)</span>
+            <p className="text-slate-500">입고된 매입처를 기록하고 확인합니다.</p>
           </div>
         </div>
         <div className="flex gap-2">
           <ExcelBtn onClick={exportXlsx} />
-          <button onClick={() => { setForm(blankInbound()); setEditId(null); setOpen(true); }} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium inline-flex items-center gap-1.5 hover:bg-indigo-700 no-print"><Plus size={16} />입고 등록</button>
-        </div>
-      </div>
-      <button onClick={() => setColorStockOpen(true)} className="w-full text-left rounded-2xl border border-slate-200 bg-white px-4 sm:px-5 py-4 shadow-sm hover:border-indigo-300 transition flex items-center gap-3">
-        <div className="metric-icon w-11 h-11 rounded-xl bg-gradient-to-br from-rose-50 to-indigo-50 flex items-center justify-center"><Palette size={24} /></div>
-        <div>
-          <div className="font-bold text-slate-800">Color Stock Settings</div>
-          <div className="text-xs text-slate-400 mt-0.5">색상별 기초재고 M를 확인하고 직접 수정합니다.</div>
-        </div>
-        <ChevronRight size={18} className="ml-auto text-slate-400" />
-      </button>
-      <div className="grid grid-cols-1 sm:grid-cols-[120px_150px_18px_150px_minmax(180px,1fr)] gap-2 items-center no-print">
-          <select value={purchaserFilter} onChange={(e) => setPurchaserFilter(e.target.value)} className={inputCls}>
-            <option>전체</option>
-            {purchaserOptions.map((purchaser) => <option key={purchaser} value={purchaser}>{purchaser}</option>)}
-          </select>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={`${inputCls} text-center`} />
-          <span className="hidden sm:block text-center text-slate-400">~</span>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={`${inputCls} text-center`} />
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="제조사 색상 검색" className={`${inputCls} pl-9`} />
+          <button onClick={() => { setForm(blankInbound()); setEditId(null); setOpen(true); }} className="h-10 min-w-[108px] px-4 rounded-xl bg-indigo-600 text-white text-sm font-medium inline-flex items-center justify-center gap-1.5 hover:bg-indigo-700 no-print"><Plus size={16} />입고등록</button>
         </div>
       </div>
 
-      <div className="space-y-4">
-        {groupedRows.map((group) => (
-          <Card key={group.product} className="overflow-hidden print-card">
-            <div className="px-4 sm:px-5 py-3.5 bg-white border-b border-slate-200">
-              <h3 className="font-bold text-slate-800">{group.product} 입고 목록 <span className="ml-1 text-xs font-normal text-slate-400">{group.rows.length}건</span></h3>
+      <Card className="hidden p-4 sm:p-5">
+        <div className="flex items-center gap-2 text-sm font-bold text-slate-700 mb-3"><ClipboardCheck size={18} className="text-indigo-500" />주의사항 · 할 일</div>
+        <div className="space-y-2">
+          {todos.map((todo) => (
+            <label key={todo.id} className="flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" onChange={() => completeTodo(todo.id)} className="w-4 h-4 accent-indigo-500" />
+              {todo.text}
+            </label>
+          ))}
+          <div className="flex items-center gap-2">
+            <button onClick={() => setTodoInputOpen(true)} aria-label="할 일 추가" className="w-4 h-4 rounded border border-slate-300 bg-white hover:border-indigo-400 shrink-0" />
+            {todoInputOpen && <input autoFocus value={todoText} onChange={(e) => setTodoText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTodo()} onBlur={() => !todoText && setTodoInputOpen(false)} className="flex-1 border-b border-indigo-200 bg-transparent px-1 py-1 text-sm focus:outline-none focus:border-indigo-500" placeholder="할 일을 입력하고 Enter를 누르세요" />}
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+        <section className="hidden space-y-4">
+          <div className="min-h-[45px] flex items-center justify-between gap-3 border-b border-slate-300 pb-3">
+            <h3 className="text-lg font-extrabold text-slate-800">코일목록</h3>
+            <div className="flex gap-2">
+              <ExcelBtn onClick={exportStockXlsx} />
+              <button onClick={() => setColorStockOpen(true)} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium inline-flex items-center gap-1.5 hover:bg-indigo-700"><Plus size={16} />코일등록</button>
+            </div>
+          </div>
+          <button onClick={() => setColorStockOpen(true)} className="w-full text-left rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm hover:border-indigo-300 transition flex items-center gap-3">
+            <div className="metric-icon w-10 h-10 rounded-xl bg-gradient-to-br from-rose-50 to-indigo-50 flex items-center justify-center"><Palette size={22} /></div>
+            <div>
+              <div className="font-bold text-slate-800">코일 재고표</div>
+              <div className="text-xs text-slate-400 mt-0.5">코일 색상별 재고를 확인하고 수정·등록합니다.</div>
+            </div>
+            <ChevronRight size={18} className="ml-auto text-slate-400" />
+          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-slate-500">등록일</span>
+            <input type="date" value={stockDate} onChange={(e) => setStockDate(e.target.value)} className={`${inputCls} w-auto text-center`} />
+            {stockDate && <button onClick={() => setStockDate("")} className="text-xs text-slate-400 hover:text-slate-600">전체</button>}
+          </div>
+          <div className="border-t border-slate-300" />
+          <Card className="overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+              <h4 className="font-bold text-slate-800">코일 재고내역</h4>
+              <span className="text-xs text-slate-400">{latestStockHistory.length}건</span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm table-auto">
-                <thead className="bg-slate-50 text-slate-600">
-                  <tr>{["코일번호", "입고일", "구분", "제조사", "색상 / 두께", "매입처", ""].map((h) => <th key={h} className="px-3 py-3 text-left text-sm font-semibold whitespace-nowrap">{h}</th>)}</tr>
+              <table className="w-full text-xs sm:text-sm">
+                <thead className="bg-slate-50 text-slate-500 text-xs">
+                  <tr>{["등록일", "구분", "제조사", "색상 / 규격", "재고 M"].map((h) => <th key={h} className="px-3 py-2.5 text-left font-medium whitespace-nowrap">{h}</th>)}</tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                {group.rows.map((r) => (
-                  <tr key={r.id} className="hover:bg-slate-50/50">
-                    <td className="px-3 py-3 whitespace-nowrap min-w-[130px]">
-                      <button onClick={() => setDetail(r)} className="font-semibold text-indigo-700 hover:text-rose-500 hover:underline">{r.coil_number}</button>
-                    </td>
-                    <td className="px-3 py-3 whitespace-nowrap">{r.inbound_date}</td>
-                    <td className="px-3 py-3">{r.product_type}</td>
-                    <td className="px-3 py-3 whitespace-nowrap">{r.manufacturer}</td>
-                    <td className="px-3 py-3 whitespace-nowrap"><Swatch name={r.color_name} /> <span className="text-slate-400 text-xs ml-1">{r.thickness}T</span></td>
-                    <td className="px-3 py-3 whitespace-nowrap">{r.purchaser}</td>
-                    <td className="px-4 py-3 no-print">
-                      <div className="flex items-center gap-2 justify-end min-w-[68px]">
-                        <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><Pencil size={15} /></button>
-                        <button onClick={() => remove(r.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500"><Trash2 size={15} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {group.rows.length === 0 && <tr><td colSpan={7} className="px-3 py-5 text-center text-xs text-slate-400">등록된 {group.product} 입고 내역이 없습니다.</td></tr>}
+                  {latestStockHistory.map((item) => (
+                    <tr key={item.id}>
+                      <td className="px-3 py-2.5 whitespace-nowrap">{item.registered_at}</td>
+                      <td className="px-3 py-2.5">{item.product}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">{item.maker}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap"><Swatch name={item.color} /> <span className="text-slate-400 ml-1">{item.code || "코드없음"} · {item.thickness}T</span></td>
+                      <td className="px-3 py-2.5 font-bold text-indigo-700 whitespace-nowrap">{fmt(item.meter)} M</td>
+                    </tr>
+                  ))}
+                  {latestStockHistory.length === 0 && <tr><td colSpan={5} className="px-3 py-7 text-center text-slate-400">해당 등록일의 코일 재고가 없습니다.</td></tr>}
                 </tbody>
               </table>
             </div>
           </Card>
-        ))}
+        </section>
+
+        <section className="space-y-4 xl:col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-[120px_150px_18px_150px_minmax(180px,1fr)] gap-2 items-center no-print">
+            <select value={purchaserFilter} onChange={(e) => setPurchaserFilter(e.target.value)} className={inputCls}>
+              <option>전체</option>
+              {purchaserOptions.map((purchaser) => <option key={purchaser} value={purchaser}>{purchaser}</option>)}
+            </select>
+            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={`${inputCls} text-center`} />
+            <span className="hidden md:block text-center text-slate-400">~</span>
+            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={`${inputCls} text-center`} />
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="제조사 색상 검색" className={`${inputCls} pl-9`} />
+            </div>
+          </div>
+          {groupedRows.map((group) => (
+            <Card key={group.product} className="overflow-hidden print-card">
+              <div className="px-4 py-3 border-b border-slate-200">
+                <h4 className="font-bold text-slate-800">{group.product} <span className="ml-1 text-xs font-normal text-slate-400">{group.rows.length}건</span></h4>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs sm:text-sm">
+                  <thead className="bg-slate-50 text-slate-600">
+                    <tr>{["입고일", "구분", "제조사", "색상 / 두께", "매입처", ""].map((h) => <th key={h} className="px-3 py-2.5 text-left font-semibold whitespace-nowrap">{h}</th>)}</tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                  {group.rows.map((r) => (
+                    <tr key={r.id} className="hover:bg-slate-50/50">
+                      <td className="px-3 py-2.5 whitespace-nowrap">{r.inbound_date}</td>
+                      <td className="px-3 py-2.5">{r.product_type}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">{r.manufacturer}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap"><Swatch name={r.color_name} /> <span className="text-slate-400 text-xs ml-1">{r.thickness}T</span></td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">{r.purchaser}</td>
+                      <td className="px-3 py-2.5 no-print">
+                        <div className="flex items-center gap-1 justify-end">
+                          <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><Pencil size={15} /></button>
+                          <button onClick={() => remove(r.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500"><Trash2 size={15} /></button>
+                        </div>
+                      </td>
+                  </tr>
+                  ))}
+                  {group.rows.length === 0 && <tr><td colSpan={6} className="px-3 py-5 text-center text-xs text-slate-400">등록된 {group.product} 입고 내역이 없습니다.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          ))}
+        </section>
       </div>
 
       <Modal open={!!detail} onClose={() => setDetail(null)} title={`코일 상세 · ${detail?.coil_number || ""}`}>
@@ -921,28 +1221,568 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
           </div>
           <Field label="비고"><textarea rows={3} className={inputCls} value={form.memo} onChange={(e) => set("memo", e.target.value)} /></Field>
         </div>
-        <div className="mt-5 grid grid-cols-2 sm:flex sm:justify-end gap-2">
+        <div className="mobile-safe-actions z-10 mt-5 -mx-1 px-1 pt-2 grid grid-cols-2 sm:flex sm:justify-end gap-2">
           <button onClick={() => setOpen(false)} className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600">취소</button>
           <button onClick={submit} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">{editId ? "저장" : "등록"}</button>
         </div>
       </Modal>
 
-      <ColorStockModal open={colorStockOpen} onClose={() => setColorStockOpen(false)} values={baseStock} setValues={setBaseStock} history={stockHistory} setHistory={setStockHistory} />
+      <ColorStockModal open={colorStockOpen} onClose={() => setColorStockOpen(false)} values={baseStock} setValues={setBaseStock} history={stockHistory} setHistory={setStockHistory} customColors={customColors} setCustomColors={setCustomColors} discontinued={discontinuedColors} setDiscontinued={setDiscontinuedColors} />
     </div>
   );
 }
 
-function ColorStockModal({ open, onClose, values, setValues, history, setHistory }) {
+function CoilManagement({ ctx }) {
+  const {
+    baseStock, setBaseStock, stockHistory, setStockHistory,
+    customColors, setCustomColors, discontinuedColors, setDiscontinuedColors,
+    zoneStock, setZoneStock,
+    baseStockDates, setBaseStockDates,
+  } = ctx;
+  const emptyFilters = { product: "전체", maker: "전체", thickness: "전체", color: "", soldOut: false };
+  const [filters, setFilters] = useState(emptyFilters);
+  const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
+  const [searched, setSearched] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [addCoilOpen, setAddCoilOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [baseInfoOpen, setBaseInfoOpen] = useState(false);
+  const [baseEditing, setBaseEditing] = useState(false);
+  const [baseDraft, setBaseDraft] = useState({});
+  const [historyDraft, setHistoryDraft] = useState([]);
+  const [rankingProduct, setRankingProduct] = useState("강판");
+  const [newCoil, setNewCoil] = useState({ product: "강판", maker: "동국", color: "", code: "", thickness: "0.45" });
+  const [zoneDraft, setZoneDraft] = useState(zoneStock);
+  const catalog = [...new Map([...COLOR_MASTER, ...customColors].map((item) => [
+    `${item.product}|${item.maker}|${item.code}|${item.color}|${item.thickness}`,
+    item,
+  ])).values()];
+  const keyOf = (c) => `${c.product}|${c.maker}|${c.code}|${c.color}|${c.thickness}`;
+  const latestByKey = stockHistory.reduce((latest, item) => {
+    if (!latest[item.key] || item.registered_at > latest[item.key].registered_at) latest[item.key] = item;
+    return latest;
+  }, {});
+  const allRows = catalog
+    .map((item) => {
+      const key = keyOf(item);
+      const registered = latestByKey[key];
+      return {
+        id: registered?.id || key,
+        key,
+        registered_at: registered?.registered_at || "",
+        product: item.product,
+        maker: item.maker,
+        color: item.color,
+        code: item.code,
+        thickness: item.thickness,
+        meter: registered?.meter ?? baseStock[key] ?? 0,
+        baseDate: baseStockDates[key] || "",
+        soldOut: discontinuedColors.includes(key),
+      };
+    })
+    .sort((a, b) =>
+      a.product.localeCompare(b.product, "ko") ||
+      a.maker.localeCompare(b.maker, "ko") ||
+      a.color.localeCompare(b.color, "ko") ||
+      Number(a.thickness) - Number(b.thickness)
+    );
+  const rows = allRows.filter((item) => !item.soldOut);
+  const filteredRows = allRows.filter((item) =>
+    item.soldOut === appliedFilters.soldOut &&
+    (appliedFilters.product === "전체" || item.product === appliedFilters.product) &&
+    (appliedFilters.maker === "전체" || item.maker === appliedFilters.maker) &&
+    (appliedFilters.thickness === "전체" || item.thickness === appliedFilters.thickness) &&
+    (!appliedFilters.color.trim() || item.color.toLocaleLowerCase().includes(appliedFilters.color.trim().toLocaleLowerCase()))
+  );
+  const colorSuggestions = filters.color.trim()
+    ? [...new Set(allRows
+      .filter((item) => item.soldOut === filters.soldOut)
+      .map((item) => item.color)
+      .filter((color) => color.includes(filters.color.trim())))]
+      .sort((a, b) => a.localeCompare(b, "ko"))
+      .slice(0, 8)
+    : [];
+  const thicknessOptions = ["전체", ...[...new Set(catalog.map((item) => item.thickness))]
+    .sort((a, b) => Number(a) - Number(b))];
+  const currentDate = todayStr();
+  const rankingRows = allRows
+    .filter((item) => item.product === rankingProduct && !item.soldOut)
+    .map((item) => {
+      const previous = stockHistory
+        .filter((record) => record.key === item.key && record.registered_at < currentDate)
+        .sort((a, b) =>
+          String(b.registered_at).localeCompare(String(a.registered_at)) ||
+          String(b.created_at || "").localeCompare(String(a.created_at || ""))
+        )[0];
+      const previousMeter = previous ? Number(previous.meter) || 0 : Number(item.meter) || 0;
+      const currentMeter = Number(item.meter) || 0;
+      const change = currentMeter - previousMeter;
+      const changeRate = previousMeter === 0 ? (currentMeter > 0 ? 100 : 0) : Math.abs(change / previousMeter * 100);
+      return { ...item, previousMeter, currentMeter, change, changeRate };
+    })
+    .filter((item) => item.previousMeter !== 0 || item.currentMeter !== 0)
+    .sort((a, b) => Number(b.meter) - Number(a.meter) || a.color.localeCompare(b.color, "ko"))
+    .slice(0, 5);
+  const displayDate = (date) => {
+    return date || "-";
+  };
+  useEffect(() => {
+    setZoneDraft((current) => {
+      const next = { ...current };
+      catalog.forEach((item) => {
+        const key = keyOf(item);
+        if (!next[key]) next[key] = { A: baseStock[key] || "", B: "", C: "" };
+      });
+      return next;
+    });
+  }, [baseStock, zoneStock, customColors]);
+  useEffect(() => {
+    if (historyOpen) {
+      setBaseInfoOpen(false);
+      const validHistory = stockHistory.filter((item) =>
+        item.created_at && (!baseStockDates[item.key] || item.registered_at >= baseStockDates[item.key])
+      );
+      setHistoryDraft(validHistory.map((item) => ({
+        ...item,
+        zones: { A: "", B: "", C: "", ...(item.zones || {}) },
+      })));
+      const nextBaseDraft = {};
+      catalog.forEach((item) => {
+        const key = keyOf(item);
+        nextBaseDraft[key] = {
+          zones: { A: baseStock[key] || "", B: "", C: "", ...(zoneStock[key] || {}) },
+          date: baseStockDates[key] || todayStr(),
+        };
+      });
+      setBaseDraft(nextBaseDraft);
+      setBaseEditing(false);
+    }
+  }, [historyOpen, stockHistory, baseStock, zoneStock, baseStockDates]);
+  useEffect(() => {
+    const timer = setInterval(() => setRankingProduct((current) => current === "강판" ? "징크" : "강판"), 5000);
+    return () => clearInterval(timer);
+  }, []);
+  const setZoneValue = (key, zone, value) => {
+    setZoneDraft((current) => ({
+      ...current,
+      [key]: { A: "", B: "", C: "", ...(current[key] || {}), [zone]: value },
+    }));
+  };
+  const registerStock = (item) => {
+    const zones = { A: "", B: "", C: "", ...(zoneDraft[item.key] || {}) };
+    const meter = ["A", "B", "C"].reduce((sum, zone) => sum + (Number(zones[zone]) || 0), 0);
+    setZoneStock((current) => ({ ...current, [item.key]: zones }));
+    setBaseStock((current) => ({ ...current, [item.key]: meter }));
+    setStockHistory((current) => [{
+      id: `${item.key}-${Date.now()}`,
+      key: item.key,
+      registered_at: todayStr(),
+      created_at: new Date().toISOString(),
+      product: item.product,
+      maker: item.maker,
+      color: item.color,
+      code: item.code,
+      thickness: item.thickness,
+      meter,
+      zones,
+    }, ...current]);
+    appAlert(`${item.color} 재고 ${fmt(meter)} M가 등록되었습니다.`, { title: "재고 등록 완료", type: "success" });
+  };
+  const numericValue = (value) => value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+  const setBaseDraftValue = (key, field, value) => {
+    setBaseDraft((current) => ({
+      ...current,
+      [key]: field === "date"
+        ? { ...(current[key] || {}), date: value }
+        : {
+          ...(current[key] || {}),
+          zones: { A: "", B: "", C: "", ...(current[key]?.zones || {}), [field]: numericValue(value) },
+        },
+    }));
+  };
+  const saveBaseStock = () => {
+    const nextZones = {};
+    const nextStock = {};
+    const nextDates = {};
+    Object.entries(baseDraft).forEach(([key, item]) => {
+      const zones = { A: "", B: "", C: "", ...(item.zones || {}) };
+      nextZones[key] = zones;
+      nextStock[key] = ["A", "B", "C"].reduce((sum, zone) => sum + (Number(zones[zone]) || 0), 0);
+      nextDates[key] = item.date || todayStr();
+    });
+    setZoneStock(nextZones);
+    setBaseStock(nextStock);
+    setBaseStockDates(nextDates);
+    setZoneDraft(nextZones);
+    setBaseEditing(false);
+  };
+  const toggleDiscontinue = async (item) => {
+    const message = item.soldOut
+      ? `${item.color} 코일의 품절 상태를 해제하시겠습니까?`
+      : `${item.color} 코일을 품절 처리하시겠습니까?`;
+    if (!await appConfirm(message, { title: item.soldOut ? "품절 해제 확인" : "품절 처리 확인", type: "warning" })) return;
+    setDiscontinuedColors((current) => item.soldOut
+      ? current.filter((key) => key !== item.key)
+      : current.includes(item.key) ? current : [...current, item.key]);
+  };
+  const resetSearch = () => {
+    setFilters(emptyFilters);
+    setAppliedFilters(emptyFilters);
+    setSearched(false);
+    setShowSuggestions(false);
+  };
+  const addCoil = () => {
+    if (!newCoil.product || !newCoil.maker || !newCoil.color.trim() || !newCoil.thickness) {
+      appAlert("구분, 제조사, 색상명, 두께를 모두 입력해주세요.", { title: "필수입력 안내", type: "warning" });
+      return;
+    }
+    const item = { ...newCoil, color: newCoil.color.trim(), code: newCoil.code.trim() };
+    const key = keyOf(item);
+    if (catalog.some((color) => keyOf(color) === key)) {
+      appAlert("이미 등록된 코일 색상과 규격입니다.", { title: "중복 등록 안내", type: "warning" });
+      return;
+    }
+    setCustomColors((current) => [...current, item]);
+    setNewCoil({ product: "강판", maker: "동국", color: "", code: "", thickness: "0.45" });
+    setAddCoilOpen(false);
+    appAlert("코일 색상이 추가되었습니다.", { title: "코일 추가 완료", type: "success" });
+  };
+  const exportXlsx = () => downloadXlsx(rows.map((item) => ({
+    등록일: item.registered_at, 구분: item.product, 제조사: item.maker, 색상명: item.color,
+    코드: item.code, 두께: item.thickness, 재고M: item.meter,
+  })), "코일재고", "코일재고내역.xlsx");
+
+  return (
+    <div className="space-y-5">
+      <div className="h-[108px] flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-extrabold tracking-tight">코일관리</h2>
+          <p className="text-slate-500 text-sm mt-0.5">등록된 코일 색상별 재고와 등록일을 관리합니다.</p>
+        </div>
+        <div className="flex gap-2">
+          <ExcelBtn onClick={exportXlsx} />
+        </div>
+      </div>
+      <div className="grid lg:grid-cols-[310px_minmax(0,1fr)] gap-5 items-start">
+        <div className="space-y-3 lg:sticky lg:top-24">
+          <Card className="p-5">
+            <h3 className="text-xl font-extrabold text-slate-900 mb-5">카테고리</h3>
+            <div className="space-y-4">
+            <label className="block">
+              <span className="flex items-center justify-between gap-3 text-sm font-bold text-slate-600 mb-1.5">
+                <span>구분</span>
+                <span className="inline-flex items-center gap-2 font-medium">
+                  품절
+                  <button type="button" role="switch" aria-checked={filters.soldOut}
+                    onClick={() => setFilters({ ...filters, soldOut: !filters.soldOut })}
+                    className={`relative w-10 h-6 rounded-full transition ${filters.soldOut ? "bg-indigo-500" : "bg-slate-200"}`}>
+                    <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition ${filters.soldOut ? "left-5" : "left-1"}`} />
+                  </button>
+                </span>
+              </span>
+              <select value={filters.product} onChange={(e) => setFilters({ ...filters, product: e.target.value })}
+                className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-400">
+                {["전체", "강판", "징크"].map((item) => <option key={item}>{item}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <span className="block text-sm font-bold text-slate-600 mb-1.5">제조사</span>
+              <select value={filters.maker} onChange={(e) => setFilters({ ...filters, maker: e.target.value })}
+                className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-400">
+                {["전체", "동국", "포스코", "세아", "DK동신", "해외"].map((item) => <option key={item}>{item}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <span className="block text-sm font-bold text-slate-600 mb-1.5">두께</span>
+              <select value={filters.thickness} onChange={(e) => setFilters({ ...filters, thickness: e.target.value })}
+                className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-400">
+                {thicknessOptions.map((item) => <option key={item} value={item}>{item === "전체" ? item : `${item}T`}</option>)}
+              </select>
+            </label>
+            <label className="block relative">
+              <span className="block text-sm font-bold text-slate-600 mb-1.5">색상명</span>
+              <input value={filters.color} onChange={(e) => { setFilters({ ...filters, color: e.target.value }); setShowSuggestions(true); }}
+                onFocus={() => filters.color.trim() && setShowSuggestions(true)}
+                placeholder="색상명을 입력하세요"
+                className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-400" />
+              {showSuggestions && colorSuggestions.length > 0 && (
+                <div className="absolute z-20 left-0 right-0 top-full mt-1 rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+                  {colorSuggestions.map((color) => (
+                    <button type="button" key={color} onClick={() => { setFilters({ ...filters, color }); setShowSuggestions(false); }}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 hover:text-indigo-700">
+                      {color}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </label>
+            </div>
+            <div className="mt-9 pt-4 border-t border-slate-100 flex items-center gap-2">
+            <button onClick={resetSearch} title="초기화" className="w-11 h-11 rounded-xl border border-slate-200 bg-white text-slate-500 inline-flex items-center justify-center hover:border-indigo-300 hover:text-indigo-600">
+              <RotateCcw size={18} />
+            </button>
+            <button onClick={() => setAddCoilOpen(true)} title="코일 색상 추가" className="ml-auto w-11 h-11 rounded-xl border border-slate-200 bg-white text-slate-500 inline-flex items-center justify-center hover:border-indigo-300 hover:text-indigo-600">
+              <Plus size={19} />
+            </button>
+            <button onClick={() => { setAppliedFilters(filters); setSearched(true); setShowSuggestions(false); }} className="h-11 w-[104px] px-3 rounded-xl bg-indigo-600 text-white text-sm font-bold inline-flex items-center justify-center gap-2 hover:bg-indigo-700">
+              <Search size={17} />검색
+            </button>
+            </div>
+          </Card>
+          <button onClick={() => setHistoryOpen(true)} className="w-full text-left rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm hover:border-indigo-300 transition flex items-center gap-3">
+            <div className="metric-icon w-10 h-10 rounded-xl bg-gradient-to-br from-rose-50 to-indigo-50 flex items-center justify-center"><Palette size={22} /></div>
+            <div>
+              <div className="font-bold text-slate-800">코일 재고내역</div>
+              <div className="text-xs text-slate-400 mt-0.5">등록된 재고를 확인해주세요.</div>
+            </div>
+            <ChevronRight size={18} className="ml-auto text-slate-400" />
+          </button>
+          <Card className="overflow-hidden">
+            <div className="mx-4 py-3 border-b border-slate-100 flex items-center justify-between gap-2">
+              <div>
+                <div className="text-sm font-extrabold text-slate-800">코일 색상 종목</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">{rankingProduct} 실시간 재고 TOP 5</div>
+              </div>
+              <button onClick={() => setRankingProduct((current) => current === "강판" ? "징크" : "강판")}
+                className="text-xs text-slate-400 hover:text-indigo-600 inline-flex items-center gap-0.5">
+                다음 <ChevronRight size={13} />
+              </button>
+            </div>
+            <div key={rankingProduct} className="px-4 py-3 ranking-rise">
+              <div className="grid grid-cols-[22px_minmax(0,1fr)_42px_42px_64px] gap-1 text-[10px] text-slate-400 pb-2 border-b border-slate-100 text-right">
+                <span />
+                <span className="text-left">색상명</span>
+                <span>전일</span>
+                <span>금일</span>
+                <span>-</span>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {rankingRows.map((item, index) => (
+                  <div key={item.key} className="grid grid-cols-[22px_minmax(0,1fr)_42px_42px_64px] gap-1 items-center py-2 text-xs">
+                    <span className={`font-extrabold ${index < 3 ? "text-indigo-600" : "text-slate-400"}`}>{index + 1}.</span>
+                    <div className="min-w-0">
+                      <div className="font-bold text-slate-700 truncate">{item.color}</div>
+                      <div className="text-[10px] text-slate-400 truncate">{item.maker} / {item.thickness}T</div>
+                    </div>
+                    <span className="text-right text-slate-500">{fmt(item.previousMeter)}</span>
+                    <span className="text-right font-bold text-slate-700">{fmt(item.currentMeter)}</span>
+                    <span className={`text-right font-bold ${item.change > 0 ? "text-red-500" : item.change < 0 ? "text-blue-500" : "text-slate-500"}`}>
+                      {item.change > 0 ? "▲" : item.change < 0 ? "▼" : "-"}{item.change === 0 ? "" : `${item.changeRate.toFixed(1)}%`}
+                    </span>
+                  </div>
+                ))}
+                {rankingRows.length === 0 && <div className="py-8 text-center text-xs text-slate-400">등록된 재고가 없습니다.</div>}
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <Card className="overflow-hidden self-start w-full">
+          <div className="h-[57px] px-4 md:px-5 border-b border-slate-200 flex items-center justify-between gap-3">
+            <h3 className="font-extrabold text-slate-900">{searched ? "코일 색상 검색결과" : "코일 색상 검색"}</h3>
+            <span className="text-sm text-indigo-600 font-bold">
+              {searched ? `${filteredRows.length} / ${allRows.length}` : `${allRows.length}`}
+            </span>
+          </div>
+          {!searched ? (
+            <div className="min-h-[461px] flex flex-col items-center justify-center text-center p-8 bg-gradient-to-br from-cyan-50 to-indigo-50">
+              <div className="w-20 h-20 rounded-3xl bg-white/80 border border-white shadow-lg flex items-center justify-center text-indigo-500">
+                <Search size={38} />
+              </div>
+              <h3 className="mt-6 text-xl font-extrabold text-slate-800">원하는 코일 색상을 검색해보세요</h3>
+              <p className="mt-2 text-sm text-slate-500">왼쪽 카테고리에서 조건을 선택한 뒤 검색 버튼을 눌러주세요.</p>
+            </div>
+          ) : (
+            <>
+              <div className="p-3 md:p-4 space-y-2.5 bg-slate-50/50">
+              {filteredRows.length === 0 && (
+              <div className="py-16 text-center text-sm text-slate-400">검색 조건에 맞는 코일 색상이 없습니다.</div>
+            )}
+            {filteredRows.map((item) => {
+              const zones = { A: "", B: "", C: "", ...(zoneDraft[item.key] || {}) };
+              return (
+                <div key={item.key} className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 shadow-sm">
+                  <div className="grid md:grid-cols-[minmax(190px,1fr)_repeat(3,74px)_84px] gap-2 items-center">
+                    <div className="flex items-center min-w-0 gap-3">
+                      <span className="w-11 h-11 rounded-xl border border-slate-200 shadow-inner shrink-0" style={{ background: hexOf(item.color) }} />
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-900 truncate">{item.color}</div>
+                        <div className="text-xs text-slate-400 mt-0.5 truncate">{item.code || "코드없음"} · {item.thickness}T · {item.maker}</div>
+                        <div className="text-[11px] text-indigo-400 mt-1">* 마지막 기준일 : {displayDate(item.baseDate)} 입니다.</div>
+                      </div>
+                    </div>
+                    {["A", "B", "C"].map((zone) => (
+                      <label key={zone} className="grid grid-cols-[22px_1fr] md:grid-cols-1 gap-1 items-center text-center">
+                        <span className="text-xs font-bold text-slate-500 md:text-center md:mb-0.5">{zone}</span>
+                        <div className="relative">
+                          <input type="text" inputMode="decimal" value={zones[zone]} onChange={(e) => setZoneValue(item.key, zone, numericValue(e.target.value))}
+                            className="w-full h-9 rounded-xl border border-slate-200 bg-white px-6 text-center text-sm outline-none focus:border-indigo-400" />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">M</span>
+                        </div>
+                      </label>
+                    ))}
+                    <div className="grid gap-0 items-center">
+                      <button type="button" role="switch" aria-checked={item.soldOut} onClick={() => toggleDiscontinue(item)}
+                        className="h-7 px-1 rounded-xl bg-transparent inline-flex items-center justify-center gap-1 text-[11px] text-slate-500 self-start">
+                        <span>품절</span>
+                        <span className={`relative w-8 h-[18px] rounded-full transition ${item.soldOut ? "bg-indigo-500" : "bg-slate-200"}`}>
+                          <span className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow transition ${item.soldOut ? "left-4" : "left-0.5"}`} />
+                        </span>
+                      </button>
+                      <button onClick={() => registerStock(item)} className="h-8 w-full rounded-xl border border-indigo-200 bg-indigo-50 text-sm font-bold text-indigo-700 hover:bg-indigo-600 hover:text-white inline-flex items-center justify-center">등록</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+              </div>
+            </>
+          )}
+        </Card>
+      </div>
+      <Modal open={addCoilOpen} onClose={() => setAddCoilOpen(false)} title="코일 색상 추가">
+        <div className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="구분 *">
+              <select value={newCoil.product} onChange={(e) => setNewCoil({ ...newCoil, product: e.target.value })}
+                className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 outline-none focus:border-indigo-400">
+                <option>강판</option><option>징크</option>
+              </select>
+            </Field>
+            <Field label="제조사 *">
+              <select value={newCoil.maker} onChange={(e) => setNewCoil({ ...newCoil, maker: e.target.value })}
+                className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 outline-none focus:border-indigo-400">
+                {["동국", "포스코", "세아", "DK동신", "해외"].map((maker) => <option key={maker}>{maker}</option>)}
+              </select>
+            </Field>
+          </div>
+          <Field label="색상명 *">
+            <input value={newCoil.color} onChange={(e) => setNewCoil({ ...newCoil, color: e.target.value })}
+              className="w-full h-11 rounded-xl border border-slate-200 px-3 outline-none focus:border-indigo-400" />
+          </Field>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="제조코드">
+              <input value={newCoil.code} onChange={(e) => setNewCoil({ ...newCoil, code: e.target.value })}
+                className="w-full h-11 rounded-xl border border-slate-200 px-3 outline-none focus:border-indigo-400" />
+            </Field>
+            <Field label="두께 *">
+              <input type="number" min="0" step="0.01" value={newCoil.thickness} onChange={(e) => setNewCoil({ ...newCoil, thickness: e.target.value })}
+                className="w-full h-11 rounded-xl border border-slate-200 px-3 outline-none focus:border-indigo-400" />
+            </Field>
+          </div>
+          <div className="pt-2 flex justify-end gap-2">
+            <button onClick={() => setAddCoilOpen(false)} className="h-10 px-5 rounded-xl border border-slate-200 bg-white text-sm">취소</button>
+            <button onClick={addCoil} className="h-10 px-5 rounded-xl bg-indigo-600 text-white text-sm font-bold">추가</button>
+          </div>
+        </div>
+      </Modal>
+      <Modal open={historyOpen} onClose={() => setHistoryOpen(false)} title="코일 재고내역" wide hideClose
+        headerActions={<>
+          <button onClick={() => {
+            if (baseEditing) saveBaseStock();
+            else {
+              setBaseEditing(true);
+              setBaseInfoOpen(true);
+            }
+          }}
+            className="h-8 px-3 rounded-lg border border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-50">
+            {baseEditing ? "저장" : "수정"}
+          </button>
+          <button onClick={() => setHistoryOpen(false)} className="h-8 px-3 rounded-lg border border-slate-200 text-xs text-slate-600 hover:bg-slate-50">닫기</button>
+        </>}>
+        <div className="space-y-4">
+          <button onClick={() => setBaseInfoOpen(!baseInfoOpen)}
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 flex items-center text-left">
+            <span className="font-bold text-slate-800">기초재고</span>
+            <span className="ml-2 text-xs text-slate-400">정보</span>
+            <ChevronDown size={18} className={`ml-auto text-slate-400 transition ${baseInfoOpen ? "rotate-180" : ""}`} />
+          </button>
+          {baseInfoOpen && (
+            <div className="max-h-64 overflow-auto rounded-2xl border border-slate-200">
+              <table className="w-full text-xs min-w-[900px]">
+                <thead className="sticky top-0 bg-slate-50 text-slate-500">
+                  <tr>{["구분", "제조사", "색상", "코드 / 두께", "기준일", "A", "B", "C", "기초재고 M"].map((heading) => (
+                    <th key={heading} className="px-3 py-2.5 text-center font-medium whitespace-nowrap">{heading}</th>
+                  ))}</tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {allRows.map((item) => (
+                    <tr key={item.key}>
+                      <td className="px-3 py-2 text-center">{item.product}</td>
+                      <td className="px-3 py-2 text-center">{item.maker}</td>
+                      <td className="px-3 py-2 text-center font-bold">{item.color}</td>
+                      <td className="px-3 py-2 text-center text-slate-400">{item.code || "코드없음"} · {item.thickness}T</td>
+                      <td className="px-2 py-2 text-center">
+                        {baseEditing ? (
+                          <input type="date" value={baseDraft[item.key]?.date || todayStr()} onChange={(e) => setBaseDraftValue(item.key, "date", e.target.value)}
+                            className="h-8 w-[132px] rounded-lg border border-slate-200 px-2 text-center outline-none focus:border-indigo-400" />
+                        ) : displayDate(baseStockDates[item.key])}
+                      </td>
+                      {["A", "B", "C"].map((zone) => (
+                        <td key={zone} className="px-2 py-2 text-center">
+                          {baseEditing ? (
+                            <input type="text" inputMode="decimal" value={baseDraft[item.key]?.zones?.[zone] || ""}
+                              onChange={(e) => setBaseDraftValue(item.key, zone, e.target.value)}
+                              className="h-8 w-16 rounded-lg border border-slate-200 px-2 text-center outline-none focus:border-indigo-400" />
+                          ) : fmt(zoneStock[item.key]?.[zone] || 0)}
+                        </td>
+                      ))}
+                      <td className="px-3 py-2 text-center font-bold text-indigo-700">
+                        {fmt(baseEditing
+                          ? ["A", "B", "C"].reduce((sum, zone) => sum + (Number(baseDraft[item.key]?.zones?.[zone]) || 0), 0)
+                          : baseStock[item.key] || 0)} M
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div>
+            <h4 className="font-bold text-slate-800 mb-3">재고 변경 타임라인</h4>
+            <div className="space-y-3">
+              {historyDraft.map((item) => (
+                <div key={item.id} className="relative pl-6">
+                  <span className="absolute left-1.5 top-2 bottom-[-14px] w-px bg-indigo-100" />
+                  <span className="absolute left-0 top-2 w-4 h-4 rounded-full bg-white border-4 border-indigo-300" />
+                  <div className="rounded-2xl border border-slate-200 bg-white p-3 grid md:grid-cols-[110px_minmax(160px,1fr)_repeat(3,72px)_190px] gap-2 items-center text-center">
+                    <div className="text-xs text-slate-500">{displayDate(item.registered_at)}</div>
+                    <div>
+                      <div className="font-bold">{item.color}</div>
+                      <div className="text-xs text-slate-400">{item.code || "코드없음"} · {item.thickness}T</div>
+                    </div>
+                    {["A", "B", "C"].map((zone) => (
+                      <div key={zone} className="text-sm"><span className="text-xs text-slate-400 mr-1">{zone}</span>{fmt(item.zones?.[zone] || 0)}</div>
+                    ))}
+                    <div className="font-bold text-indigo-700">총 M {fmt(item.meter)}</div>
+                  </div>
+                </div>
+              ))}
+              {historyDraft.length === 0 && <div className="py-12 text-center text-sm text-slate-400">등록된 변경 기록이 없습니다.</div>}
+            </div>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+function ColorStockModal({ open, onClose, values, setValues, history, setHistory, customColors, setCustomColors, discontinued, setDiscontinued }) {
   const [product, setProduct] = useState("강판");
   const [draft, setDraft] = useState({});
+  const [adding, setAdding] = useState(false);
+  const [newColor, setNewColor] = useState({ maker: "", color: "", code: "", thickness: "" });
   const keyOf = (c) => `${c.product}|${c.maker}|${c.code}|${c.color}|${c.thickness}`;
   useEffect(() => {
     if (open) setDraft(values);
   }, [open, values]);
-  const makers = [...new Set(COLOR_MASTER.filter((c) => c.product === product).map((c) => c.maker))]
-    .sort((a, b) => a.localeCompare(b, "ko"));
+  const catalog = [...COLOR_MASTER, ...customColors];
+  const visibleCatalog = product === "품절"
+    ? catalog.filter((c) => discontinued.includes(keyOf(c)))
+    : catalog.filter((c) => c.product === product && !discontinued.includes(keyOf(c)));
+  const makers = [...new Set(visibleCatalog.map((c) => c.maker))].sort((a, b) => a.localeCompare(b, "ko"));
   const groups = makers.map((maker) => {
-    const makerRows = COLOR_MASTER.filter((c) => c.product === product && c.maker === maker);
+    const makerRows = visibleCatalog.filter((c) => c.maker === maker);
     const colors = [...new Set(makerRows.map((c) => c.color))].sort((a, b) => a.localeCompare(b, "ko"));
     return {
       maker,
@@ -954,83 +1794,120 @@ function ColorStockModal({ open, onClose, values, setValues, history, setHistory
     };
   });
   const register = () => {
-    const entries = COLOR_MASTER
+    const entries = visibleCatalog
       .map((color) => ({ color, key: keyOf(color), meter: Number(draft[keyOf(color)]) }))
       .filter((item) => Number.isFinite(item.meter) && item.meter >= 0 && draft[item.key] !== "");
     if (entries.length === 0) {
-      alert("등록할 기초재고 M를 입력해주세요.");
+      appAlert("등록할 기초재고 M를 입력해주세요.", { title: "재고 입력 안내", type: "warning" });
       return;
     }
-    setValues(draft);
-    const registeredAt = todayStr();
-    setHistory((current) => [
-      ...entries.map(({ color, key, meter }) => ({
-        id: uid(), registered_at: registeredAt, key, meter,
-        product: color.product, maker: color.maker, color: color.color, code: color.code, thickness: color.thickness,
-      })),
-      ...current,
-    ]);
-    alert("색상 재고가 등록되었습니다.");
+    const additions = entries.map(({ color, key, meter }) => ({
+      id: uid(), registered_at: todayStr(), key, meter,
+      product: color.product, maker: color.maker, color: color.color, code: color.code, thickness: color.thickness,
+    }));
+    const nextHistory = [...additions, ...history];
+    const latestByKey = {};
+    nextHistory.forEach((item) => {
+      const current = latestByKey[item.key];
+      if (!current || item.registered_at > current.registered_at) latestByKey[item.key] = item;
+    });
+    setValues(Object.fromEntries(Object.values(latestByKey).map((item) => [item.key, item.meter])));
+    setHistory(nextHistory);
+    appAlert("코일 재고가 등록되었습니다.", { title: "재고 등록 완료", type: "success" });
   };
+  const addColor = () => {
+    if (!newColor.maker || !newColor.color || !newColor.thickness) {
+      appAlert("제조사, 색상명, 두께를 입력해주세요.", { title: "필수입력 안내", type: "warning" });
+      return;
+    }
+    const item = { product, ...newColor };
+    const key = keyOf(item);
+    if (catalog.some((c) => keyOf(c) === key)) {
+      appAlert("이미 등록된 색상·코드·두께입니다.", { title: "중복 등록 안내", type: "warning" });
+      return;
+    }
+    setCustomColors((current) => [...current, item]);
+    setNewColor({ maker: "", color: "", code: "", thickness: "" });
+    setAdding(false);
+  };
+  const changeSoldOut = async (variants, restore) => {
+    const keys = variants.map(keyOf);
+    if (restore) {
+      setDiscontinued((current) => current.filter((key) => !keys.includes(key)));
+      return;
+    }
+    if (!await appConfirm("선택한 색상을 품절 처리하시겠습니까? 재고표와 재고내역에서 숨겨집니다.", { title: "품절 처리 확인", type: "warning" })) return;
+    setDiscontinued((current) => [...new Set([...current, ...keys])]);
+  };
+  const latestHistory = Object.values(history.reduce((latest, item) => {
+    if (!latest[item.key] || item.registered_at > latest[item.key].registered_at) latest[item.key] = item;
+    return latest;
+  }, {}))
+    .filter((item) => !discontinued.includes(item.key))
+    .sort((a, b) =>
+      b.registered_at.localeCompare(a.registered_at) ||
+      a.maker.localeCompare(b.maker, "ko") ||
+      a.color.localeCompare(b.color, "ko") ||
+      Number(a.thickness) - Number(b.thickness)
+    );
   return (
-    <Modal open={open} onClose={onClose} title="Color Stock Settings" wide>
-      <div className="flex gap-2 mb-4">
-        {["강판", "징크"].map((item) => <button key={item} onClick={() => setProduct(item)} className={`px-4 py-2 rounded-xl text-sm border ${product === item ? "bg-indigo-600 border-indigo-600 text-white" : "bg-white border-slate-200 text-slate-600"}`}>{item}</button>)}
+    <Modal open={open} onClose={onClose} title="코일 재고표" wide hideClose>
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        {["강판", "징크", "품절"].map((item) => <button key={item} onClick={() => setProduct(item)} className={`px-4 py-2 rounded-xl text-sm border ${product === item ? "bg-indigo-600 border-indigo-600 text-white" : "bg-white border-slate-200 text-slate-600"}`}>{item}</button>)}
       </div>
+      {adding && (
+        <div className="mb-5 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4">
+          <div className="grid sm:grid-cols-4 gap-2">
+            <input className={inputCls} value={newColor.maker} onChange={(e) => setNewColor((v) => ({ ...v, maker: e.target.value }))} placeholder="제조사" />
+            <input className={inputCls} value={newColor.color} onChange={(e) => setNewColor((v) => ({ ...v, color: e.target.value }))} placeholder="색상명" />
+            <input className={inputCls} value={newColor.code} onChange={(e) => setNewColor((v) => ({ ...v, code: e.target.value }))} placeholder="코드명" />
+            <input className={inputCls} value={newColor.thickness} onChange={(e) => setNewColor((v) => ({ ...v, thickness: e.target.value }))} placeholder="두께" />
+          </div>
+          <div className="flex justify-end gap-2 mt-3">
+            <button onClick={() => setAdding(false)} className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm">취소</button>
+            <button onClick={addColor} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm">추가</button>
+          </div>
+        </div>
+      )}
       <div className="space-y-5">
         {groups.map((group) => (
           <section key={group.maker}>
             <h4 className="font-bold text-slate-800 mb-2 pb-2 border-b border-slate-200">{group.maker}</h4>
-            <div className="grid sm:grid-cols-2 gap-3">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
               {group.colors.map((item) => (
-                <div key={`${group.maker}-${item.color}`} className="rounded-2xl border border-slate-200 bg-white p-3">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="w-7 h-7 rounded-lg border border-slate-200" style={{ background: hexOf(item.color) }} />
-                    <span className="font-semibold text-sm">{item.color}</span>
-                  </div>
-                  <div className="space-y-2">
-                    {item.variants.map((variant) => {
-                      const key = keyOf(variant);
-                      return (
-                        <label key={key} className="grid grid-cols-[1fr_110px_auto] items-center gap-2">
-                          <span className="text-xs text-slate-500">{variant.code || "코드없음"} · {variant.thickness}T</span>
-                          <input type="number" min="0" value={draft[key] ?? ""} onChange={(e) => setDraft((current) => ({ ...current, [key]: e.target.value }))} className={`${inputCls} text-right py-2`} placeholder="0" />
-                          <span className="text-xs text-slate-400">M</span>
-                        </label>
-                      );
-                    })}
+                <div key={`${group.maker}-${item.color}`} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                  <div className="h-2.5 w-full" style={{ background: hexOf(item.color) }} />
+                  <div className="p-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-bold text-slate-800">{item.color}</div>
+                      <button type="button" onClick={() => changeSoldOut(item.variants, product === "품절")} className={`ml-auto text-[10px] px-2 py-1 rounded-lg border ${product === "품절" ? "border-indigo-200 text-indigo-600" : "border-slate-200 text-slate-500 hover:border-rose-300 hover:text-rose-500"}`}>
+                        {product === "품절" ? "복구" : "품절하기"}
+                      </button>
+                    </div>
+                    <div className="mt-2 space-y-1.5">
+                      {item.variants.map((variant) => {
+                        const key = keyOf(variant);
+                        return (
+                          <label key={key} className="grid grid-cols-[1fr_78px_auto] items-center gap-1.5">
+                            <span className="text-[10px] text-slate-500">{variant.code || "코드없음"} · {variant.thickness}T</span>
+                            <input type="number" min="0" disabled={product === "품절"} value={draft[key] ?? ""} onChange={(e) => setDraft((current) => ({ ...current, [key]: e.target.value }))} className={`${inputCls} text-right px-2 py-1.5 text-xs disabled:bg-slate-50`} placeholder="0" />
+                            <span className="text-[10px] text-slate-400">M</span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           </section>
         ))}
+        {groups.length === 0 && <div className="py-10 text-center text-sm text-slate-400">{product === "품절" ? "품절 처리된 색상이 없습니다." : "표시할 색상이 없습니다."}</div>}
       </div>
-      <div className="mt-5 flex justify-end">
-        <button onClick={register} className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">등록하기</button>
-      </div>
-      <div className="mt-6 border-t border-slate-200 pt-5">
-        <h4 className="font-bold text-slate-800 mb-3">색상 재고 등록 내역</h4>
-        <div className="overflow-x-auto rounded-2xl border border-slate-200">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-xs">
-              <tr>{["등록일", "구분", "제조사", "색상명", "코드 / 두께", "재고 M"].map((h) => <th key={h} className="px-3 py-2.5 text-left font-medium whitespace-nowrap">{h}</th>)}</tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {history.map((item) => (
-                <tr key={item.id}>
-                  <td className="px-3 py-2.5 whitespace-nowrap">{item.registered_at}</td>
-                  <td className="px-3 py-2.5">{item.product}</td>
-                  <td className="px-3 py-2.5 whitespace-nowrap">{item.maker}</td>
-                  <td className="px-3 py-2.5 whitespace-nowrap">{item.color}</td>
-                  <td className="px-3 py-2.5 whitespace-nowrap">{item.code || "코드없음"} / {item.thickness}T</td>
-                  <td className="px-3 py-2.5 font-semibold text-indigo-700 whitespace-nowrap">{fmt(item.meter)} M</td>
-                </tr>
-              ))}
-              {history.length === 0 && <tr><td colSpan={6} className="px-3 py-7 text-center text-slate-400">등록된 색상 재고가 없습니다.</td></tr>}
-            </tbody>
-          </table>
-        </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <button onClick={onClose} className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 text-sm font-semibold">닫기</button>
+        {product !== "품절" && <button onClick={() => setAdding(true)} className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-semibold hover:border-indigo-300">추가하기</button>}
+        {product !== "품절" && <button onClick={register} className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">등록하기</button>}
       </div>
     </Modal>
   );
@@ -1056,17 +1933,18 @@ function DetailPanel({ rows, extra }) {
 const blankOutbound = () => ({
   outbound_date: todayStr(), customer: "", arrival_date: todayStr(), arrival_time: "09:00",
   product_type: "강판", coil_number: "", manufacturer: "", color_name: "", thickness: "",
-  site_address: "", outbound_meter: 0, memo: "",
+  color_code: "", site_address: "", outbound_meter: 0, memo: "", attachments: [],
 });
 
 function Outbound({ ctx, quickOpen, clearQuick }) {
-  const { outbound, setOutbound, coils, setCoils } = ctx;
+  const { outbound, setOutbound, coils, setCoils, baseStock, zoneStock, customColors, discontinuedColors } = ctx;
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blankOutbound());
   const [editId, setEditId] = useState(null);
   const [pendingOpen, setPendingOpen] = useState(true);
   const [q, setQ] = useState("");
   const [from, setFrom] = useState(""); const [to, setTo] = useState("");
+  const [colorMenuOpen, setColorMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!quickOpen) return;
@@ -1078,24 +1956,55 @@ function Outbound({ ctx, quickOpen, clearQuick }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const availOf = (pt) => coils.filter((c) => c.product_type === pt && c.current_meter > 0).reduce((a, c) => a + c.current_meter, 0);
+  const stockKey = (item) => `${item.product}|${item.maker}|${item.code}|${item.color}|${item.thickness}`;
+  const colorCatalog = [...new Map([...COLOR_MASTER, ...customColors].map((item) => [stockKey(item), item])).values()]
+    .filter((item) => item.product === form.product_type && !discontinuedColors.includes(stockKey(item)));
+  const colorMatches = form.color_name.trim()
+    ? colorCatalog.filter((item) => item.color.includes(form.color_name.trim())).slice(0, 10)
+    : colorCatalog.slice(0, 10);
+  const selectedColor = colorCatalog.find((item) =>
+    item.color === form.color_name && item.maker === form.manufacturer &&
+    String(item.code || "") === String(form.color_code || "") && String(item.thickness) === String(form.thickness)
+  );
+  const selectedKey = selectedColor ? stockKey(selectedColor) : "";
+  const selectedZones = { A: 0, B: 0, C: 0, ...(zoneStock[selectedKey] || {}) };
+  const selectedTotal = selectedKey ? Number(baseStock[selectedKey]) || 0 : 0;
+  const selectedZoneTotal = ["A", "B", "C"].reduce((sum, zone) => sum + (Number(selectedZones[zone]) || 0), 0);
   const customerList = [...new Set(outbound.map((o) => o.customer).filter(Boolean))];
-  const availableCoils = coils.filter((c) => c.product_type === form.product_type && c.current_meter > 0);
-  const chooseCoil = (coilNumber) => {
-    const coil = coils.find((c) => c.coil_number === coilNumber);
-    setForm((f) => coil ? {
-      ...f, coil_number: coil.coil_number, product_type: coil.product_type,
-      manufacturer: coil.manufacturer, color_name: coil.color_name, thickness: coil.thickness,
-    } : { ...f, coil_number: coilNumber });
+  const chooseColor = (item) => {
+    setForm((current) => ({
+      ...current,
+      color_name: item.color,
+      manufacturer: item.maker,
+      color_code: item.code || "",
+      thickness: item.thickness,
+      coil_number: stockKey(item),
+    }));
+    setColorMenuOpen(false);
   };
+  const attachFiles = (files) => {
+    [...files].forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => setForm((current) => ({
+        ...current,
+        attachments: [...(current.attachments || []), {
+          id: uid(), name: file.name, type: file.type, size: file.size, data: reader.result,
+        }],
+      }));
+      reader.readAsDataURL(file);
+    });
+  };
+  const removeAttachment = (id) => setForm((current) => ({
+    ...current, attachments: (current.attachments || []).filter((file) => file.id !== id),
+  }));
 
   const submit = () => {
     if (!form.outbound_date || !form.customer || !form.arrival_date || !form.arrival_time ||
-      !form.product_type || !form.coil_number || !form.manufacturer || !form.color_name || !form.site_address) {
-      alert("*필수입력을 작성해주세요");
+      !form.product_type || !form.manufacturer || !form.color_name || !form.thickness || !form.site_address) {
+      appAlert("*필수입력을 작성해주세요", { title: "필수입력 안내", type: "warning" });
       return;
     }
     const m = Number(form.outbound_meter) || 0;
-    if (m <= 0) { alert("*필수입력을 작성해주세요"); return; }
     const avail = availOf(form.product_type);
     if (editId) {
       setOutbound((list) => list.map((o) => o.id === editId ? { ...o, ...form, outbound_meter: m, updated_at: todayStr() } : o));
@@ -1107,11 +2016,20 @@ function Outbound({ ctx, quickOpen, clearQuick }) {
       setOutbound((list) => [rec, ...list]);
     }
     setOpen(false); setEditId(null); setForm(blankOutbound());
+    appAlert("출고대기로 자동 등록됩니다.", {
+      title: "출고 등록 완료",
+      type: "success",
+      submessage: "완료 버튼을 눌러 출고 완료해주세요.",
+    });
   };
 
   const approve = (o) => completeOutboundRecord(o, coils, setCoils, setOutbound);
   const startEdit = (o) => { setForm({ ...blankOutbound(), ...o }); setEditId(o.id); setOpen(true); };
-  const remove = (id) => { if (confirm("정말 삭제하시겠습니까?")) setOutbound((l) => l.filter((x) => x.id !== id)); };
+  const remove = async (id) => {
+    if (await appConfirm("정말 삭제하시겠습니까?", { title: "출고 내역 삭제", type: "danger" })) {
+      setOutbound((l) => l.filter((x) => x.id !== id));
+    }
+  };
 
   const incomplete = outbound.filter((o) => !o.is_completed).sort((a, b) => a.outbound_date.localeCompare(b.outbound_date));
   const all = outbound
@@ -1131,7 +2049,7 @@ function Outbound({ ctx, quickOpen, clearQuick }) {
 
   return (
     <div className="space-y-5">
-      <div className="min-h-[108px] flex items-center justify-between gap-3 flex-wrap">
+      <div className="h-[108px] flex items-center justify-between gap-3 flex-wrap">
         <div><h2 className="text-2xl font-extrabold tracking-tight">출고관리</h2><p className="text-slate-500 text-sm mt-0.5">출고 대기 건을 확인하고 완료 처리하면 재고가 차감됩니다.</p></div>
         <div className="flex gap-2">
           <ExcelBtn onClick={exportXlsx} />
@@ -1218,22 +2136,76 @@ function Outbound({ ctx, quickOpen, clearQuick }) {
           <Field label="거래처" required><input list="customer-options" className={inputCls} value={form.customer} onChange={(e) => set("customer", e.target.value)} placeholder="직접 입력 또는 등록 거래처 선택" /></Field>
           <Field label="도착일"><input type="date" className={inputCls} value={form.arrival_date} onChange={(e) => set("arrival_date", e.target.value)} /></Field>
           <Field label="도착 시간"><input type="time" className={inputCls} value={form.arrival_time} onChange={(e) => set("arrival_time", e.target.value)} /></Field>
-          <Field label="제품 구분" required><select className={inputCls} value={form.product_type} onChange={(e) => setForm((f) => ({ ...f, product_type: e.target.value, coil_number: "", manufacturer: "", color_name: "" }))}><option>강판</option><option>징크</option></select></Field>
-          <Field label="코일" required><select className={inputCls} value={form.coil_number} onChange={(e) => chooseCoil(e.target.value)}><option value="">코일 선택</option>{availableCoils.map((c) => <option key={c.id} value={c.coil_number}>{c.coil_number} · {fmt(c.current_meter)} M</option>)}</select></Field>
-          <Field label="제조사" required><input className={inputCls} value={form.manufacturer} onChange={(e) => set("manufacturer", e.target.value)} /></Field>
-          <Field label="색상명" required><ColorPicker product={form.product_type} maker={form.manufacturer} value={form.color_name} onPick={(name) => set("color_name", name)} /></Field>
-          <Field label="출고량 M" required><input type="number" className={inputCls} value={form.outbound_meter} onChange={(e) => set("outbound_meter", e.target.value)} /></Field>
+          <Field label="제품 구분" required><select className={inputCls} value={form.product_type} onChange={(e) => setForm((f) => ({ ...f, product_type: e.target.value, coil_number: "", manufacturer: "", color_name: "", color_code: "", thickness: "" }))}><option>강판</option><option>징크</option></select></Field>
+          <div className="relative">
+            <Field label="코일 색상" required>
+              <div className="flex items-center gap-2">
+                <Swatch name={form.color_name} />
+                <input className={inputCls} value={form.color_name}
+                  onFocus={() => setColorMenuOpen(true)}
+                  onChange={(e) => {
+                    setForm((current) => ({ ...current, color_name: e.target.value, manufacturer: "", color_code: "", thickness: "", coil_number: "" }));
+                    setColorMenuOpen(true);
+                  }}
+                  placeholder="등록된 코일 색상 검색" />
+              </div>
+            </Field>
+            {colorMenuOpen && (
+              <div className="absolute z-30 left-8 right-0 top-full mt-1 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+                {colorMatches.map((item) => (
+                  <button type="button" key={stockKey(item)} onClick={() => chooseColor(item)}
+                    className="w-full px-3 py-2.5 flex items-center gap-3 text-left hover:bg-indigo-50">
+                    <span className="w-6 h-6 rounded-lg border border-slate-200 shrink-0" style={{ background: hexOf(item.color) }} />
+                    <span className="font-medium text-sm">{item.color}</span>
+                    <span className="ml-auto text-xs text-slate-400">{item.maker} · {item.code || "코드없음"} · {item.thickness}T</span>
+                  </button>
+                ))}
+                {colorMatches.length === 0 && <div className="px-3 py-6 text-center text-sm text-slate-400">일치하는 등록 색상이 없습니다.</div>}
+              </div>
+            )}
+          </div>
+          <Field label="출고량">
+            <div className="relative">
+              <input type="text" inputMode="decimal" className={`${inputCls} pr-9`} value={form.outbound_meter}
+                onChange={(e) => set("outbound_meter", e.target.value.replace(/[^0-9.]/g, ""))} placeholder="선택 입력" />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">M</span>
+            </div>
+          </Field>
+          <Field label="선택 코일 정보">
+            <div className="h-[42px] px-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center text-sm text-slate-600">
+              {selectedColor ? `${selectedColor.maker} · ${selectedColor.code || "코드없음"} · ${selectedColor.thickness}T` : "코일 색상을 선택하면 자동 표시됩니다."}
+            </div>
+          </Field>
           <div className="sm:col-span-2"><Field label="현장주소" required><input className={inputCls} value={form.site_address} onChange={(e) => set("site_address", e.target.value)} placeholder="예: 서울 강남구 역삼로 123 ○○현장" /></Field></div>
-          <div className="sm:col-span-2"><Field label="비고"><textarea rows={3} className={inputCls} value={form.memo} onChange={(e) => set("memo", e.target.value)} /></Field></div>
+          <div className="sm:col-span-2">
+            <Field label="첨부파일 / 이미지">
+              <label onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); attachFiles(e.dataTransfer.files); }}
+                className="min-h-28 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/70 flex flex-col items-center justify-center text-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/40 transition">
+                <Download size={22} className="text-indigo-400" />
+                <span className="mt-2 text-sm font-medium text-slate-600">파일을 끌어놓거나 클릭해 첨부하세요</span>
+                <span className="mt-1 text-xs text-slate-400">이미지와 일반 파일을 등록할 수 있습니다.</span>
+                <input type="file" multiple className="hidden" onChange={(e) => { attachFiles(e.target.files); e.target.value = ""; }} />
+              </label>
+            </Field>
+            {(form.attachments || []).length > 0 && <div className="mt-2 space-y-2">
+              {form.attachments.map((file) => (
+                <div key={file.id} className="h-10 px-3 rounded-xl border border-slate-200 bg-white flex items-center gap-2 text-sm">
+                  <span className="truncate text-slate-600">{file.name}</span>
+                  <span className="ml-auto text-xs text-slate-400">{Math.max(1, Math.round(file.size / 1024))} KB</span>
+                  <button type="button" onClick={() => removeAttachment(file.id)} className="p-1 text-slate-400 hover:text-rose-500"><X size={16} /></button>
+                </div>
+              ))}
+            </div>}
+          </div>
         </div>
         <div className="mt-4 p-3 rounded-xl bg-slate-50 flex items-center justify-between text-sm">
-          <span className="text-slate-600">현재 {form.product_type} 가용 재고</span>
-          <span className="font-bold text-slate-700">{fmt(availOf(form.product_type))} M</span>
+          <span className="text-slate-600">{selectedColor ? `${selectedColor.color} 기초재고 기준` : `현재 ${form.product_type} 기초재고 기준`}</span>
+          <span className="font-bold text-slate-700">{fmt(selectedColor ? selectedTotal : availOf(form.product_type))} M <span className="ml-1 text-xs font-medium text-slate-400">({fmt(selectedZoneTotal)}) M · A+B+C</span></span>
         </div>
-        {Number(form.outbound_meter) > availOf(form.product_type) && <p className="text-rose-500 text-sm mt-2">출고량이 가용 재고보다 큽니다. (승인 시 제한됩니다)</p>}
-        <div className="mt-5 grid grid-cols-2 sm:flex sm:justify-end gap-2">
+        {Number(form.outbound_meter) > (selectedColor ? selectedTotal : availOf(form.product_type)) && <p className="text-rose-500 text-sm mt-2">출고량이 가용 재고보다 큽니다. (완료 처리 시 제한됩니다)</p>}
+        <div className="mobile-safe-actions z-10 mt-5 -mx-1 px-1 pt-2 grid grid-cols-2 sm:flex sm:justify-end gap-2">
           <button onClick={() => { setOpen(false); setEditId(null); }} className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600">취소</button>
-          <button onClick={submit} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">{editId ? "수정 저장" : "미완료로 저장"}</button>
+          <button onClick={submit} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">{editId ? "수정 저장" : "저장"}</button>
         </div>
       </Modal>
     </div>
@@ -1250,7 +2222,11 @@ function Inventory({ ctx }) {
   const [from, setFrom] = useState(""); const [to, setTo] = useState("");
   const [expanded, setExpanded] = useState(null);
 
-  const remove = (id) => { if (confirm("정말 삭제하시겠습니까?")) setCoils((l) => l.filter((c) => c.id !== id)); };
+  const remove = async (id) => {
+    if (await appConfirm("정말 삭제하시겠습니까?", { title: "코일 삭제", type: "danger" })) {
+      setCoils((l) => l.filter((c) => c.id !== id));
+    }
+  };
 
   const rows = coils
     .filter((c) => inRange(c.inbound_date || c.created_at, from, to))
@@ -1266,7 +2242,7 @@ function Inventory({ ctx }) {
 
   return (
     <div className="space-y-5">
-      <div className="min-h-[108px] flex items-center justify-between gap-3 flex-wrap">
+      <div className="h-[108px] flex items-center justify-between gap-3 flex-wrap">
         <div><h2 className="text-2xl font-extrabold tracking-tight">재고현황</h2><p className="text-slate-500 text-sm mt-0.5">현재 남은 코일을 M 기준으로 확인합니다</p></div>
         <div className="flex gap-2"><ExcelBtn onClick={exportXlsx} /></div>
       </div>
@@ -1370,7 +2346,7 @@ function Sales({ ctx }) {
 
   return (
     <div className="space-y-5">
-      <div className="min-h-[108px] flex items-center justify-between gap-3 flex-wrap">
+      <div className="h-[108px] flex items-center justify-between gap-3 flex-wrap">
         <div><h2 className="text-2xl font-extrabold tracking-tight">거래처별 현황</h2><p className="text-slate-500 text-sm mt-0.5">매입처별 입고 · 현장별 출고 (완료 기준) · M 집계</p></div>
         <div className="flex gap-2"><ExcelBtn onClick={exportXlsx} /></div>
       </div>
@@ -1442,13 +2418,13 @@ function Colors({ ctx }) {
   const relatedOutbound = selected ? outbound.filter((o) => o.product_type === selected.product) : [];
   const currentMeter = relatedCoils.reduce((sum, c) => sum + (Number(c.current_meter) || 0), 0);
 
-  const removeInbound = (r) => {
-    if (!confirm("선택한 입고 내역을 삭제하시겠습니까?")) return;
+  const removeInbound = async (r) => {
+    if (!await appConfirm("선택한 입고 내역을 삭제하시겠습니까?", { title: "입고 내역 삭제", type: "danger" })) return;
     setInbound((list) => list.filter((x) => x.id !== r.id));
     setCoils((list) => list.filter((c) => c.id !== r.coil_id && c.coil_number !== r.coil_number));
   };
-  const removeOutbound = (o) => {
-    if (!confirm("선택한 출고 내역을 삭제하시겠습니까?")) return;
+  const removeOutbound = async (o) => {
+    if (!await appConfirm("선택한 출고 내역을 삭제하시겠습니까?", { title: "출고 내역 삭제", type: "danger" })) return;
     setOutbound((list) => list.filter((x) => x.id !== o.id));
   };
   const saveEditing = () => {
@@ -1456,7 +2432,7 @@ function Colors({ ctx }) {
     if (editing.type === "inbound") {
       const meter = Number(editing.data.coil_meter) || 0;
       if (!editing.data.inbound_date || !editing.data.manufacturer || !editing.data.color_name || !editing.data.thickness || meter <= 0) {
-        alert("*필수입력을 작성해주세요");
+        appAlert("*필수입력을 작성해주세요", { title: "필수입력 안내", type: "warning" });
         return;
       }
       setInbound((list) => list.map((r) => r.id === editing.data.id ? { ...editing.data, coil_meter: meter, updated_at: todayStr() } : r));
@@ -1468,7 +2444,7 @@ function Colors({ ctx }) {
     } else {
       const meter = Number(editing.data.outbound_meter) || 0;
       if (!editing.data.outbound_date || !editing.data.site_address || meter <= 0) {
-        alert("*필수입력을 작성해주세요");
+        appAlert("*필수입력을 작성해주세요", { title: "필수입력 안내", type: "warning" });
         return;
       }
       setOutbound((list) => list.map((o) => o.id === editing.data.id ? { ...editing.data, outbound_meter: meter, updated_at: todayStr() } : o));
@@ -1478,7 +2454,7 @@ function Colors({ ctx }) {
 
   return (
     <div className="space-y-5">
-      <div className="min-h-[108px] flex items-center justify-between gap-3 flex-wrap">
+      <div className="h-[108px] flex items-center justify-between gap-3 flex-wrap">
         <div><h2 className="text-2xl font-extrabold tracking-tight">색상표</h2><p className="text-slate-500 text-sm mt-0.5">색상을 클릭하면 관련 입고·출고·재고 현황을 확인하고 수정할 수 있습니다</p></div>
       </div>
       <Toolbar q={q} setQ={setQ}>
