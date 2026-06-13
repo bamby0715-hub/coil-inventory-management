@@ -532,13 +532,19 @@ function TodayBriefing({ ctx, onClose }) {
   return (
     <div onClick={onClose} className="fixed inset-0 z-[90] overflow-y-auto bg-black/30 backdrop-blur-sm flex items-center justify-center">
       <div onClick={onClose}
-        className="min-h-screen w-full bg-black/75 text-white flex items-center justify-center">
+        className="relative min-h-[100dvh] w-full bg-black/75 text-white flex items-center justify-center">
+        <button type="button" onClick={(event) => { event.stopPropagation(); onClose(); }} aria-label="오늘의 브리핑 닫기"
+          className="fixed z-20 top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] w-11 h-11 sm:w-12 sm:h-12 rounded-full border border-white/25 bg-black/35 text-white/80 backdrop-blur-md flex items-center justify-center transition hover:bg-white/15 hover:text-white">
+          <X size={22} />
+        </button>
         <div onClick={(event) => event.stopPropagation()} className="w-full max-w-6xl px-5 py-10 sm:px-10">
           <div className="text-center max-w-4xl mx-auto">
             <h2 className="text-2xl sm:text-5xl font-black tracking-[0.08em] text-[#ff4f91]">HNMT COIL SYSTEM BRIEFING</h2>
             <p className="mt-5 text-sm sm:text-xl font-semibold text-white">{todayLabel()} 확인해야 할 내용입니다.</p>
-            <p className="mt-3 text-sm sm:text-base text-white/70">
-              오늘 {completedToday}건 출고되었고 대기 중인 {pending.length}건이 있습니다.
+            <p className="mt-3 text-sm sm:text-base font-medium text-white/75">
+              오늘 <span className="font-bold text-[#ff4f91]">출고</span> {completedToday}건
+              <span className="mx-2 text-white/30">·</span>
+              <span className="font-bold text-[#ff4f91]">대기</span> {pending.length}건
             </p>
           </div>
 
