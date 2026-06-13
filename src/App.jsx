@@ -3,7 +3,7 @@ import {
   LayoutDashboard, PackagePlus, Truck, Boxes, BarChart3, Palette,
   Search, Download, Plus, ChevronDown, ChevronRight, Check,
   Trash2, Pencil, X, AlertTriangle, Clock, Menu, ArrowRight,
-  Factory, MapPin, LogOut
+  Factory, MapPin, LogOut, Layers3, CalendarDays
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -104,8 +104,8 @@ function seed() {
     color_name: c.color_name, thickness: c.thickness, coil_meter: c.initial_meter, purchaser: c.purchaser, memo: "",
   }));
   const outbound = [
-    base({ outbound_date: "2026-06-10", arrival_date: "2026-06-12", arrival_time: "10:00", product_type: "강판", site_address: "서울 강남구 역삼로 123 역삼 신축현장", outbound_meter: 120, before_meter: 880, after_meter: 760, is_completed: false, completed_at: null, memo: "오전 배송" }),
-    base({ outbound_date: "2026-06-08", arrival_date: "2026-06-09", arrival_time: "14:00", product_type: "징크", site_address: "경기 성남시 분당구 판교로 50 판교 물류센터", outbound_meter: 80, before_meter: 1280, after_meter: 1200, is_completed: true, completed_at: "2026-06-08", memo: "" }),
+    base({ outbound_date: "2026-06-10", arrival_date: "2026-06-12", arrival_time: "10:00", customer: "한빛건설", product_type: "강판", coil_number: "C-20260601-1043", manufacturer: "동국", color_name: "차콜", site_address: "서울 강남구 역삼로 123 역삼 신축현장", outbound_meter: 120, before_meter: 880, after_meter: 760, is_completed: false, completed_at: null, memo: "오전 배송" }),
+    base({ outbound_date: "2026-06-08", arrival_date: "2026-06-09", arrival_time: "14:00", customer: "판교물류", product_type: "징크", coil_number: "C-20260528-3391", manufacturer: "동국", color_name: "다크그레이", site_address: "경기 성남시 분당구 판교로 50 판교 물류센터", outbound_meter: 80, before_meter: 1280, after_meter: 1200, is_completed: true, completed_at: "2026-06-08", memo: "" }),
   ];
   return { coils, inbound, outbound };
 }
@@ -168,12 +168,12 @@ function DateRange({ from, to, setFrom, setTo }) {
 }
 const inRange = (d, from, to) => (!from || d >= from) && (!to || d <= to);
 
-function Toolbar({ q, setQ, children }) {
+function Toolbar({ q, setQ, children, placeholder = "코일번호 · 제조사 · 색상 · 매입처 · 현장 검색" }) {
   return (
     <div className="flex items-center gap-2 flex-wrap no-print">
       <div className="relative flex-1 min-w-[200px]">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="코일번호 · 제조사 · 색상 · 매입처 · 현장 검색"
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={placeholder}
           className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
       </div>
       {children}
@@ -227,17 +227,13 @@ export default function CoilInventory() {
   const current = NAV.find((n) => n.key === menu);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-slate-800">
+    <div className="min-h-screen bg-slate-50 text-slate-800">
       <GlobalStyle />
       {/* 상단 바 */}
       <header className="sticky top-0 z-50 bg-white/65 backdrop-blur-xl border-b border-white/70 shadow-sm">
         <div className="max-w-[1400px] mx-auto px-3 md:px-8 h-16 md:h-20 flex items-center justify-between">
-          <button onClick={() => goto("dashboard")} className="flex items-center gap-2.5">
-            <img src="/coil-inventory-management/assets/mascot.gif" alt="" className="w-11 h-11 md:w-14 md:h-14 object-contain drop-shadow-sm" />
-            <div className="text-left">
-              <div className="font-extrabold tracking-tight leading-tight text-slate-800 text-sm sm:text-base md:text-xl">HN 코인 재고관리</div>
-              <div className="hidden sm:block text-[11px] md:text-xs text-slate-400 leading-none mt-0.5">{current?.label}</div>
-            </div>
+          <button onClick={() => goto("dashboard")} className="h-11 md:h-13 px-3 md:px-4 rounded-2xl bg-gradient-to-r from-slate-700 via-indigo-700 to-slate-700 shadow-md">
+            <img src="/coil-inventory-management/assets/hnmt-logo.png" alt="HNMT" className="w-36 md:w-48 h-full object-contain" />
           </button>
           <button onClick={() => setDrawer(true)} aria-label="메뉴 열기"
             className="w-11 h-11 md:w-12 md:h-12 rounded-2xl bg-white/25 border border-white/60 backdrop-blur-xl shadow-lg shadow-indigo-200/30 flex items-center justify-center transition hover:bg-white/45 hover:-translate-y-0.5">
@@ -274,6 +270,7 @@ function GlobalStyle() {
       .drawer-anim{ animation:slideDown .28s ease-out; }
       .menu-card{ animation:cardSlide .38s ease-out both; }
       .gradient-icon svg{ stroke:url(#menuIconGradient); }
+      .metric-icon svg{ stroke:url(#metricIconGradient); }
       @media print {
         .no-print{ display:none !important; }
         body{ background:#fff !important; }
@@ -300,23 +297,26 @@ function Login({ pw, setPw, pwErr, tryLogin }) {
         <span key={i} className="twinkle absolute rounded-full bg-white" style={{ top: `${st.top}%`, left: `${st.left}%`, width: st.s, height: st.s, animationDelay: `${st.d}s` }} />
       ))}
       <div className="w-full max-w-sm relative">
-        <div className="text-center mb-7">
+        <div className="text-center mb-5">
           <div className="glow-lock inline-flex items-center justify-center w-36 h-36 rounded-[2.5rem] bg-white/35 backdrop-blur mb-4 border border-white/60">
             <img src="/coil-inventory-management/assets/mascot.gif" alt="HN 마스코트" className="w-32 h-32 object-contain" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-700 tracking-tight">HN 코인 재고관리</h1>
-          <p className="text-slate-600/80 text-sm mt-1">접속 비밀번호 4자리를 입력하세요</p>
+          <p className="text-slate-600/75 text-sm">접속 비밀번호 4자리를 입력하세요</p>
         </div>
-        <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 shadow-2xl border border-white/60">
+        <div className="bg-white/75 backdrop-blur-xl rounded-3xl px-6 py-5 shadow-2xl border border-white/60">
           <input autoFocus type="password" inputMode="numeric" maxLength={4} value={pw}
             onChange={(e) => setPw(e.target.value.replace(/\D/g, "").slice(0, 4))}
-            onKeyDown={(e) => e.key === "Enter" && tryLogin()} placeholder="● ● ● ●"
-            className="w-full text-center tracking-[0.6em] text-2xl font-semibold py-3 rounded-2xl border-2 border-slate-200 focus:outline-none focus:border-indigo-400 bg-white/90" />
+            onKeyDown={(e) => e.key === "Enter" && tryLogin()} placeholder="•  •  •  •"
+            aria-label="비밀번호 4자리"
+            className="block w-60 sm:w-64 mx-auto text-center tracking-[0.55em] text-xl font-medium text-slate-300 placeholder:text-slate-300 py-2.5 pl-[0.55em] rounded-2xl border border-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-300/60 bg-white/70 shadow-inner" />
           {pwErr && <p className="text-rose-500 text-sm mt-2 text-center">{pwErr}</p>}
-          <button onClick={tryLogin} className="block mx-auto mt-3 text-xs font-semibold text-indigo-500 hover:text-rose-500 transition">
+          <button onClick={tryLogin}
+            className="block w-60 sm:w-64 mx-auto mt-4 py-2.5 rounded-full text-sm font-bold text-white tracking-[0.18em] shadow-lg shadow-indigo-300/35 transition hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0"
+            style={{ background: "linear-gradient(90deg,#efa8b7 0%,#b79bd5 52%,#7795cc 100%)" }}>
             로그인
           </button>
         </div>
+        <p className="mt-5 text-center text-[11px] tracking-[0.16em] text-white/75">© 2026 HNMT COIL SYSTEM</p>
       </div>
     </div>
   );
@@ -335,9 +335,8 @@ function Drawer({ open, onClose, menu, goto, onLogout }) {
         <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-5 md:py-7">
           <svg width="0" height="0" aria-hidden="true"><defs><linearGradient id="menuIconGradient" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#ef9aaf" /><stop offset=".5" stopColor="#a78bfa" /><stop offset="1" stopColor="#6387ca" /></linearGradient></defs></svg>
           <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2.5">
-              <img src="/coil-inventory-management/assets/mascot.gif" alt="" className="w-12 h-12 object-contain" />
-              <span className="font-extrabold tracking-tight">HN 코인 재고관리</span>
+            <div className="h-11 px-3 rounded-xl bg-slate-700/75">
+              <img src="/coil-inventory-management/assets/hnmt-logo.png" alt="HNMT" className="w-40 h-full object-contain" />
             </div>
             <button onClick={onClose} className="p-2 rounded-xl bg-white/25 hover:bg-white/45"><X size={22} /></button>
           </div>
@@ -368,14 +367,58 @@ function Drawer({ open, onClose, menu, goto, onLogout }) {
 /* =========================================================================
    대시보드
    ========================================================================= */
+const DASHBOARD_DATE = "2026-06-12";
+
+function completeOutboundRecord(o, coils, setCoils, setOutbound) {
+  const pool = coils
+    .filter((c) => c.product_type === o.product_type && c.current_meter > 0)
+    .sort((a, b) => {
+      if (cFirst(a, o.coil_number) !== cFirst(b, o.coil_number)) return cFirst(a, o.coil_number) - cFirst(b, o.coil_number);
+      return (a.inbound_date || a.created_at).localeCompare(b.inbound_date || b.created_at);
+    });
+  const avail = pool.reduce((a, c) => a + c.current_meter, 0);
+  if (o.outbound_meter > avail) {
+    alert("현재 재고 M보다 출고 예정 M이 커서 완료할 수 없습니다.");
+    return;
+  }
+  if (!confirm("이 출고 건을 완료 처리하시겠습니까? 재고가 차감됩니다.")) return;
+
+  let remain = o.outbound_meter;
+  const updates = {};
+  for (const c of pool) {
+    if (remain <= 0) break;
+    const take = Math.min(remain, c.current_meter);
+    const nextMeter = c.current_meter - take;
+    const ratio = c.initial_meter ? nextMeter / c.initial_meter : 0;
+    updates[c.id] = {
+      current_meter: nextMeter,
+      total_outbound_meter: c.total_outbound_meter + take,
+      current_roll_count: nextMeter <= 0 ? 0 : c.current_roll_count,
+      status: nextMeter <= 0 ? "사용완료" : ratio <= 0.2 ? "부족" : "정상",
+      updated_at: todayStr(),
+    };
+    remain -= take;
+  }
+  setCoils((list) => list.map((c) => updates[c.id] ? { ...c, ...updates[c.id] } : c));
+  setOutbound((list) => list.map((x) => x.id === o.id ? {
+    ...x, is_completed: true, completed_at: todayStr(), before_meter: avail, after_meter: avail - o.outbound_meter,
+  } : x));
+}
+
+function cFirst(coil, coilNumber) {
+  return coil.coil_number === coilNumber ? 0 : 1;
+}
+
 function Dashboard({ ctx, goto }) {
-  const { coils, outbound } = ctx;
+  const { coils, setCoils, outbound, setOutbound } = ctx;
   const [slide, setSlide] = useState(0);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [q, setQ] = useState("");
   const t = useRef();
   const slides = [
-    { title: "HN메탈릭 홈페이지", image: "/coil-inventory-management/assets/slide-company.jpg", link: "https://hnmt.co.kr/" },
-    { title: "HN메탈릭 유튜브", image: "/coil-inventory-management/assets/slide-youtube.jpg", link: "https://www.youtube.com/@hn메탈릭" },
-    { title: "HN메탈릭 네이버 블로그", image: "/coil-inventory-management/assets/slide-blog.jpg", link: "https://blog.naver.com/hnmt_blog" },
+    { title: "HN Shop 바로가기", desc: "HN메탈릭 공식 홈페이지", image: "/coil-inventory-management/assets/slide-shop.png", link: "https://hnmt.co.kr/" },
+    { title: "HN YouTube 바로가기", desc: "제품과 현장 영상을 확인하세요", image: "/coil-inventory-management/assets/slide-youtube-new.png", link: "https://www.youtube.com/@hn메탈릭" },
+    { title: "HN Instagram 바로가기", desc: "HN메탈릭의 새로운 소식", image: "/coil-inventory-management/assets/slide-instagram.png", link: "https://www.instagram.com/hnmt1555" },
   ];
 
   useEffect(() => {
@@ -383,47 +426,48 @@ function Dashboard({ ctx, goto }) {
     return () => clearInterval(t.current);
   }, [slides.length]);
 
-  const totalCoils = coils.length;
-  const totalRolls = coils.reduce((a, c) => a + (c.current_meter > 0 ? (c.current_roll_count || 1) : 0), 0);
   const totalMeter = coils.reduce((a, c) => a + (c.current_meter || 0), 0);
   const incomplete = outbound.filter((o) => !o.is_completed);
-  const todayShip = incomplete.filter((o) => o.outbound_date === todayStr()).length;
-  const lowCoils = coils.filter((c) => c.status === "부족").length;
-
-  const cards = [
-    { label: "전체 코일 수", value: totalCoils, unit: "건", icon: Boxes, grad: "from-indigo-500 to-violet-600" },
-    { label: "총 보유 롤 수", value: totalRolls, unit: "롤", icon: PackagePlus, grad: "from-blue-500 to-indigo-600" },
-    { label: "총 보유 재고", value: fmt(totalMeter), unit: "M", icon: Boxes, grad: "from-violet-500 to-purple-600" },
-    { label: "오늘 출고 예정", value: todayShip, unit: "건", icon: Truck, grad: "from-sky-500 to-blue-600" },
-    { label: "미완료 출고", value: incomplete.length, unit: "건", icon: Clock, grad: "from-amber-500 to-orange-600" },
-    { label: "부족 코일 수", value: lowCoils, unit: "건", icon: AlertTriangle, grad: "from-rose-500 to-pink-600" },
-  ];
+  const todayShip = incomplete.filter((o) => o.outbound_date === DASHBOARD_DATE).length;
+  const held = incomplete.filter((o) => o.outbound_date < DASHBOARD_DATE).length;
+  const productStats = ["강판", "징크"].map((product) => {
+    const rows = coils.filter((c) => c.product_type === product && c.current_meter > 0);
+    return {
+      product,
+      kinds: new Set(rows.map((c) => `${c.manufacturer}-${c.color_name}-${c.thickness}`)).size,
+      meter: rows.reduce((sum, c) => sum + (Number(c.current_meter) || 0), 0),
+      colors: [...new Set(rows.map((c) => c.color_name))],
+    };
+  });
 
   const todo = [...incomplete].sort((a, b) => {
-    const t0 = todayStr(); const r = (o) => (o.outbound_date < t0 ? 0 : o.outbound_date === t0 ? 1 : 2);
+    const t0 = DASHBOARD_DATE; const r = (o) => (o.outbound_date < t0 ? 0 : o.outbound_date === t0 ? 1 : 2);
     return r(a) - r(b) || a.outbound_date.localeCompare(b.outbound_date);
-  });
+  }).filter((o) => [o.customer, o.site_address, o.color_name, o.coil_number].join(" ").toLowerCase().includes(q.toLowerCase()));
+
+  const statusCards = [
+    { label: "오늘 출고 예정", value: todayShip, unit: "건", icon: CalendarDays },
+    { label: "미완료 출고", value: incomplete.length, unit: "건", icon: Clock },
+    { label: "출고 보류", value: held, unit: "건", icon: AlertTriangle },
+  ];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between">
-        <div>
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight">HN 코인 재고 현황</h2>
-          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">입고·출고·재고 현황을 한눈에 확인하세요</p>
-        </div>
-        <div className="text-sm font-bold text-slate-700 bg-white px-3 py-1.5 rounded-xl border border-slate-200">{todayStr()} 기준</div>
+      <svg width="0" height="0" aria-hidden="true"><defs><linearGradient id="metricIconGradient" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#ef9aaf" /><stop offset=".52" stopColor="#b49ad7" /><stop offset="1" stopColor="#7897cf" /></linearGradient></defs></svg>
+      <div>
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight">대시보드</h2>
+        <p className="text-slate-500 text-xs sm:text-sm mt-0.5">입고·출고·재고 현황을 한눈에 확인하세요</p>
       </div>
 
       {/* 슬라이더 */}
-      <div className="relative rounded-3xl overflow-hidden shadow-lg h-52 md:h-72">
+      <div className="relative rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm h-52 md:h-72 bg-white">
         {slides.map((s, i) => (
           <a key={i} href={s.link} target="_blank" rel="noreferrer"
-            className={`absolute inset-0 transition-opacity duration-700 ${i === slide ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+            className={`group absolute inset-0 transition-opacity duration-700 ${i === slide ? "opacity-100" : "opacity-0 pointer-events-none"}`}
             style={{ backgroundImage: `url(${s.image})`, backgroundSize: "cover", backgroundPosition: "center" }}>
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/65 via-transparent to-white/5" />
-            <div className="absolute bottom-0 left-0 p-6 md:p-8 text-white">
-              <h3 className="text-lg md:text-2xl font-bold mb-1 line-clamp-2">{s.title}</h3>
-              <p className="text-white/80 text-sm">이미지를 클릭하면 새 창으로 이동합니다</p>
+            <div className="absolute inset-x-0 bottom-0 p-5 md:p-7 text-white bg-gradient-to-t from-black/75 via-black/45 to-transparent translate-y-0 md:translate-y-full md:group-hover:translate-y-0 transition-transform duration-300">
+              <h3 className="text-lg md:text-2xl font-bold">{s.title} <ArrowRight className="inline" size={18} /></h3>
+              <p className="text-white/80 text-xs md:text-sm mt-1">{s.desc}</p>
             </div>
           </a>
         ))}
@@ -434,51 +478,69 @@ function Dashboard({ ctx, goto }) {
         </div>
       </div>
 
-      {/* 6개 지표 카드 (3+3) */}
-      <div className="grid grid-cols-3 gap-3 md:gap-4">
-        {cards.map((c) => {
-          const Icon = c.icon;
-          return (
-            <Card key={c.label} className="p-4 md:p-5 text-center relative overflow-hidden">
-              <div className={`absolute -right-5 -top-5 w-20 h-20 rounded-full bg-gradient-to-br ${c.grad} opacity-10`} />
-              <div className={`mx-auto w-10 h-10 rounded-xl bg-gradient-to-br ${c.grad} flex items-center justify-center mb-2 shadow-sm`}>
-                <Icon size={18} className="text-white" />
-              </div>
-              <div className="text-xs text-slate-500">{c.label}</div>
-              <div className="text-2xl md:text-3xl font-extrabold text-slate-800 mt-0.5">{c.value}<span className="text-sm font-medium text-slate-400 ml-1">{c.unit}</span></div>
-            </Card>
-          );
+      <Card className="overflow-hidden bg-white/75 backdrop-blur border-slate-200">
+        <button onClick={() => setInventoryOpen((v) => !v)} className="w-full p-5 md:p-6 text-left">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-5">
+            <div className="flex items-center gap-4 min-w-[260px]">
+              <div className="metric-icon w-14 h-14 rounded-2xl border border-indigo-200/70 bg-white/70 flex items-center justify-center"><Layers3 size={28} /></div>
+              <div><div className="text-sm font-semibold text-slate-500">총 보유 재고</div><div className="text-3xl md:text-4xl font-black">{fmt(totalMeter)}<span className="text-base text-slate-400 ml-1">M</span></div></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 flex-1">
+              {productStats.map((stat) => <div key={stat.product} className="rounded-2xl border border-slate-200/80 bg-white/60 px-4 py-3">
+                <div className="text-sm font-bold">{stat.product}</div>
+                <div className="text-xl md:text-2xl font-black text-indigo-700 mt-1">{stat.kinds}<span className="text-xs text-slate-400 ml-1">종류</span> · {fmt(stat.meter)}<span className="text-xs text-slate-400 ml-1">M</span></div>
+              </div>)}
+            </div>
+            <div className="flex items-center justify-center gap-1 text-sm font-bold text-indigo-600">상세보기 {inventoryOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}</div>
+          </div>
+        </button>
+        {inventoryOpen && <div className="border-t border-slate-200 px-5 md:px-6 py-4 grid md:grid-cols-2 gap-4 bg-slate-50/60">
+          {productStats.map((stat) => <div key={stat.product}><div className="font-bold text-sm mb-2">{stat.product} 색상 구성</div><div className="flex flex-wrap gap-2">{stat.colors.map((color) => <span key={color} className="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-xs"><Swatch name={color} size={12} /></span>)}</div></div>)}
+        </div>}
+      </Card>
+
+      <div className="flex flex-col md:flex-row md:items-center gap-3">
+        <div className="relative flex-1">
+          <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="거래처, 현장주소, 색상명, 코일번호 빠른 검색" className="w-full pl-10 pr-3 py-3 rounded-2xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+        </div>
+        <div className="md:ml-auto text-sm font-bold text-slate-700 bg-white px-4 py-3 rounded-2xl border border-slate-200 whitespace-nowrap">2026년 06월 12일 금요일 기준</div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 md:gap-4">
+        {statusCards.map((card) => {
+          const Icon = card.icon;
+          return <Card key={card.label} className="p-3 md:p-5 bg-white/75 backdrop-blur border-slate-200">
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-2 md:gap-4 text-center md:text-left">
+              <div className="metric-icon w-11 h-11 md:w-13 md:h-13 rounded-2xl border border-indigo-200/70 bg-white/70 flex items-center justify-center shrink-0"><Icon size={22} /></div>
+              <div><div className="text-xs md:text-sm font-semibold text-slate-500">{card.label}</div><div className="text-2xl md:text-3xl font-black mt-0.5">{card.value}<span className="text-xs md:text-sm text-slate-400 ml-1">{card.unit}</span></div></div>
+            </div>
+          </Card>;
         })}
       </div>
 
       {/* 미완료 출고 투두리스트 */}
       <Card className="overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-start gap-2">
           <Clock size={18} className="text-indigo-600" />
-          <h3 className="font-semibold">출고 To-Do (미완료)</h3>
-          <span className="text-xs text-slate-400">{todo.length}건</span>
+          <div><div className="flex items-center gap-2"><h3 className="font-bold">미완료 내역</h3><span className="text-xs text-slate-400">{todo.length}건</span></div><p className="text-xs text-slate-400 mt-1">완료 버튼을 누르면 출고 처리와 재고 차감이 함께 반영됩니다.</p></div>
           <button onClick={() => goto("outbound")} className="ml-auto text-sm text-indigo-600 font-medium inline-flex items-center gap-1 hover:gap-2 transition-all no-print">출고관리 <ArrowRight size={15} /></button>
         </div>
         <div className="divide-y divide-slate-50">
           {todo.length === 0 && <div className="px-5 py-8 text-center text-slate-400 text-sm">미완료 출고 건이 없습니다.</div>}
           {todo.map((o) => {
-            const overdue = o.outbound_date < todayStr(); const today = o.outbound_date === todayStr();
+            const overdue = o.outbound_date < DASHBOARD_DATE; const today = o.outbound_date === DASHBOARD_DATE;
             return (
-              <div key={o.id} className={`px-5 py-3.5 flex items-center gap-4 ${overdue ? "bg-rose-50/40" : today ? "bg-amber-50/40" : ""}`}>
+              <div key={o.id} className={`px-4 md:px-5 py-3.5 flex items-center gap-3 md:gap-4 ${overdue ? "bg-rose-50/40" : today ? "bg-amber-50/40" : ""}`}>
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${o.product_type === "강판" ? "bg-blue-100 text-blue-600" : "bg-violet-100 text-violet-600"}`}>
                   <Truck size={16} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium">{o.product_type}</span>
-                    <span className="text-sm text-slate-500 truncate"><MapPin size={12} className="inline mr-0.5" />{o.site_address}</span>
-                  </div>
-                  <div className="text-xs text-slate-400 mt-0.5">출고일 {o.outbound_date} · 도착 {o.arrival_date} {o.arrival_time}</div>
+                  <div className="font-bold truncate">{o.customer || "거래처 미입력"} <span className="text-slate-400 font-medium">· {o.color_name || o.product_type}</span></div>
+                  <div className="text-lg font-black text-indigo-700">{fmt(o.outbound_meter)} M</div>
+                  <div className="text-xs text-slate-400 mt-0.5">출고일 {o.outbound_date} · 도착일 {o.arrival_date} · 도착시간 {o.arrival_time}</div>
                 </div>
-                <div className="text-right shrink-0">
-                  <div className="font-bold text-indigo-700">{fmt(o.outbound_meter)} M</div>
-                  {overdue ? <span className="text-rose-600 text-xs font-semibold">지연</span> : today ? <span className="text-amber-600 text-xs font-semibold">오늘</span> : <span className="text-slate-400 text-xs">예정</span>}
-                </div>
+                <button onClick={() => completeOutboundRecord(o, coils, setCoils, setOutbound)} className="shrink-0 px-3 py-2 rounded-xl bg-gradient-to-r from-rose-300 via-violet-400 to-blue-400 text-white text-xs md:text-sm font-bold shadow-sm hover:shadow-md"><Check size={14} className="inline mr-1" />출고완료</button>
               </div>
             );
           })}
@@ -698,70 +760,72 @@ function DetailPanel({ rows, extra }) {
 /* =========================================================================
    출고관리  (제품구분별 FIFO 차감)
    ========================================================================= */
-const blankOutbound = () => ({ outbound_date: todayStr(), product_type: "강판", arrival_date: todayStr(), arrival_time: "09:00", site_address: "", outbound_meter: 0, memo: "" });
+const blankOutbound = () => ({
+  outbound_date: todayStr(), customer: "", arrival_date: todayStr(), arrival_time: "09:00",
+  product_type: "강판", coil_number: "", manufacturer: "", color_name: "",
+  site_address: "", outbound_meter: 0, memo: "",
+});
 
 function Outbound({ ctx }) {
   const { outbound, setOutbound, coils, setCoils } = ctx;
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blankOutbound());
+  const [editId, setEditId] = useState(null);
+  const [pendingOpen, setPendingOpen] = useState(true);
   const [q, setQ] = useState("");
   const [from, setFrom] = useState(""); const [to, setTo] = useState("");
-  const [expanded, setExpanded] = useState(null);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const availOf = (pt) => coils.filter((c) => c.product_type === pt && c.current_meter > 0).reduce((a, c) => a + c.current_meter, 0);
+  const customerList = [...new Set(outbound.map((o) => o.customer).filter(Boolean))];
+  const availableCoils = coils.filter((c) => c.product_type === form.product_type && c.current_meter > 0);
+  const chooseCoil = (coilNumber) => {
+    const coil = coils.find((c) => c.coil_number === coilNumber);
+    setForm((f) => coil ? {
+      ...f, coil_number: coil.coil_number, product_type: coil.product_type,
+      manufacturer: coil.manufacturer, color_name: coil.color_name,
+    } : { ...f, coil_number: coilNumber });
+  };
 
   const submit = () => {
-    if (!form.site_address) { alert("현장주소를 입력하세요."); return; }
-    const m = Number(form.outbound_meter) || 0;
-    if (m <= 0) { alert("출고량 M을 입력하세요."); return; }
-    const avail = availOf(form.product_type);
-    const rec = {
-      id: uid(), outbound_date: form.outbound_date, product_type: form.product_type, arrival_date: form.arrival_date,
-      arrival_time: form.arrival_time, site_address: form.site_address, outbound_meter: m,
-      before_meter: avail, after_meter: avail - m, is_completed: false, completed_at: null, memo: form.memo,
-      created_at: todayStr(), updated_at: todayStr(),
-    };
-    setOutbound((l) => [rec, ...l]); // 미완료 홀드 (재고 차감 X)
-    setOpen(false); setForm(blankOutbound());
-  };
-
-  // 완료 승인: 제품구분별 FIFO(오래된 코일 먼저) 차감
-  const approve = (o) => {
-    const pool = coils.filter((c) => c.product_type === o.product_type && c.current_meter > 0)
-      .sort((a, b) => (a.inbound_date || a.created_at).localeCompare(b.inbound_date || b.created_at));
-    const avail = pool.reduce((a, c) => a + c.current_meter, 0);
-    if (o.outbound_meter > avail) { alert("현재 재고 M보다 출고 예정 M이 커서 승인할 수 없습니다."); return; }
-    if (!confirm("이 출고 건을 완료 승인하시겠습니까? (재고가 차감됩니다)")) return;
-    let remain = o.outbound_meter;
-    const updates = {};
-    for (const c of pool) {
-      if (remain <= 0) break;
-      const take = Math.min(remain, c.current_meter);
-      const nm = c.current_meter - take;
-      const ratio = c.initial_meter ? nm / c.initial_meter : 0;
-      updates[c.id] = {
-        current_meter: nm, total_outbound_meter: c.total_outbound_meter + take,
-        current_roll_count: nm <= 0 ? 0 : c.current_roll_count,
-        status: nm <= 0 ? "사용완료" : ratio <= 0.2 ? "부족" : "정상", updated_at: todayStr(),
-      };
-      remain -= take;
+    if (!form.outbound_date || !form.customer || !form.arrival_date || !form.arrival_time ||
+      !form.product_type || !form.coil_number || !form.manufacturer || !form.color_name || !form.site_address) {
+      alert("*필수입력을 작성해주세요");
+      return;
     }
-    setCoils((l) => l.map((c) => updates[c.id] ? { ...c, ...updates[c.id] } : c));
-    setOutbound((l) => l.map((x) => x.id === o.id ? { ...x, is_completed: true, completed_at: todayStr(), before_meter: avail, after_meter: avail - o.outbound_meter } : x));
+    const m = Number(form.outbound_meter) || 0;
+    if (m <= 0) { alert("*필수입력을 작성해주세요"); return; }
+    const avail = availOf(form.product_type);
+    if (editId) {
+      setOutbound((list) => list.map((o) => o.id === editId ? { ...o, ...form, outbound_meter: m, updated_at: todayStr() } : o));
+    } else {
+      const rec = {
+        id: uid(), ...form, outbound_meter: m, before_meter: avail, after_meter: avail - m,
+        is_completed: false, completed_at: null, created_at: todayStr(), updated_at: todayStr(),
+      };
+      setOutbound((list) => [rec, ...list]);
+    }
+    setOpen(false); setEditId(null); setForm(blankOutbound());
   };
 
+  const approve = (o) => completeOutboundRecord(o, coils, setCoils, setOutbound);
+  const startEdit = (o) => { setForm({ ...blankOutbound(), ...o }); setEditId(o.id); setOpen(true); };
   const remove = (id) => { if (confirm("정말 삭제하시겠습니까?")) setOutbound((l) => l.filter((x) => x.id !== id)); };
 
   const incomplete = outbound.filter((o) => !o.is_completed).sort((a, b) => a.outbound_date.localeCompare(b.outbound_date));
   const all = outbound
     .filter((o) => inRange(o.outbound_date, from, to))
-    .filter((o) => [o.product_type, o.site_address, o.memo].join(" ").toLowerCase().includes(q.toLowerCase()))
+    .filter((o) => [o.product_type, o.customer, o.site_address, o.color_name, o.coil_number, o.memo].join(" ").toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => b.outbound_date.localeCompare(a.outbound_date));
+  const allMeters = all.reduce((sum, o) => sum + (Number(o.outbound_meter) || 0), 0);
+  const steel = all.filter((o) => o.product_type === "강판");
+  const zinc = all.filter((o) => o.product_type === "징크");
 
   const exportXlsx = () => downloadXlsx(all.map((o) => ({
-    출고일: o.outbound_date, 제품구분: o.product_type, 도착일: o.arrival_date, 도착시간: o.arrival_time,
-    현장주소: o.site_address, 출고량M: o.outbound_meter, 완료여부: o.is_completed ? "완료" : "미완료", 완료일: o.completed_at || "", 비고: o.memo,
+    출고일: o.outbound_date, 도착일: o.arrival_date, 도착시간: o.arrival_time, 제품구분: o.product_type,
+    거래처: o.customer, 현장주소: o.site_address, 코일번호: o.coil_number, 제조사: o.manufacturer,
+    색상명: o.color_name, 출고량M: o.outbound_meter, 완료여부: o.is_completed ? "완료" : "미완료",
+    완료일: o.completed_at || "", 비고: o.memo,
   })), "출고내역", "출고내역.xlsx");
 
   return (
@@ -770,19 +834,20 @@ function Outbound({ ctx }) {
         <div><h2 className="text-2xl font-extrabold tracking-tight">출고관리</h2><p className="text-slate-500 text-sm mt-0.5">출고는 미완료로 홀드되고 [완료 승인] 시 재고가 차감됩니다</p></div>
         <div className="flex gap-2">
           <ExcelBtn onClick={exportXlsx} />
-          <button onClick={() => { setForm(blankOutbound()); setOpen(true); }} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium inline-flex items-center gap-1.5 hover:bg-indigo-700 no-print"><Plus size={16} />출고등록</button>
+          <button onClick={() => { setEditId(null); setForm(blankOutbound()); setOpen(true); }} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium inline-flex items-center gap-1.5 hover:bg-indigo-700 no-print"><Plus size={16} />출고등록</button>
         </div>
       </div>
 
       {/* 상단: 미완료(승인대기) */}
       <Card className="overflow-hidden print-card">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2 no-print">
-          <AlertTriangle size={18} className="text-amber-500" /><h3 className="font-semibold">승인 대기 (미완료)</h3><span className="text-xs text-slate-400">{incomplete.length}건</span>
-        </div>
-        <div className="overflow-x-auto">
+        <button onClick={() => setPendingOpen((v) => !v)} className="w-full px-5 py-4 flex items-center gap-2 no-print">
+          <AlertTriangle size={18} className="text-amber-500" /><h3 className="font-semibold">승인 대기</h3><span className="text-xs text-slate-400">{incomplete.length}건</span>
+          <span className="ml-auto w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500">{pendingOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}</span>
+        </button>
+        {pendingOpen && <div className="overflow-x-auto border-t border-slate-100">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs">
-              <tr>{["출고일", "구분", "도착일", "도착시간", "현장주소", "출고량M", "상태", "승인"].map((h) => <th key={h} className="px-3 py-2.5 text-left font-medium whitespace-nowrap">{h}</th>)}</tr>
+              <tr>{["출고일", "거래처", "구분", "색상명", "도착일", "도착시간", "현장주소", "출고량M", "승인"].map((h) => <th key={h} className="px-3 py-2.5 text-left font-medium whitespace-nowrap">{h}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {incomplete.map((o) => {
@@ -790,84 +855,78 @@ function Outbound({ ctx }) {
                 return (
                   <tr key={o.id} className={overdue ? "bg-rose-50/50" : today ? "bg-amber-50/40" : ""}>
                     <td className="px-3 py-2.5 whitespace-nowrap font-medium">{overdue && <AlertTriangle size={13} className="inline text-rose-500 mr-1" />}{o.outbound_date}</td>
+                    <td className="px-3 py-2.5 font-semibold whitespace-nowrap">{o.customer || "-"}</td>
                     <td className="px-3 py-2.5">{o.product_type}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">{o.color_name || "-"}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap">{o.arrival_date}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap">{o.arrival_time}</td>
                     <td className="px-3 py-2.5 text-slate-600 max-w-[320px]">{o.site_address}</td>
                     <td className="px-3 py-2.5 font-medium">{fmt(o.outbound_meter)}</td>
-                    <td className="px-3 py-2.5">{overdue ? <span className="text-rose-600 text-xs font-semibold">지연</span> : today ? <span className="text-amber-600 text-xs font-semibold">오늘</span> : <span className="text-slate-400 text-xs">예정</span>}</td>
                     <td className="px-3 py-2.5 no-print"><button onClick={() => approve(o)} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium inline-flex items-center gap-1 hover:bg-emerald-700"><Check size={13} />완료 승인</button></td>
                   </tr>
                 );
               })}
-              {incomplete.length === 0 && <tr><td colSpan={8} className="px-3 py-8 text-center text-slate-400">승인 대기 건이 없습니다.</td></tr>}
+              {incomplete.length === 0 && <tr><td colSpan={9} className="px-3 py-8 text-center text-slate-400">승인 대기 건이 없습니다.</td></tr>}
             </tbody>
           </table>
-        </div>
+        </div>}
       </Card>
 
       {/* 하단: 전체 이력 */}
-      <Toolbar q={q} setQ={setQ}><DateRange from={from} to={to} setFrom={setFrom} setTo={setTo} /></Toolbar>
+      <div className="border-t border-slate-300/80" />
+      <Toolbar q={q} setQ={setQ} placeholder="거래처 · 현장주소 · 색상명 · 코일번호 검색"><DateRange from={from} to={to} setFrom={setFrom} setTo={setTo} /></Toolbar>
       <Card className="overflow-hidden print-card">
-        <div className="px-5 py-4 border-b border-slate-100 no-print"><h3 className="font-semibold">전체 출고 이력</h3></div>
+        <div className="px-5 py-4 border-b border-slate-100 no-print">
+          <h3 className="font-semibold">전체 출고 이력</h3>
+          <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-500 mt-2">
+            <span>전체 <b className="text-slate-800">{all.length}건 · {fmt(allMeters)} M</b></span>
+            <span>강판 <b className="text-indigo-700">{steel.length}건 · {fmt(steel.reduce((s, o) => s + Number(o.outbound_meter || 0), 0))} M</b></span>
+            <span>징크 <b className="text-violet-700">{zinc.length}건 · {fmt(zinc.reduce((s, o) => s + Number(o.outbound_meter || 0), 0))} M</b></span>
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs">
-              <tr>{["출고일", "구분", "도착일", "현장주소", "출고량M", "완료여부", ""].map((h) => <th key={h} className="px-3 py-2.5 text-left font-medium whitespace-nowrap">{h}</th>)}</tr>
+              <tr>{["출고일", "도착일", "도착시간", "구분", "거래처", "현장주소", "색상명", "출고량", "완료여부", ""].map((h) => <th key={h} className="px-3 py-2.5 text-left font-medium whitespace-nowrap">{h}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {all.map((o) => (
-                <React.Fragment key={o.id}>
-                  <tr className="hover:bg-slate-50/50">
-                    <td className="px-3 py-2.5 whitespace-nowrap">{o.outbound_date}</td>
-                    <td className="px-3 py-2.5">{o.product_type}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">{o.arrival_date}</td>
-                    <td className="px-3 py-2.5 text-slate-600 max-w-[360px]">{o.site_address}</td>
-                    <td className="px-3 py-2.5 font-medium">{fmt(o.outbound_meter)}</td>
-                    <td className="px-3 py-2.5">{o.is_completed ? <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-700 border border-emerald-200">완료</span> : <span className="px-2 py-0.5 rounded-full text-xs bg-amber-50 text-amber-700 border border-amber-200">미완료</span>}</td>
-                    <td className="px-3 py-2.5 no-print">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setExpanded(expanded === o.id ? null : o.id)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500">{expanded === o.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
-                        <button onClick={() => remove(o.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500"><Trash2 size={15} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                  {expanded === o.id && (
-                    <tr><td colSpan={7} className="p-0">
-                      <DetailPanel rows={[
-                        ["제품 구분", o.product_type], ["출고일", o.outbound_date], ["도착", `${o.arrival_date} ${o.arrival_time}`],
-                        ["현장주소", o.site_address], ["출고량", fmt(o.outbound_meter) + " M"],
-                        ["출고 전 재고", fmt(o.before_meter) + " M"], ["출고 후 재고", fmt(o.after_meter) + " M"],
-                        ["완료여부", o.is_completed ? `완료 (${o.completed_at})` : "미완료"], ["비고", o.memo || "-"],
-                      ]} />
-                    </td></tr>
-                  )}
-                </React.Fragment>
+                <tr key={o.id} className="hover:bg-slate-50/50">
+                  <td className="px-3 py-2.5 whitespace-nowrap">{o.outbound_date}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">{o.arrival_date}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">{o.arrival_time}</td>
+                  <td className="px-3 py-2.5">{o.product_type}</td>
+                  <td className="px-3 py-2.5 font-medium whitespace-nowrap">{o.customer || "-"}</td>
+                  <td className="px-3 py-2.5 text-slate-600 min-w-[220px]">{o.site_address}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">{o.color_name || "-"}</td>
+                  <td className="px-3 py-2.5 font-medium whitespace-nowrap">{fmt(o.outbound_meter)} M</td>
+                  <td className="px-3 py-2.5">{o.is_completed ? <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-700 border border-emerald-200">완료</span> : <span className="px-2 py-0.5 rounded-full text-xs bg-amber-50 text-amber-700 border border-amber-200">미완료</span>}</td>
+                  <td className="px-3 py-2.5 no-print whitespace-nowrap">
+                    <button onClick={() => startEdit(o)} className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-600"><Pencil size={15} /></button>
+                    <button onClick={() => remove(o.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500"><Trash2 size={15} /></button>
+                  </td>
+                </tr>
               ))}
-              {all.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-slate-400">출고 이력이 없습니다.</td></tr>}
+              {all.length === 0 && <tr><td colSpan={10} className="px-3 py-8 text-center text-slate-400">출고 이력이 없습니다.</td></tr>}
             </tbody>
           </table>
         </div>
       </Card>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="출고 등록" wide>
+      <Modal open={open} onClose={() => { setOpen(false); setEditId(null); }} title={editId ? "출고 내역 수정" : "출고 등록"} wide>
+        <datalist id="customer-options">{customerList.map((customer) => <option key={customer} value={customer} />)}</datalist>
         <div className="grid sm:grid-cols-2 gap-3">
           <Field label="출고일" required><input type="date" className={inputCls} value={form.outbound_date} onChange={(e) => set("outbound_date", e.target.value)} /></Field>
-          <Field label="제품 구분" required>
-            <div className="flex gap-2">
-              {["강판", "징크"].map((p) => (
-                <button key={p} type="button" onClick={() => set("product_type", p)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium border ${form.product_type === p ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>{p}</button>
-              ))}
-            </div>
-          </Field>
+          <Field label="거래처" required><input list="customer-options" className={inputCls} value={form.customer} onChange={(e) => set("customer", e.target.value)} placeholder="직접 입력 또는 등록 거래처 선택" /></Field>
           <Field label="도착일"><input type="date" className={inputCls} value={form.arrival_date} onChange={(e) => set("arrival_date", e.target.value)} /></Field>
           <Field label="도착 시간"><input type="time" className={inputCls} value={form.arrival_time} onChange={(e) => set("arrival_time", e.target.value)} /></Field>
-          <div className="sm:col-span-2">
-            <Field label="현장주소" required><input className={inputCls} value={form.site_address} onChange={(e) => set("site_address", e.target.value)} placeholder="예: 서울 강남구 역삼로 123 ○○현장" /></Field>
-          </div>
+          <Field label="제품 구분" required><select className={inputCls} value={form.product_type} onChange={(e) => setForm((f) => ({ ...f, product_type: e.target.value, coil_number: "", manufacturer: "", color_name: "" }))}><option>강판</option><option>징크</option></select></Field>
+          <Field label="코일" required><select className={inputCls} value={form.coil_number} onChange={(e) => chooseCoil(e.target.value)}><option value="">코일 선택</option>{availableCoils.map((c) => <option key={c.id} value={c.coil_number}>{c.coil_number} · {fmt(c.current_meter)} M</option>)}</select></Field>
+          <Field label="제조사" required><input className={inputCls} value={form.manufacturer} onChange={(e) => set("manufacturer", e.target.value)} /></Field>
+          <Field label="색상명" required><ColorPicker product={form.product_type} maker={form.manufacturer} value={form.color_name} onPick={(name) => set("color_name", name)} /></Field>
           <Field label="출고량 M" required><input type="number" className={inputCls} value={form.outbound_meter} onChange={(e) => set("outbound_meter", e.target.value)} /></Field>
-          <Field label="비고"><input className={inputCls} value={form.memo} onChange={(e) => set("memo", e.target.value)} /></Field>
+          <div className="sm:col-span-2"><Field label="현장주소" required><input className={inputCls} value={form.site_address} onChange={(e) => set("site_address", e.target.value)} placeholder="예: 서울 강남구 역삼로 123 ○○현장" /></Field></div>
+          <div className="sm:col-span-2"><Field label="비고"><textarea rows={3} className={inputCls} value={form.memo} onChange={(e) => set("memo", e.target.value)} /></Field></div>
         </div>
         <div className="mt-4 p-3 rounded-xl bg-slate-50 flex items-center justify-between text-sm">
           <span className="text-slate-600">현재 {form.product_type} 가용 재고</span>
@@ -875,8 +934,8 @@ function Outbound({ ctx }) {
         </div>
         {Number(form.outbound_meter) > availOf(form.product_type) && <p className="text-rose-500 text-sm mt-2">출고량이 가용 재고보다 큽니다. (승인 시 제한됩니다)</p>}
         <div className="mt-5 flex justify-end gap-2">
-          <button onClick={() => setOpen(false)} className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600">취소</button>
-          <button onClick={submit} className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">미완료로 저장</button>
+          <button onClick={() => { setOpen(false); setEditId(null); }} className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600">취소</button>
+          <button onClick={submit} className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">{editId ? "수정 저장" : "미완료로 저장"}</button>
         </div>
       </Modal>
     </div>
