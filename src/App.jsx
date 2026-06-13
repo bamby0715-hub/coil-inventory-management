@@ -534,15 +534,15 @@ function TodayBriefing({ ctx, onClose }) {
       <div onClick={onClose}
         className="relative min-h-[100dvh] w-full bg-black/75 text-white flex items-center justify-center">
         <button type="button" onClick={(event) => { event.stopPropagation(); onClose(); }} aria-label="오늘의 브리핑 닫기"
-          className="fixed z-20 top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] w-11 h-11 sm:w-12 sm:h-12 rounded-full border border-white/25 bg-black/35 text-white/80 backdrop-blur-md flex items-center justify-center transition hover:bg-white/15 hover:text-white">
-          <X size={22} />
+          className="fixed z-20 top-[max(.75rem,env(safe-area-inset-top))] right-[max(.75rem,env(safe-area-inset-right))] w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-white/20 bg-black/35 text-white/75 backdrop-blur-md flex items-center justify-center transition hover:bg-white/15 hover:text-white">
+          <X size={18} />
         </button>
         <div onClick={(event) => event.stopPropagation()} className="w-full max-w-6xl px-5 py-10 sm:px-10">
           <div className="text-center max-w-4xl mx-auto">
             <h2 className="text-2xl sm:text-5xl font-black tracking-[0.08em] text-[#ff4f91]">HNMT COIL SYSTEM BRIEFING</h2>
             <p className="mt-5 text-sm sm:text-xl font-semibold text-white">{todayLabel()} 확인해야 할 내용입니다.</p>
-            <p className="mt-3 text-sm sm:text-base font-medium text-white/75">
-              오늘 <span className="font-bold text-[#ff4f91]">출고</span> {completedToday}건
+            <p className="mt-3 text-base sm:text-lg font-medium text-white/80">
+              <span className="font-bold text-[#ff4f91]">출고</span> {completedToday}건
               <span className="mx-2 text-white/30">·</span>
               <span className="font-bold text-[#ff4f91]">대기</span> {pending.length}건
             </p>
@@ -2137,13 +2137,15 @@ function Outbound({ ctx, quickOpen, clearQuick }) {
 
       <Modal open={open} onClose={() => { setOpen(false); setEditId(null); }} title={editId ? "출고 내역 수정" : "출고 등록"} wide>
         <datalist id="customer-options">{customerList.map((customer) => <option key={customer} value={customer} />)}</datalist>
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="출고일" required><input type="date" className={inputCls} value={form.outbound_date} onChange={(e) => set("outbound_date", e.target.value)} /></Field>
           <Field label="거래처" required><input list="customer-options" className={inputCls} value={form.customer} onChange={(e) => set("customer", e.target.value)} placeholder="직접 입력 또는 등록 거래처 선택" /></Field>
           <Field label="도착일"><input type="date" className={inputCls} value={form.arrival_date} onChange={(e) => set("arrival_date", e.target.value)} /></Field>
           <Field label="도착 시간"><input type="time" className={inputCls} value={form.arrival_time} onChange={(e) => set("arrival_time", e.target.value)} /></Field>
-          <Field label="제품 구분" required><select className={inputCls} value={form.product_type} onChange={(e) => setForm((f) => ({ ...f, product_type: e.target.value, coil_number: "", manufacturer: "", color_name: "", color_code: "", thickness: "" }))}><option>강판</option><option>징크</option></select></Field>
-          <div className="relative">
+          <div className="min-w-0">
+            <Field label="제품 구분" required><select className={`${inputCls} h-[42px]`} value={form.product_type} onChange={(e) => setForm((f) => ({ ...f, product_type: e.target.value, coil_number: "", manufacturer: "", color_name: "", color_code: "", thickness: "" }))}><option>강판</option><option>징크</option></select></Field>
+          </div>
+          <div className="relative min-w-0">
             <Field label="코일 색상" required>
               <div className="flex items-center gap-2">
                 <Swatch name={form.color_name} />
@@ -2182,8 +2184,8 @@ function Outbound({ ctx, quickOpen, clearQuick }) {
               {selectedColor ? `${selectedColor.maker} · ${selectedColor.code || "코드없음"} · ${selectedColor.thickness}T` : "코일 색상을 선택하면 자동 표시됩니다."}
             </div>
           </Field>
-          <div className="sm:col-span-2"><Field label="현장주소" required><input className={inputCls} value={form.site_address} onChange={(e) => set("site_address", e.target.value)} placeholder="예: 서울 강남구 역삼로 123 ○○현장" /></Field></div>
-          <div className="sm:col-span-2">
+          <div className="md:col-span-2"><Field label="현장주소" required><input className={inputCls} value={form.site_address} onChange={(e) => set("site_address", e.target.value)} placeholder="예: 서울 강남구 역삼로 123 ○○현장" /></Field></div>
+          <div className="md:col-span-2">
             <Field label="첨부파일 / 이미지">
               <label onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); attachFiles(e.dataTransfer.files); }}
                 className="min-h-28 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/70 flex flex-col items-center justify-center text-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/40 transition">
