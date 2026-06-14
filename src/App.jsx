@@ -3,7 +3,7 @@ import {
   LayoutDashboard, PackagePlus, Truck, Boxes, BarChart3, Palette,
   Search, Download, Plus, ChevronDown, ChevronRight, Check,
   Trash2, Pencil, X, AlertTriangle, Clock, Menu, ArrowRight,
-  Factory, MapPin, LogOut, Layers3, CalendarDays, Eye, EyeOff, ClipboardCheck, RotateCcw
+  Factory, MapPin, LogOut, Layers3, CalendarDays, Package, Eye, EyeOff, ClipboardCheck, RotateCcw
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -209,7 +209,7 @@ function StatusBadge({ status }) {
 }
 function Modal({ open, onClose, title, children, wide, plainHeader = false, hideClose = false, headerActions }) {
   if (!open) return null;
-  const widthClass = wide === "medium" ? "max-w-3xl" : wide ? "max-w-5xl" : "max-w-xl";
+  const widthClass = wide === "inventory" ? "max-w-[1480px]" : wide === "medium" ? "max-w-3xl" : wide ? "max-w-5xl" : "max-w-xl";
   return (
     <div className="fixed inset-0 z-[60] flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto bg-slate-900/50 backdrop-blur-sm no-print">
       <div className={`bg-white rounded-2xl shadow-2xl w-full ${widthClass} my-2 sm:my-4 max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col`}>
@@ -225,12 +225,116 @@ function Modal({ open, onClose, title, children, wide, plainHeader = false, hide
     </div>
   );
 }
+function OutboundSummaryModal({ item, onClose }) {
+  if (!item) return null;
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-6 bg-slate-900/50 backdrop-blur-sm no-print" onMouseDown={onClose}>
+      <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_24px_65px_rgba(15,23,42,0.32)]" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="flex items-center justify-between gap-4 px-5 pt-5 pb-4 sm:px-6 sm:pt-5 sm:pb-4">
+          <h3 className="min-w-0 truncate text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
+            {item.customer || "거래처"} 출고 요약
+          </h3>
+          <button type="button" onClick={onClose}
+            className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
+            aria-label="닫기">
+            <X size={24} className="sm:hidden" />
+            <X size={22} className="hidden sm:block" strokeWidth={1.7} />
+          </button>
+        </div>
+        <div className="mx-5 border-t border-slate-200 sm:mx-6" />
+        <div className="space-y-4 px-5 py-5 sm:px-6 sm:py-6">
+          <div className="grid grid-cols-[26px_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[28px_minmax(0,1fr)] sm:gap-4">
+            <CalendarDays size={25} className="text-slate-500 sm:hidden" strokeWidth={1.8} />
+            <CalendarDays size={25} className="hidden text-slate-500 sm:block" strokeWidth={1.7} />
+            <div className="min-w-0 text-sm font-medium text-slate-900 sm:text-base">
+              {item.outbound_date || "-"}
+              <span className="mx-2 text-slate-500 sm:mx-4">→</span>
+              {item.arrival_date || "-"}{item.arrival_time ? ` ${item.arrival_time}` : ""}
+            </div>
+          </div>
+          <div className="grid grid-cols-[26px_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[28px_minmax(0,1fr)] sm:gap-4">
+            <Package size={25} className="text-slate-500 sm:hidden" strokeWidth={1.8} />
+            <Package size={25} className="hidden text-slate-500 sm:block" strokeWidth={1.7} />
+            <div className="min-w-0 text-sm font-medium text-slate-900 sm:text-base">
+              {item.product_type || "-"} · {item.manufacturer || "-"} · {item.color_name || "-"} ·{" "}
+              <span className="font-semibold text-indigo-600">{fmt(item.outbound_meter || 0)} M</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-[26px_minmax(0,1fr)] items-start gap-3 sm:grid-cols-[28px_minmax(0,1fr)] sm:gap-4">
+            <MapPin size={25} className="mt-0.5 text-slate-500 sm:hidden" strokeWidth={1.8} />
+            <MapPin size={25} className="mt-0.5 hidden text-slate-500 sm:block" strokeWidth={1.7} />
+            <div className="min-w-0 break-words text-sm font-medium text-slate-900 sm:text-base">{item.site_address || "-"}</div>
+          </div>
+          {item.memo && <div className="ml-11 border-t border-slate-100 pt-4 text-xs leading-5 text-slate-500 sm:ml-16 sm:text-sm">{item.memo}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
 function Field({ label, children, required }) {
   return (
     <label className="block">
       <span className="block text-xs font-medium text-slate-500 mb-1">{label}{required && <span className="text-rose-500"> *</span>}</span>
       {children}
     </label>
+  );
+}
+function PastelClock({ size = 20, className = "" }) {
+  const gradientId = useMemo(() => `pastel-clock-${uid()}`, []);
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id={gradientId} x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#F1A3BE" />
+          <stop offset="1" stopColor="#829BE5" />
+        </linearGradient>
+      </defs>
+      <circle cx="12" cy="12" r="9" stroke={`url(#${gradientId})`} strokeWidth="2" />
+      <path d="M12 7v5l3 2" stroke={`url(#${gradientId})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function PastelTruck({ size = 20, className = "" }) {
+  const gradientId = useMemo(() => `pastel-truck-${uid()}`, []);
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id={gradientId} x1="3" y1="4" x2="21" y2="20" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#F1A3BE" />
+          <stop offset="1" stopColor="#829BE5" />
+        </linearGradient>
+      </defs>
+      <path d="M3.5 6.5h10v10h-10zM13.5 10h3.2l3.8 3.8v2.7h-7z" stroke={`url(#${gradientId})`} strokeWidth="2" strokeLinejoin="round" />
+      <circle cx="7" cy="18" r="1.8" stroke={`url(#${gradientId})`} strokeWidth="2" />
+      <circle cx="17.5" cy="18" r="1.8" stroke={`url(#${gradientId})`} strokeWidth="2" />
+    </svg>
+  );
+}
+function PastelCalendar({ size = 20, className = "" }) {
+  const gradientId = useMemo(() => `pastel-calendar-${uid()}`, []);
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id={gradientId} x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#F1A3BE" />
+          <stop offset="1" stopColor="#829BE5" />
+        </linearGradient>
+      </defs>
+      <rect x="3.5" y="5.5" width="17" height="15" rx="3" stroke={`url(#${gradientId})`} strokeWidth="2" />
+      <path d="M8 3.5v4M16 3.5v4M3.5 10h17" stroke={`url(#${gradientId})`} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+function AutoGrowTextarea({ value, onChange, className = "", placeholder = "" }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!ref.current) return;
+    ref.current.style.height = "42px";
+    ref.current.style.height = `${Math.min(ref.current.scrollHeight, 128)}px`;
+  }, [value]);
+  return (
+    <textarea ref={ref} rows={1} value={value} onChange={onChange} placeholder={placeholder}
+      className={`${className} min-h-[42px] max-h-32 resize-none overflow-y-auto leading-5`} />
   );
 }
 const inputCls = "w-full min-w-0 px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-white";
@@ -246,6 +350,15 @@ function DateRange({ from, to, setFrom, setTo }) {
   );
 }
 const inRange = (d, from, to) => (!from || d >= from) && (!to || d <= to);
+const outboundDayStatus = (date) => {
+  if (!date) return "-";
+  const target = new Date(`${date}T00:00:00`);
+  const today = new Date(`${todayStr()}T00:00:00`);
+  const diff = Math.round((target - today) / 86400000);
+  if (diff === 0) return "D-Day";
+  if (diff > 0) return `D-${diff}`;
+  return `D+${Math.abs(diff)}`;
+};
 
 function Toolbar({ q, setQ, children, placeholder = "코일번호 · 제조사 · 색상 · 매입처 · 현장 검색" }) {
   return (
@@ -259,9 +372,9 @@ function Toolbar({ q, setQ, children, placeholder = "코일번호 · 제조사 �
     </div>
   );
 }
-function ExcelBtn({ onClick }) {
+function ExcelBtn({ onClick, className = "" }) {
   return (
-    <button onClick={onClick} className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-600 inline-flex items-center gap-1.5 hover:bg-slate-50 no-print">
+    <button onClick={onClick} className={`h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-600 inline-flex items-center justify-center gap-1.5 hover:bg-slate-50 no-print ${className}`}>
       <Download size={16} />엑셀
     </button>
   );
@@ -292,17 +405,26 @@ export default function CoilInventory() {
   const [drawer, setDrawer] = useState(false);
   const [quickAction, setQuickAction] = useState(null);
   const [briefingOpen, setBriefingOpen] = useState(false);
+  const [outboundPendingOpen, setOutboundPendingOpen] = useState(false);
 
   const initial = useMemo(seed, []);
   const [coils, setCoils] = useStore("coils", initial.coils);
   const [inbound, setInbound] = useStore("inbound", initial.inbound);
   const [outbound, setOutbound] = useStore("outbound", initial.outbound);
+  const [reservations, setReservations] = useStore("reservations", []);
   const [baseStock, setBaseStock] = useStore("baseStock", {});
   const [stockHistory, setStockHistory] = useStore("stockHistory", []);
   const [customColors, setCustomColors] = useStore("customColors", []);
   const [discontinuedColors, setDiscontinuedColors] = useStore("discontinuedColors", []);
   const [zoneStock, setZoneStock] = useStore("zoneStock", {});
   const [baseStockDates, setBaseStockDates] = useStore("baseStockDates", {});
+  const [deletedBaseStockKeys, setDeletedBaseStockKeys] = useStore("deletedBaseStockKeys", []);
+  useEffect(() => {
+    const masterKeys = new Set(COLOR_MASTER.map((item) =>
+      `${item.product}|${item.maker}|${item.code}|${item.color}|${item.thickness}`
+    ));
+    setDeletedBaseStockKeys((current) => current.filter((key) => !masterKeys.has(key)));
+  }, [setDeletedBaseStockKeys]);
   useEffect(() => {
     const migrationKey = "hnmt-coil-timeline-reset-v1";
     if (!localStorage.getItem(migrationKey)) {
@@ -316,25 +438,28 @@ export default function CoilInventory() {
       setAuthed(true);
       setMenu("dashboard");
       setBriefingOpen(true);
+      setOutboundPendingOpen(false);
       setPwErr("");
     } else setPwErr("비밀번호가 일치하지 않습니다.");
   };
 
   if (!authed) return <Login pw={pw} setPw={setPw} pwErr={pwErr} tryLogin={tryLogin} />;
 
-  const ctx = { coils, setCoils, inbound, setInbound, outbound, setOutbound, baseStock, setBaseStock, stockHistory, setStockHistory, customColors, setCustomColors, discontinuedColors, setDiscontinuedColors, zoneStock, setZoneStock, baseStockDates, setBaseStockDates };
+  const ctx = { coils, setCoils, inbound, setInbound, outbound, setOutbound, reservations, setReservations, baseStock, setBaseStock, stockHistory, setStockHistory, customColors, setCustomColors, discontinuedColors, setDiscontinuedColors, zoneStock, setZoneStock, baseStockDates, setBaseStockDates, deletedBaseStockKeys, setDeletedBaseStockKeys };
   const goto = (k) => { setMenu(k); setDrawer(false); };
   const openQuick = (kind) => { setQuickAction(kind); setMenu(kind); setDrawer(false); };
   const resetAllData = () => {
     setCoils([]);
     setInbound([]);
     setOutbound([]);
+    setReservations([]);
     setBaseStock({});
     setStockHistory([]);
     setCustomColors([]);
     setDiscontinuedColors([]);
     setZoneStock({});
     setBaseStockDates({});
+    setDeletedBaseStockKeys([]);
     localStorage.removeItem("hnmt-coil-inboundTodos");
     setQuickAction(null);
   };
@@ -363,7 +488,8 @@ export default function CoilInventory() {
       <main className="max-w-[1400px] mx-auto p-4 md:p-8">
         {menu === "dashboard" && <Dashboard ctx={ctx} openQuick={openQuick} resetAllData={resetAllData} />}
         {menu === "inbound" && <Inbound ctx={ctx} quickOpen={quickAction === "inbound"} clearQuick={() => setQuickAction(null)} />}
-        {menu === "outbound" && <Outbound ctx={ctx} quickOpen={quickAction === "outbound"} clearQuick={() => setQuickAction(null)} />}
+        {menu === "outbound" && <Outbound ctx={ctx} quickOpen={quickAction === "outbound"} clearQuick={() => setQuickAction(null)}
+          pendingOpen={outboundPendingOpen} setPendingOpen={setOutboundPendingOpen} />}
         {menu === "coil" && <CoilManagement ctx={ctx} />}
         {menu === "inventory" && <Inventory ctx={ctx} />}
       </main>
@@ -381,6 +507,7 @@ function GlobalStyle() {
       @keyframes cardSlide { from{transform:translateY(-18px) scale(.96); opacity:0;} to{transform:translateY(0) scale(1); opacity:1;} }
       @keyframes rankingRise { from{transform:translateY(18px); opacity:0;} to{transform:translateY(0); opacity:1;} }
       @keyframes pendingPulse { 0%,100%{border-color:#d8dee9;box-shadow:0 0 0 0 rgba(167,139,250,0);} 50%{border-color:#a78bfa;box-shadow:0 0 0 4px rgba(247,202,201,.22),0 5px 16px rgba(146,168,209,.14);} }
+      @keyframes pendingStrong { 0%,100%{box-shadow:0 5px 18px rgba(146,168,209,.22),0 0 12px 1px rgba(247,202,201,.34),0 0 0 0 rgba(146,168,209,.22);} 50%{box-shadow:0 10px 30px rgba(128,142,220,.38),0 0 24px 5px rgba(247,202,201,.42),0 0 0 5px rgba(146,168,209,.12);} }
       .glow-lock{ animation:glowPulse 2.6s ease-in-out infinite; }
       .twinkle{ animation:twinkle 3s ease-in-out infinite; }
       .drawer-anim{ animation:slideDown .28s ease-out; }
@@ -399,6 +526,30 @@ function GlobalStyle() {
       .pending-active{
         background:#fff;
         animation:pendingPulse 2.3s ease-in-out infinite;
+      }
+      .outbound-pending-trigger{
+        border:1px solid #d8dee9;
+        background:#fff;
+        transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease;
+      }
+      .outbound-pending-trigger:hover,.outbound-pending-trigger:focus-visible{
+        transform:translateY(-2px);
+        border-color:transparent;
+        background:linear-gradient(#fff,#fff) padding-box,linear-gradient(135deg,#f2a9c2,#8ea7f3,#b88ae8) border-box;
+        box-shadow:0 9px 26px rgba(128,142,220,.24);
+      }
+      .outbound-pending-trigger.has-pending{
+        border-color:transparent;
+        background:linear-gradient(110deg,rgba(255,255,255,.99),rgba(253,247,250,.99),rgba(248,249,255,.99)) padding-box,linear-gradient(135deg,#ef9fbd,#91a8ef,#b98be8) border-box;
+        animation:pendingStrong 2s ease-in-out infinite;
+      }
+      .outbound-pending-panel{ animation:slideDown .3s ease-out both; }
+      .soft-pink-marker{
+        display:inline;
+        padding:0 .12rem;
+        background:linear-gradient(transparent 52%,rgba(247,202,201,.38) 52%,rgba(247,202,201,.38) 91%,transparent 91%);
+        box-decoration-break:clone;
+        -webkit-box-decoration-break:clone;
       }
       input[type="password"]::-ms-reveal,
       input[type="password"]::-ms-clear{ display:none; }
@@ -511,21 +662,50 @@ function Drawer({ open, onClose, menu, goto, onLogout }) {
    대시보드
    ========================================================================= */
 function TodayBriefing({ ctx, onClose }) {
-  const { outbound, baseStock, customColors, discontinuedColors } = ctx;
+  const { inbound, outbound, baseStock, stockHistory, baseStockDates, customColors, discontinuedColors } = ctx;
+  const [runtimeError, setRuntimeError] = useState(false);
+  useEffect(() => {
+    const reportError = () => setRuntimeError(true);
+    window.addEventListener("error", reportError);
+    window.addEventListener("unhandledrejection", reportError);
+    return () => {
+      window.removeEventListener("error", reportError);
+      window.removeEventListener("unhandledrejection", reportError);
+    };
+  }, []);
   const catalog = [...COLOR_MASTER, ...customColors];
+  const today = todayStr();
+  const previousStock = stockHistory.reduce((latest, record) => {
+    if (record.registered_at >= today) return latest;
+    const current = latest[record.key];
+    if (!current ||
+      String(record.registered_at).localeCompare(String(current.registered_at)) > 0 ||
+      (record.registered_at === current.registered_at && String(record.created_at || "").localeCompare(String(current.created_at || "")) > 0)) {
+      latest[record.key] = record;
+    }
+    return latest;
+  }, {});
   const stockRows = catalog
     .map((item) => {
       const key = `${item.product}|${item.maker}|${item.code}|${item.color}|${item.thickness}`;
-      return { ...item, key, meter: Number(baseStock[key]) || 0 };
+      const meter = Number(baseStock[key]) || 0;
+      const previousMeter = previousStock[key]
+        ? Number(previousStock[key].meter) || 0
+        : baseStockDates[key] && baseStockDates[key] < today ? meter : 0;
+      return { ...item, key, meter, previousMeter, change: meter - previousMeter };
     })
     .filter((item) => item.meter > 0 && !discontinuedColors.includes(item.key));
   const total = stockRows.reduce((sum, item) => sum + item.meter, 0);
+  const previousTotal = stockRows.reduce((sum, item) => sum + item.previousMeter, 0);
+  const totalChange = total - previousTotal;
   const steel = stockRows.filter((item) => item.product === "강판").reduce((sum, item) => sum + item.meter, 0);
   const zinc = stockRows.filter((item) => item.product === "징크").reduce((sum, item) => sum + item.meter, 0);
+  const previousSteel = stockRows.filter((item) => item.product === "강판").reduce((sum, item) => sum + item.previousMeter, 0);
+  const previousZinc = stockRows.filter((item) => item.product === "징크").reduce((sum, item) => sum + item.previousMeter, 0);
   const pending = outbound.filter((item) => !item.is_completed);
-  const today = todayStr();
   const todayShip = pending.filter((item) => item.outbound_date === today).length;
   const overdue = pending.filter((item) => item.outbound_date < today && item.arrival_date < today).length;
+  const inboundToday = inbound.filter((item) => item.inbound_date === today).length;
   const completedToday = outbound.filter((item) => item.is_completed && String(item.completed_at || "").startsWith(today)).length;
   const topColors = [...stockRows].sort((a, b) => b.meter - a.meter).slice(0, 5);
   const maxMeter = Math.max(...topColors.map((item) => item.meter), 1);
@@ -542,6 +722,8 @@ function TodayBriefing({ ctx, onClose }) {
             <h2 className="text-2xl sm:text-5xl font-black tracking-[0.08em] text-[#ff4f91]">HNMT COIL SYSTEM BRIEFING</h2>
             <p className="mt-5 text-sm sm:text-xl font-semibold text-white">{todayLabel()} 확인해야 할 내용입니다.</p>
             <p className="mt-3 text-base sm:text-lg font-medium text-white/80">
+              <span className="font-bold text-[#ff4f91]">입고</span> {inboundToday}건
+              <span className="mx-2 text-white/30">·</span>
               <span className="font-bold text-[#ff4f91]">출고</span> {completedToday}건
               <span className="mx-2 text-white/30">·</span>
               <span className="font-bold text-[#ff4f91]">대기</span> {pending.length}건
@@ -551,16 +733,34 @@ function TodayBriefing({ ctx, onClose }) {
           <div className="grid lg:grid-cols-[0.8fr_1.2fr] gap-4 mt-10">
             <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5">
               <h3 className="font-bold">제품별 재고 비중</h3>
-              {[["강판", steel, "from-rose-300 to-indigo-400"], ["징크", zinc, "from-indigo-300 to-blue-500"]].map(([label, meter, color]) => (
+              {[["강판", steel, previousSteel, "from-rose-300 to-indigo-400"], ["징크", zinc, previousZinc, "from-indigo-300 to-blue-500"]].map(([label, meter, previousMeter, color]) => {
+                const change = meter - previousMeter;
+                return (
                 <div key={label} className="mt-5">
-                  <div className="flex justify-between text-sm"><span>{label}</span><span className="font-bold">{fmt(meter)} M</span></div>
+                  <div className="flex justify-between gap-3 text-sm">
+                    <span>{label}</span>
+                    <span className="text-right">
+                      <strong>{fmt(meter)} M</strong>
+                      <span className={`ml-2 text-[11px] ${change > 0 ? "text-rose-300" : change < 0 ? "text-blue-300" : "text-white/35"}`}>
+                        {change > 0 ? "▲" : change < 0 ? "▼" : "−"} {change === 0 ? "변동 없음" : `${fmt(Math.abs(change))} M`}
+                      </span>
+                    </span>
+                  </div>
                   <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
                     <div className={`h-full rounded-full bg-gradient-to-r ${color}`} style={{ width: `${total ? meter / total * 100 : 0}%` }} />
                   </div>
                 </div>
-              ))}
+              )})}
               <div className="mt-6 pt-4 border-t border-white/10 text-xs leading-6 text-white/55">
                 {total > 0 ? `현재 총 재고는 ${fmt(total)} M입니다.` : "현재 등록된 재고가 없습니다."}
+                <br />
+                {total > 0
+                  ? totalChange > 0
+                    ? `전일보다 총 재고가 ${fmt(totalChange)} M 증가했습니다.`
+                    : totalChange < 0
+                      ? `전일보다 총 재고가 ${fmt(Math.abs(totalChange))} M 감소했습니다.`
+                      : "전일과 비교해 총 재고 변동이 없습니다."
+                  : "전일 비교가 필요한 재고 데이터가 없습니다."}
                 <br />
                 {todayShip > 0 ? `오늘 출고 예정은 ${todayShip}건입니다.` : "오늘 출고 예정이 없습니다."}
                 <br />
@@ -583,14 +783,21 @@ function TodayBriefing({ ctx, onClose }) {
                         <div className="h-full rounded-full bg-gradient-to-r from-rose-300 to-indigo-400" style={{ width: `${item.meter / maxMeter * 100}%` }} />
                       </div>
                     </div>
-                    <span className="text-right font-bold">{fmt(item.meter)} M</span>
+                    <span className="text-right">
+                      <strong className="block">{fmt(item.meter)} M</strong>
+                      <span className={`text-[10px] ${item.change > 0 ? "text-rose-300" : item.change < 0 ? "text-blue-300" : "text-white/35"}`}>
+                        {item.change > 0 ? `▲ ${fmt(item.change)}` : item.change < 0 ? `▼ ${fmt(Math.abs(item.change))}` : "−"}
+                      </span>
+                    </span>
                   </div>
                 ))}
                 {topColors.length === 0 && <div className="py-8 text-center text-sm text-white/40">등록된 재고가 없습니다.</div>}
               </div>
             </div>
           </div>
-
+          <p className={`mt-7 text-center text-[10px] sm:text-xs ${runtimeError ? "text-rose-300" : "text-white/35"}`}>
+            {runtimeError ? "화면 오류가 감지되었습니다. 관리자에게 점검을 요청해주세요." : "웹 화면 오류를 실시간 확인 중이며, 이상 발생 시 관리자에게 점검을 요청해주세요."}
+          </p>
         </div>
       </div>
     </div>
@@ -684,7 +891,6 @@ function Dashboard({ ctx, openQuick, resetAllData }) {
   const [slide, setSlide] = useState(0);
   const [mobileProduct, setMobileProduct] = useState("");
   const [selectedTodo, setSelectedTodo] = useState(null);
-  const [completeTarget, setCompleteTarget] = useState(null);
   const [todoOpen, setTodoOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const t = useRef();
@@ -793,7 +999,7 @@ function Dashboard({ ctx, openQuick, resetAllData }) {
             <AlertTriangle size={28} />
           </div>
           <p className="mt-4 text-base font-bold text-slate-800">전체 초기화 하시겠습니까?</p>
-          <p className="mt-2 text-xs text-slate-400">입고·출고·미완료·재고 및 기록 데이터가 모두 삭제되며 PDF 기본 색상표만 유지됩니다.</p>
+          <p className="mt-2 text-xs text-slate-400">입고·출고·예약·재고 기록과 직접 추가한 코일 색상이 삭제되며 PDF 기본 색상표만 유지됩니다.</p>
           <div className="grid grid-cols-2 gap-2 mt-6">
             <button onClick={() => setResetOpen(false)}
               className="h-11 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50">
@@ -836,19 +1042,20 @@ function Dashboard({ ctx, openQuick, resetAllData }) {
         <div className="divide-y divide-slate-50">
           {todo.length === 0 && <div className="px-5 py-8 text-center text-slate-400 text-sm">미완료 출고 건이 없습니다.</div>}
           {todo.map((o) => {
-            const overdue = o.outbound_date < currentDate; const today = o.outbound_date === currentDate;
             return (
-              <div key={o.id} className={`px-4 sm:px-5 py-3.5 flex items-center gap-3 ${overdue ? "bg-rose-50/40" : today ? "bg-amber-50/40" : ""}`}>
-                <div className="metric-icon shrink-0"><Truck size={20} /></div>
+              <div key={o.id} className="px-4 sm:px-5 py-3.5 flex items-center gap-3 bg-white">
+                <div className="w-6 h-6 flex items-center justify-center shrink-0"><PastelTruck size={20} /></div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 min-w-0 text-sm sm:text-base">
-                    <button onClick={() => setSelectedTodo(o)} className="font-extrabold text-indigo-800 hover:underline truncate">{o.customer || "거래처 미입력"}</button>
-                    <span className="text-slate-800 font-normal truncate">{o.manufacturer || "-"} · {o.color_name || "-"}{o.thickness ? `(${o.thickness}T)` : ""}</span>
-                    <span className="font-normal text-slate-800 whitespace-nowrap">{fmt(o.outbound_meter)} M</span>
+                  <div className="flex items-center gap-2 min-w-0 whitespace-nowrap">
+                    <button onClick={() => setSelectedTodo(o)} title={o.customer || "거래처 미입력"}
+                      className="max-w-[65%] truncate text-sm font-extrabold text-indigo-800 underline underline-offset-2 decoration-indigo-300 hover:text-indigo-600">
+                      {o.customer || "거래처 미입력"}
+                    </button>
+                    <span className={`shrink-0 text-[11px] font-medium ${o.outbound_date < currentDate ? "text-rose-500" : o.outbound_date === currentDate ? "text-amber-600" : "text-slate-400"}`}>
+                      {outboundDayStatus(o.outbound_date)}
+                    </span>
                   </div>
-                  <div className="text-[11px] text-slate-400 mt-1">{o.outbound_date} → {o.arrival_date} {o.arrival_time}</div>
                 </div>
-                <button onClick={() => setCompleteTarget(o)} className="pastel-outline shrink-0 px-3 py-2 rounded-xl text-slate-700 text-xs sm:text-sm font-medium transition hover:text-violet-700 focus-visible:outline-none">완료</button>
               </div>
             );
           })}
@@ -880,25 +1087,8 @@ function Dashboard({ ctx, openQuick, resetAllData }) {
         ))}
       </div>
 
-      <Modal open={!!selectedTodo} onClose={() => setSelectedTodo(null)} title={`${selectedTodo?.customer || "거래처"} 출고 요약`}>
-        {selectedTodo && <div className="space-y-3 text-sm">
-          <div className="font-semibold text-slate-700">{selectedTodo.outbound_date} <span className="text-slate-400 mx-1">→</span> {selectedTodo.arrival_date} {selectedTodo.arrival_time}</div>
-          <div className="font-bold">{selectedTodo.product_type} · {selectedTodo.manufacturer || "-"} · {selectedTodo.color_name || "-"} · <span className="text-indigo-700">{fmt(selectedTodo.outbound_meter)} M</span></div>
-          <div className="flex items-start gap-1.5 text-slate-600"><MapPin size={15} className="mt-0.5 shrink-0" />{selectedTodo.site_address || "-"}</div>
-          {selectedTodo.memo && <div className="pt-3 border-t border-slate-100 text-xs text-slate-500">{selectedTodo.memo}</div>}
-        </div>}
-      </Modal>
+      <OutboundSummaryModal item={selectedTodo} onClose={() => setSelectedTodo(null)} />
 
-      <Modal open={!!completeTarget} onClose={() => setCompleteTarget(null)} title="출고 완료 확인" plainHeader>
-        {completeTarget && <div className="text-center py-2">
-          <div className="metric-icon mx-auto mb-4 w-20 h-20 flex items-center justify-center"><Truck size={48} /></div>
-          <p className="font-bold text-slate-800">이 출고 건을 완료 처리하시겠습니까?</p>
-          <div className="grid grid-cols-2 gap-2 mt-5">
-            <button onClick={() => setCompleteTarget(null)} className="py-2.5 rounded-xl border border-slate-200 text-sm font-semibold">취소</button>
-            <button onClick={() => { completeOutboundRecord(completeTarget, coils, setCoils, setOutbound, true); setCompleteTarget(null); }} className="py-2.5 rounded-xl bg-white border border-indigo-300 text-indigo-700 text-sm font-bold hover:bg-indigo-50">완료</button>
-          </div>
-        </div>}
-      </Modal>
     </div>
   );
 }
@@ -906,9 +1096,9 @@ function Dashboard({ ctx, openQuick, resetAllData }) {
 /* =========================================================================
    제품구분→제조사 필터 + 색상 자동완성 (입고 폼에서 사용)
    ========================================================================= */
-function ColorPicker({ product, maker, value, onPick }) {
+function ColorPicker({ product, maker, value, onPick, catalog = COLOR_MASTER }) {
   const [focus, setFocus] = useState(false);
-  const opts = colorsFor(product, maker);
+  const opts = catalog.filter((c) => c.product === product && (!maker || c.maker === maker));
   const list = value ? opts.filter((o) => o.color.includes(value)) : opts;
   const uniq = [...new Map(list.map((o) => [`${o.color}-${o.code}-${o.thickness}`, o])).values()];
   return (
@@ -937,11 +1127,15 @@ function ColorPicker({ product, maker, value, onPick }) {
 /* =========================================================================
    입고관리
    ========================================================================= */
-const blankInbound = () => ({ inbound_date: todayStr(), product_type: "강판", manufacturer: "", color_name: "", color_code: "", thickness: "", coil_meter: 0, purchaser: "", memo: "" });
+const blankInbound = () => ({
+  inbound_date: todayStr(), product_type: "강판", manufacturer: "", color_name: "",
+  color_code: "", thickness: "", coil_meter: 0, purchaser: "", memo: "", attachments: [],
+});
 
 function Inbound({ ctx, quickOpen, clearQuick }) {
-  const { inbound, setInbound, coils, setCoils, baseStock, setBaseStock, stockHistory, setStockHistory, customColors, setCustomColors, discontinuedColors, setDiscontinuedColors } = ctx;
+  const { inbound, setInbound, coils, setCoils, baseStock, setBaseStock, stockHistory, setStockHistory, customColors, setCustomColors, discontinuedColors, setDiscontinuedColors, deletedBaseStockKeys } = ctx;
   const [q, setQ] = useState("");
+  const [searchQ, setSearchQ] = useState("");
   const [purchaserFilter, setPurchaserFilter] = useState("전체");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -954,6 +1148,7 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
   const [todos, setTodos] = useStore("inboundTodos", []);
   const [todoInputOpen, setTodoInputOpen] = useState(false);
   const [todoText, setTodoText] = useState("");
+  const [colorMenuOpen, setColorMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!quickOpen) return;
@@ -964,12 +1159,60 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
   }, [quickOpen, clearQuick]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const makers = makersFor(form.product_type);
+  const registrationCatalog = [...new Map([...COLOR_MASTER, ...customColors].map((item) => [
+    `${item.product}|${item.maker}|${item.code}|${item.color}|${item.thickness}`,
+    item,
+  ])).values()].filter((item) => {
+    const key = `${item.product}|${item.maker}|${item.code}|${item.color}|${item.thickness}`;
+    const isPdfDefault = COLOR_MASTER.some((master) =>
+      `${master.product}|${master.maker}|${master.code}|${master.color}|${master.thickness}` === key
+    );
+    return isPdfDefault || (Object.prototype.hasOwnProperty.call(baseStock, key) && !deletedBaseStockKeys.includes(key));
+  });
+  const productOptions = [...new Set(registrationCatalog.map((item) => item.product).filter(Boolean))];
+  const stockKey = (item) => `${item.product}|${item.maker}|${item.code}|${item.color}|${item.thickness}`;
+  const colorCatalog = registrationCatalog
+    .filter((item) => item.product === form.product_type && !discontinuedColors.includes(stockKey(item)));
+  const colorMatches = form.color_name.trim()
+    ? colorCatalog.filter((item) => item.color.includes(form.color_name.trim())).slice(0, 12)
+    : colorCatalog.slice(0, 12);
+  const selectedColor = colorCatalog.find((item) =>
+    item.color === form.color_name && item.maker === form.manufacturer &&
+    String(item.code || "") === String(form.color_code || "") && String(item.thickness) === String(form.thickness)
+  );
   const purchaserOptions = [...new Set(inbound.map((r) => r.purchaser).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, "ko"));
 
-  const onProduct = (p) => setForm((f) => ({ ...f, product_type: p, manufacturer: "", color_name: "", thickness: "" }));
-  const onColor = (name, thick, code) => setForm((f) => ({ ...f, color_name: name, color_code: code || "", thickness: thick != null ? thick : f.thickness }));
+  const onProduct = (p) => {
+    setForm((f) => ({ ...f, product_type: p, manufacturer: "", color_name: "", color_code: "", thickness: "" }));
+    setColorMenuOpen(false);
+  };
+  const chooseColor = (item) => {
+    setForm((current) => ({
+      ...current,
+      color_name: item.color,
+      manufacturer: item.maker,
+      color_code: item.code || "",
+      thickness: item.thickness,
+    }));
+    setColorMenuOpen(false);
+  };
+  const attachFiles = (files) => {
+    [...files].forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => setForm((current) => ({
+        ...current,
+        attachments: [...(current.attachments || []), {
+          id: uid(), name: file.name, type: file.type, size: file.size, data: reader.result,
+        }],
+      }));
+      reader.readAsDataURL(file);
+    });
+  };
+  const removeAttachment = (id) => setForm((current) => ({
+    ...current,
+    attachments: (current.attachments || []).filter((file) => file.id !== id),
+  }));
 
   const submit = () => {
     const meter = Number(form.coil_meter) || 0;
@@ -1000,7 +1243,7 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
     }
     setOpen(false); setForm(blankInbound()); setEditId(null);
   };
-  const startEdit = (r) => { setForm({ ...r }); setEditId(r.id); setOpen(true); };
+  const startEdit = (r) => { setForm({ ...r, attachments: r.attachments || [] }); setEditId(r.id); setOpen(true); };
   const remove = async (id) => {
     if (!await appConfirm("정말 삭제하시겠습니까?", { title: "입고 내역 삭제", type: "danger" })) return;
     const target = inbound.find((r) => r.id === id);
@@ -1012,11 +1255,19 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
   const rows = inbound
     .filter((r) => purchaserFilter === "전체" || r.purchaser === purchaserFilter)
     .filter((r) => inRange(r.inbound_date, from, to))
-    .filter((r) => [r.coil_number, r.manufacturer, r.color_name, r.purchaser].join(" ").toLowerCase().includes(q.toLowerCase()));
-  const groupedRows = ["강판", "징크"].map((product) => ({
+    .filter((r) => [r.coil_number, r.manufacturer, r.color_name, r.purchaser].join(" ").toLowerCase().includes(searchQ.toLowerCase()));
+  const groupedRows = [...new Set([...productOptions, ...rows.map((row) => row.product_type)])].map((product) => ({
     product,
     rows: rows.filter((r) => r.product_type === product),
   }));
+  const summaryGroups = groupedRows.filter((group) => group.rows.length > 0);
+  const resetInboundFilters = () => {
+    setPurchaserFilter("전체");
+    setFrom("");
+    setTo("");
+    setQ("");
+    setSearchQ("");
+  };
   const stockSource = stockDate ? stockHistory.filter((item) => item.registered_at === stockDate) : stockHistory;
   const latestStockHistory = Object.values(stockSource.reduce((latest, item) => {
     if (!latest[item.key] || item.registered_at > latest[item.key].registered_at) latest[item.key] = item;
@@ -1133,18 +1384,25 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
         </section>
 
         <section className="space-y-4 xl:col-span-2">
-          <div className="grid grid-cols-1 md:grid-cols-[120px_150px_18px_150px_minmax(180px,1fr)] gap-2 items-center no-print">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(240px,300px)_170px_18px_170px_minmax(180px,1fr)_72px_88px] gap-2 items-center no-print">
             <select value={purchaserFilter} onChange={(e) => setPurchaserFilter(e.target.value)} className={inputCls}>
               <option>전체</option>
               {purchaserOptions.map((purchaser) => <option key={purchaser} value={purchaser}>{purchaser}</option>)}
             </select>
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={`${inputCls} text-center`} />
-            <span className="hidden md:block text-center text-slate-400">~</span>
+            <span className="hidden lg:block text-center text-slate-400">~</span>
             <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={`${inputCls} text-center`} />
             <div className="relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="제조사 색상 검색" className={`${inputCls} pl-9`} />
+              <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && setSearchQ(q)}
+                placeholder="제조사 색상 검색" className={`${inputCls} pl-9`} />
             </div>
+            <button type="button" onClick={() => setSearchQ(q)}
+              className="h-[42px] rounded-xl border border-indigo-200 bg-white text-sm font-bold text-indigo-600 hover:bg-indigo-50">조회</button>
+            <button type="button" onClick={resetInboundFilters}
+              className="h-[42px] rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-500 hover:border-rose-200 hover:text-rose-500 inline-flex items-center justify-center gap-1.5">
+              <RotateCcw size={14} />초기화
+            </button>
           </div>
           {groupedRows.map((group) => (
             <Card key={group.product} className="overflow-hidden print-card">
@@ -1152,18 +1410,28 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
                 <h4 className="font-bold text-slate-800">{group.product} <span className="ml-1 text-xs font-normal text-slate-400">{group.rows.length}건</span></h4>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-xs sm:text-sm">
+                <table className="w-full min-w-[1100px] table-fixed text-xs sm:text-sm">
+                  <colgroup>
+                    <col className="w-[11%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[15%]" />
+                    <col className="w-[28%]" />
+                    <col className="w-[20%]" />
+                    <col className="w-[8%]" />
+                  </colgroup>
                   <thead className="bg-slate-50 text-slate-600">
-                    <tr>{["입고일", "구분", "제조사", "색상 / 두께", "매입처", ""].map((h) => <th key={h} className="px-3 py-2.5 text-left font-semibold whitespace-nowrap">{h}</th>)}</tr>
+                    <tr>{["입고일", "구분", "제조사", "색상 / 두께", "매입처", "비고", ""].map((h) => <th key={h} className={`px-3 py-2.5 font-semibold whitespace-nowrap ${h === "비고" ? "text-left" : "text-center"}`}>{h}</th>)}</tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                   {group.rows.map((r) => (
                     <tr key={r.id} className="hover:bg-slate-50/50">
-                      <td className="px-3 py-2.5 whitespace-nowrap">{r.inbound_date}</td>
-                      <td className="px-3 py-2.5">{r.product_type}</td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">{r.manufacturer}</td>
-                      <td className="px-3 py-2.5 whitespace-nowrap"><Swatch name={r.color_name} /> <span className="text-slate-400 text-xs ml-1">{r.thickness}T</span></td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">{r.purchaser}</td>
+                      <td className="px-3 py-2.5 text-center whitespace-nowrap">{r.inbound_date}</td>
+                      <td className="px-3 py-2.5 text-center">{r.product_type}</td>
+                      <td className="px-3 py-2.5 text-center whitespace-nowrap">{r.manufacturer}</td>
+                      <td className="px-3 py-2.5 text-center whitespace-nowrap"><span className="font-medium text-slate-700">{r.color_name}</span> <span className="text-slate-400 text-xs ml-1">{r.thickness}T</span></td>
+                      <td className="px-3 py-2.5 text-center leading-relaxed break-words" title={r.purchaser}>{r.purchaser || "-"}</td>
+                      <td className="px-3 py-2.5 text-left text-slate-500 leading-relaxed break-words" title={r.memo}>{r.memo || "-"}</td>
                       <td className="px-3 py-2.5 no-print">
                         <div className="flex items-center gap-1 justify-end">
                           <button onClick={() => startEdit(r)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><Pencil size={15} /></button>
@@ -1172,12 +1440,28 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
                       </td>
                   </tr>
                   ))}
-                  {group.rows.length === 0 && <tr><td colSpan={6} className="px-3 py-5 text-center text-xs text-slate-400">등록된 {group.product} 입고 내역이 없습니다.</td></tr>}
+                  {group.rows.length === 0 && <tr><td colSpan={7} className="px-3 py-5 text-center text-xs text-slate-400">등록된 {group.product} 입고 내역이 없습니다.</td></tr>}
                   </tbody>
                 </table>
               </div>
             </Card>
           ))}
+          {summaryGroups.length > 0 && (
+          <div className="mx-auto max-w-full border-t border-slate-200 px-2 pt-3">
+            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-sm text-slate-500">
+              <span className="text-xs font-medium text-slate-400">조회 합계</span>
+              {summaryGroups.map((group) => {
+                const purchaserCount = new Set(group.rows.map((row) => row.purchaser).filter(Boolean)).size;
+                return (
+                  <span key={group.product}>
+                    <b className="font-semibold text-slate-700">{group.product}</b>
+                    <span className="ml-1.5">{group.rows.length}건 / 매입처 {purchaserCount || "-"}</span>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+          )}
         </section>
       </div>
 
@@ -1199,33 +1483,75 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
 
       <Modal open={open} onClose={() => setOpen(false)} title={editId ? "입고 수정" : "입고 등록"} wide="medium">
         <div className="space-y-4 min-h-[430px] sm:min-h-[480px]">
-          <div className="grid sm:grid-cols-2 gap-3">
+          <div className="grid sm:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] gap-3">
             <Field label="입고일" required><input type="date" className={`${inputCls} text-center`} value={form.inbound_date} onChange={(e) => set("inbound_date", e.target.value)} /></Field>
             <Field label="매입처"><input className={inputCls} value={form.purchaser} onChange={(e) => set("purchaser", e.target.value)} placeholder="예: 동국제강" /></Field>
           </div>
-          <div className="grid sm:grid-cols-2 gap-3">
-          <Field label="제품 구분" required>
-            <div className="flex gap-2">
-              {["강판", "징크"].map((p) => (
-                <button key={p} type="button" onClick={() => onProduct(p)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium border ${form.product_type === p ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>{p}</button>
-              ))}
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] gap-3">
+            <Field label="제품 구분" required>
+              <select className={`${inputCls} h-[42px]`} value={form.product_type} onChange={(e) => onProduct(e.target.value)}>
+                {productOptions.map((product) => <option key={product}>{product}</option>)}
+              </select>
+            </Field>
+            <div className="relative min-w-0">
+              <Field label="코일 색상" required>
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg border border-slate-300 shrink-0" style={{ background: hexOf(form.color_name) }} />
+                  <input className={inputCls} value={form.color_name}
+                    onFocus={() => setColorMenuOpen(true)}
+                    onChange={(e) => {
+                      setForm((current) => ({
+                        ...current, color_name: e.target.value, manufacturer: "",
+                        color_code: "", thickness: "",
+                      }));
+                      setColorMenuOpen(true);
+                    }}
+                    placeholder="등록된 코일 색상 검색" />
+                </div>
+              </Field>
+              {colorMenuOpen && (
+                <div className="absolute z-30 left-10 right-0 top-full mt-1 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+                  {colorMatches.map((item) => (
+                    <button type="button" key={stockKey(item)} onMouseDown={(event) => event.preventDefault()} onClick={() => chooseColor(item)}
+                      className="w-full px-3 py-2.5 flex items-center gap-3 text-left hover:bg-indigo-50">
+                      <span className="w-6 h-6 rounded-lg border border-slate-200 shrink-0" style={{ background: hexOf(item.color) }} />
+                      <span className="font-medium text-sm">{item.color}</span>
+                      <span className="ml-auto text-xs text-slate-400">{item.maker} · {item.code || "코드없음"} · {item.thickness}T</span>
+                    </button>
+                  ))}
+                  {colorMatches.length === 0 && <div className="px-3 py-6 text-center text-sm text-slate-400">일치하는 등록 색상이 없습니다.</div>}
+                </div>
+              )}
             </div>
-          </Field>
-          <Field label="제조사 (구분에 따라 자동 필터)" required>
-            <select className={inputCls} value={form.manufacturer} onChange={(e) => set("manufacturer", e.target.value)}>
-              <option value="">선택하세요</option>
-              {makers.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </Field>
+            <div className="md:col-span-2">
+              <Field label="선택 코일 정보">
+                <div className="min-h-[42px] px-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center text-sm text-slate-600">
+                  {selectedColor ? `${selectedColor.maker} · ${selectedColor.code || "코드없음"} · ${selectedColor.thickness}T` : "코일 색상을 선택하면 자동 표시됩니다."}
+                </div>
+              </Field>
+            </div>
           </div>
-          <div className="grid sm:grid-cols-[1fr_110px] gap-3">
-          <Field label="색상명 (코드 · 두께 구분)" required>
-            <ColorPicker product={form.product_type} maker={form.manufacturer} value={form.color_name} onPick={onColor} />
+          <Field label="비고">
+            <AutoGrowTextarea className={inputCls} value={form.memo} onChange={(e) => set("memo", e.target.value)} placeholder="비고를 입력하세요" />
           </Field>
-          <Field label="두께"><input className={inputCls} value={form.thickness} onChange={(e) => set("thickness", e.target.value)} /></Field>
-          </div>
-          <Field label="비고"><textarea rows={3} className={inputCls} value={form.memo} onChange={(e) => set("memo", e.target.value)} /></Field>
+          <Field label="첨부파일 / 이미지">
+            <label onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); attachFiles(e.dataTransfer.files); }}
+              className="min-h-28 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/70 flex flex-col items-center justify-center text-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/40 transition">
+              <Download size={22} className="text-indigo-400" />
+              <span className="mt-2 text-sm font-medium text-slate-600">파일을 끌어놓거나 클릭해 첨부하세요</span>
+              <span className="mt-1 text-xs text-slate-400">이미지와 일반 파일을 등록할 수 있습니다.</span>
+              <input type="file" multiple className="hidden" onChange={(e) => { attachFiles(e.target.files); e.target.value = ""; }} />
+            </label>
+          </Field>
+          {(form.attachments || []).length > 0 && <div className="space-y-2">
+            {form.attachments.map((file) => (
+              <div key={file.id} className="min-h-10 px-3 py-2 rounded-xl border border-slate-200 bg-white flex items-center gap-2 text-sm">
+                <span className="min-w-0 break-all text-slate-600">{file.name}</span>
+                <span className="ml-auto shrink-0 text-xs text-slate-400">{Math.max(1, Math.round(file.size / 1024))} KB</span>
+                <button type="button" onClick={() => removeAttachment(file.id)} className="p-1 shrink-0 text-slate-400 hover:text-rose-500"><X size={16} /></button>
+              </div>
+            ))}
+          </div>}
         </div>
         <div className="mobile-safe-actions z-10 mt-5 -mx-1 px-1 pt-2 grid grid-cols-2 sm:flex sm:justify-end gap-2">
           <button onClick={() => setOpen(false)} className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600">취소</button>
@@ -1244,6 +1570,8 @@ function CoilManagement({ ctx }) {
     customColors, setCustomColors, discontinuedColors, setDiscontinuedColors,
     zoneStock, setZoneStock,
     baseStockDates, setBaseStockDates,
+    deletedBaseStockKeys, setDeletedBaseStockKeys,
+    reservations,
   } = ctx;
   const emptyFilters = { product: "전체", maker: "전체", thickness: "전체", color: "", soldOut: false };
   const [filters, setFilters] = useState(emptyFilters);
@@ -1252,17 +1580,33 @@ function CoilManagement({ ctx }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [addCoilOpen, setAddCoilOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyTab, setHistoryTab] = useState("base");
   const [baseInfoOpen, setBaseInfoOpen] = useState(false);
   const [baseEditing, setBaseEditing] = useState(false);
+  const [selectedBaseKeys, setSelectedBaseKeys] = useState([]);
+  const [openBaseEditorAfterAdd, setOpenBaseEditorAfterAdd] = useState(false);
+  const [baseSearch, setBaseSearch] = useState("");
   const [baseDraft, setBaseDraft] = useState({});
   const [historyDraft, setHistoryDraft] = useState([]);
   const [rankingProduct, setRankingProduct] = useState("강판");
   const [newCoil, setNewCoil] = useState({ product: "강판", maker: "동국", color: "", code: "", thickness: "0.45" });
   const [zoneDraft, setZoneDraft] = useState(zoneStock);
-  const catalog = [...new Map([...COLOR_MASTER, ...customColors].map((item) => [
+  const fullCatalog = [...new Map([...COLOR_MASTER, ...customColors].map((item) => [
     `${item.product}|${item.maker}|${item.code}|${item.color}|${item.thickness}`,
     item,
   ])).values()];
+  const catalog = fullCatalog.filter((item) => {
+    const key = `${item.product}|${item.maker}|${item.code}|${item.color}|${item.thickness}`;
+    const isPdfDefault = COLOR_MASTER.some((master) =>
+      `${master.product}|${master.maker}|${master.code}|${master.color}|${master.thickness}` === key
+    );
+    return isPdfDefault || !deletedBaseStockKeys.includes(key);
+  });
+  const catalogProducts = [...new Set(catalog.map((item) => item.product).filter(Boolean))];
+  const catalogMakers = [...new Set(catalog
+    .filter((item) => !newCoil.product || item.product === newCoil.product)
+    .map((item) => item.maker)
+    .filter(Boolean))];
   const keyOf = (c) => `${c.product}|${c.maker}|${c.code}|${c.color}|${c.thickness}`;
   const latestByKey = stockHistory.reduce((latest, item) => {
     if (!latest[item.key] || item.registered_at > latest[item.key].registered_at) latest[item.key] = item;
@@ -1292,6 +1636,14 @@ function CoilManagement({ ctx }) {
       a.color.localeCompare(b.color, "ko") ||
       Number(a.thickness) - Number(b.thickness)
     );
+  const searchedBaseRows = allRows.filter((item) => {
+    const keyword = baseSearch.trim().toLocaleLowerCase();
+    if (!keyword) return true;
+    return [item.product, item.maker, item.color, item.code, item.thickness, `${item.thickness}T`]
+      .join(" ")
+      .toLocaleLowerCase()
+      .includes(keyword);
+  });
   const rows = allRows.filter((item) => !item.soldOut);
   const filteredRows = allRows.filter((item) =>
     item.soldOut === appliedFilters.soldOut &&
@@ -1344,7 +1696,8 @@ function CoilManagement({ ctx }) {
   }, [baseStock, zoneStock, customColors]);
   useEffect(() => {
     if (historyOpen) {
-      setBaseInfoOpen(false);
+      setHistoryTab("base");
+      setBaseInfoOpen(true);
       const validHistory = stockHistory.filter((item) =>
         item.created_at && (!baseStockDates[item.key] || item.registered_at >= baseStockDates[item.key])
       );
@@ -1361,9 +1714,9 @@ function CoilManagement({ ctx }) {
         };
       });
       setBaseDraft(nextBaseDraft);
-      setBaseEditing(false);
+      setBaseEditing(openBaseEditorAfterAdd);
     }
-  }, [historyOpen, stockHistory, baseStock, zoneStock, baseStockDates]);
+  }, [historyOpen, stockHistory, baseStock, zoneStock, baseStockDates, customColors, openBaseEditorAfterAdd]);
   useEffect(() => {
     const timer = setInterval(() => setRankingProduct((current) => current === "강판" ? "징크" : "강판"), 5000);
     return () => clearInterval(timer);
@@ -1406,21 +1759,148 @@ function CoilManagement({ ctx }) {
         },
     }));
   };
-  const saveBaseStock = () => {
-    const nextZones = {};
-    const nextStock = {};
-    const nextDates = {};
-    Object.entries(baseDraft).forEach(([key, item]) => {
-      const zones = { A: "", B: "", C: "", ...(item.zones || {}) };
-      nextZones[key] = zones;
-      nextStock[key] = ["A", "B", "C"].reduce((sum, zone) => sum + (Number(zones[zone]) || 0), 0);
-      nextDates[key] = item.date || todayStr();
+  const saveSelectedBaseStocks = () => {
+    if (selectedBaseKeys.length === 0) {
+      appAlert("저장할 항목을 작업 열에서 선택해주세요.", { title: "선택 안내", type: "warning" });
+      return;
+    }
+    const timestamp = Date.now();
+    const records = selectedBaseKeys.map((key, index) => {
+      const item = allRows.find((row) => row.key === key);
+      const draft = baseDraft[key] || {};
+      const zones = { A: "", B: "", C: "", ...(draft.zones || {}) };
+      const meter = ["A", "B", "C"].reduce((sum, zone) => sum + (Number(zones[zone]) || 0), 0);
+      return {
+        id: `${key}-${timestamp}-${index}`,
+        key,
+        registered_at: draft.date || todayStr(),
+        created_at: new Date(timestamp + index).toISOString(),
+        product: item?.product || "",
+        maker: item?.maker || "",
+        color: item?.color || "",
+        code: item?.code || "",
+        thickness: item?.thickness || "",
+        meter,
+        zones,
+      };
     });
-    setZoneStock(nextZones);
-    setBaseStock(nextStock);
-    setBaseStockDates(nextDates);
-    setZoneDraft(nextZones);
+    setZoneStock((current) => {
+      const next = { ...current };
+      records.forEach((record) => { next[record.key] = record.zones; });
+      return next;
+    });
+    setBaseStock((current) => {
+      const next = { ...current };
+      records.forEach((record) => { next[record.key] = record.meter; });
+      return next;
+    });
+    setBaseStockDates((current) => {
+      const next = { ...current };
+      records.forEach((record) => { next[record.key] = record.registered_at; });
+      return next;
+    });
+    setZoneDraft((current) => {
+      const next = { ...current };
+      records.forEach((record) => { next[record.key] = record.zones; });
+      return next;
+    });
+    setStockHistory((current) => [...records.reverse(), ...current]);
+    setHistoryDraft((current) => [...records, ...current]);
     setBaseEditing(false);
+    setSelectedBaseKeys([]);
+    appAlert(`${records.length}개 기초재고가 저장되었습니다.`, { title: "기초재고 저장", type: "success" });
+  };
+  const resetBaseDraftRow = (item) => {
+    setBaseDraft((current) => ({
+      ...current,
+      [item.key]: {
+        zones: { A: baseStock[item.key] || "", B: "", C: "", ...(zoneStock[item.key] || {}) },
+        date: baseStockDates[item.key] || todayStr(),
+      },
+    }));
+  };
+  const saveBaseStockRow = (item) => {
+    const draft = baseDraft[item.key] || {};
+    const zones = { A: "", B: "", C: "", ...(draft.zones || {}) };
+    const meter = ["A", "B", "C"].reduce((sum, zone) => sum + (Number(zones[zone]) || 0), 0);
+    const registeredAt = draft.date || todayStr();
+    const record = {
+      id: `${item.key}-${Date.now()}`,
+      key: item.key,
+      registered_at: registeredAt,
+      created_at: new Date().toISOString(),
+      product: item.product,
+      maker: item.maker,
+      color: item.color,
+      code: item.code,
+      thickness: item.thickness,
+      meter,
+      zones,
+    };
+    setZoneStock((current) => ({ ...current, [item.key]: zones }));
+    setBaseStock((current) => ({ ...current, [item.key]: meter }));
+    setBaseStockDates((current) => ({ ...current, [item.key]: registeredAt }));
+    setZoneDraft((current) => ({ ...current, [item.key]: zones }));
+    setStockHistory((current) => [record, ...current]);
+    setHistoryDraft((current) => [record, ...current]);
+    setSelectedBaseKeys((current) => current.filter((key) => key !== item.key));
+    appAlert(`${item.color} 기초재고가 저장되었습니다.`, { title: "기초재고 저장", type: "success" });
+  };
+  const deleteSelectedBaseStocks = async () => {
+    const deletable = selectedBaseKeys.filter((key) => customColors.some((color) => keyOf(color) === key));
+    if (deletable.length === 0) {
+      appAlert("선택한 항목 중 삭제 가능한 추가 코일이 없습니다.", { title: "선택 삭제 안내", type: "warning" });
+      return;
+    }
+    if (!await appConfirm(`선택한 추가 코일 ${deletable.length}개를 삭제하시겠습니까?`, {
+      title: "기초재고 선택 삭제",
+      type: "danger",
+      submessage: "PDF 기본 색상은 영구 유지되며 선택삭제 대상에서 제외됩니다.",
+    })) return;
+    const removeKeys = (current) => Object.fromEntries(Object.entries(current).filter(([key]) => !deletable.includes(key)));
+    setBaseStock(removeKeys);
+    setZoneStock(removeKeys);
+    setBaseStockDates(removeKeys);
+    setBaseDraft(removeKeys);
+    setZoneDraft(removeKeys);
+    setStockHistory((current) => current.filter((record) => !deletable.includes(record.key)));
+    setHistoryDraft((current) => current.filter((record) => !deletable.includes(record.key)));
+    setCustomColors((current) => current.filter((color) => !deletable.includes(keyOf(color))));
+    setDeletedBaseStockKeys((current) => [...new Set([...current, ...deletable])]);
+    setSelectedBaseKeys([]);
+  };
+  const deleteBaseStock = async (item) => {
+    const isCustomColor = customColors.some((color) => keyOf(color) === item.key);
+    if (!isCustomColor) {
+      appAlert("PDF 기본 색상은 삭제할 수 없습니다.", {
+        title: "기본 색상 보호",
+        type: "warning",
+        submessage: "기초재고 숫자는 수정할 수 있으며 전체 초기화 후에도 기본 목록은 유지됩니다.",
+      });
+      return;
+    }
+    const confirmed = await appConfirm(
+      `${item.color} 기초재고를 삭제하시겠습니까?`,
+      {
+        title: "기초재고 삭제",
+        type: "danger",
+        submessage: "해당 코일 색상은 기초재고와 입고·출고 검색 목록에서 완전히 제외됩니다.",
+      }
+    );
+    if (!confirmed) return;
+    const removeKey = (current) => {
+      const next = { ...current };
+      delete next[item.key];
+      return next;
+    };
+    setBaseStock(removeKey);
+    setZoneStock(removeKey);
+    setBaseStockDates(removeKey);
+    setBaseDraft(removeKey);
+    setZoneDraft(removeKey);
+    setStockHistory((current) => current.filter((record) => record.key !== item.key));
+    setHistoryDraft((current) => current.filter((record) => record.key !== item.key));
+    setDeletedBaseStockKeys((current) => current.includes(item.key) ? current : [...current, item.key]);
   };
   const toggleDiscontinue = async (item) => {
     const message = item.soldOut
@@ -1438,20 +1918,46 @@ function CoilManagement({ ctx }) {
     setShowSuggestions(false);
   };
   const addCoil = () => {
-    if (!newCoil.product || !newCoil.maker || !newCoil.color.trim() || !newCoil.thickness) {
+    if (!newCoil.product.trim() || !newCoil.maker.trim() || !newCoil.color.trim() || !newCoil.thickness) {
       appAlert("구분, 제조사, 색상명, 두께를 모두 입력해주세요.", { title: "필수입력 안내", type: "warning" });
       return;
     }
-    const item = { ...newCoil, color: newCoil.color.trim(), code: newCoil.code.trim() };
+    const item = {
+      ...newCoil,
+      product: newCoil.product.trim(),
+      maker: newCoil.maker.trim(),
+      color: newCoil.color.trim(),
+      code: newCoil.code.trim(),
+    };
     const key = keyOf(item);
-    if (catalog.some((color) => keyOf(color) === key)) {
+    if (fullCatalog.some((color) => keyOf(color) === key)) {
+      if (deletedBaseStockKeys.includes(key)) {
+        setDeletedBaseStockKeys((current) => current.filter((deletedKey) => deletedKey !== key));
+        setNewCoil({ product: "강판", maker: "동국", color: "", code: "", thickness: "0.45" });
+        setAddCoilOpen(false);
+        setOpenBaseEditorAfterAdd(true);
+        setHistoryOpen(true);
+        appAlert(`${item.color} 색상이 다시 추가되었습니다.`, {
+          title: "코일 복원 완료",
+          type: "success",
+          submessage: "기초재고를 설정해주세요.",
+        });
+        return;
+      }
       appAlert("이미 등록된 코일 색상과 규격입니다.", { title: "중복 등록 안내", type: "warning" });
       return;
     }
+    setDeletedBaseStockKeys((current) => current.filter((deletedKey) => deletedKey !== key));
     setCustomColors((current) => [...current, item]);
     setNewCoil({ product: "강판", maker: "동국", color: "", code: "", thickness: "0.45" });
     setAddCoilOpen(false);
-    appAlert("코일 색상이 추가되었습니다.", { title: "코일 추가 완료", type: "success" });
+    setOpenBaseEditorAfterAdd(true);
+    setHistoryOpen(true);
+    appAlert(`${item.color} 색상이 추가되었습니다.`, {
+      title: "코일 추가 완료",
+      type: "success",
+      submessage: "기초재고를 설정해주세요.",
+    });
   };
   const exportXlsx = () => downloadXlsx(rows.map((item) => ({
     등록일: item.registered_at, 구분: item.product, 제조사: item.maker, 색상명: item.color,
@@ -1488,14 +1994,14 @@ function CoilManagement({ ctx }) {
               </span>
               <select value={filters.product} onChange={(e) => setFilters({ ...filters, product: e.target.value })}
                 className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-400">
-                {["전체", "강판", "징크"].map((item) => <option key={item}>{item}</option>)}
+                {["전체", ...catalogProducts].map((item) => <option key={item}>{item}</option>)}
               </select>
             </label>
             <label className="block">
               <span className="block text-sm font-bold text-slate-600 mb-1.5">제조사</span>
               <select value={filters.maker} onChange={(e) => setFilters({ ...filters, maker: e.target.value })}
                 className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-400">
-                {["전체", "동국", "포스코", "세아", "DK동신", "해외"].map((item) => <option key={item}>{item}</option>)}
+                {["전체", ...[...new Set(catalog.map((item) => item.maker).filter(Boolean))]].map((item) => <option key={item}>{item}</option>)}
               </select>
             </label>
             <label className="block">
@@ -1614,7 +2120,6 @@ function CoilManagement({ ctx }) {
                       <div className="min-w-0">
                         <div className="font-bold text-slate-900 truncate">{item.color}</div>
                         <div className="text-xs text-slate-400 mt-0.5 truncate">{item.code || "코드없음"} · {item.thickness}T · {item.maker}</div>
-                        <div className="text-[11px] text-indigo-400 mt-1">* 마지막 기준일 : {displayDate(item.baseDate)} 입니다.</div>
                       </div>
                     </div>
                     {["A", "B", "C"].map((zone) => (
@@ -1650,16 +2155,30 @@ function CoilManagement({ ctx }) {
         <div className="space-y-4">
           <div className="grid sm:grid-cols-2 gap-3">
             <Field label="구분 *">
-              <select value={newCoil.product} onChange={(e) => setNewCoil({ ...newCoil, product: e.target.value })}
+              <select value={catalogProducts.includes(newCoil.product) ? newCoil.product : "직접입력"}
+                onChange={(e) => setNewCoil({ ...newCoil, product: e.target.value === "직접입력" ? "" : e.target.value, maker: "" })}
                 className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 outline-none focus:border-indigo-400">
-                <option>강판</option><option>징크</option>
+                {catalogProducts.map((product) => <option key={product}>{product}</option>)}
+                <option value="직접입력">직접입력</option>
               </select>
+              {!catalogProducts.includes(newCoil.product) && (
+                <input autoFocus value={newCoil.product} onChange={(e) => setNewCoil({ ...newCoil, product: e.target.value, maker: "" })}
+                  placeholder="새 구분명을 입력하세요"
+                  className="mt-2 w-full h-11 rounded-xl border border-indigo-200 bg-white px-3 outline-none focus:border-indigo-400" />
+              )}
             </Field>
             <Field label="제조사 *">
-              <select value={newCoil.maker} onChange={(e) => setNewCoil({ ...newCoil, maker: e.target.value })}
+              <select value={catalogMakers.includes(newCoil.maker) ? newCoil.maker : "직접입력"}
+                onChange={(e) => setNewCoil({ ...newCoil, maker: e.target.value === "직접입력" ? "" : e.target.value })}
                 className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 outline-none focus:border-indigo-400">
-                {["동국", "포스코", "세아", "DK동신", "해외"].map((maker) => <option key={maker}>{maker}</option>)}
+                {catalogMakers.map((maker) => <option key={maker}>{maker}</option>)}
+                <option value="직접입력">직접입력</option>
               </select>
+              {!catalogMakers.includes(newCoil.maker) && (
+                <input value={newCoil.maker} onChange={(e) => setNewCoil({ ...newCoil, maker: e.target.value })}
+                  placeholder="새 제조사명을 입력하세요"
+                  className="mt-2 w-full h-11 rounded-xl border border-indigo-200 bg-white px-3 outline-none focus:border-indigo-400" />
+              )}
             </Field>
           </div>
           <Field label="색상명 *">
@@ -1682,91 +2201,173 @@ function CoilManagement({ ctx }) {
           </div>
         </div>
       </Modal>
-      <Modal open={historyOpen} onClose={() => setHistoryOpen(false)} title="코일 재고내역" wide hideClose
-        headerActions={<>
-          <button onClick={() => {
-            if (baseEditing) saveBaseStock();
-            else {
-              setBaseEditing(true);
-              setBaseInfoOpen(true);
-            }
-          }}
-            className="h-8 px-3 rounded-lg border border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-50">
-            {baseEditing ? "저장" : "수정"}
-          </button>
-          <button onClick={() => setHistoryOpen(false)} className="h-8 px-3 rounded-lg border border-slate-200 text-xs text-slate-600 hover:bg-slate-50">닫기</button>
-        </>}>
-        <div className="space-y-4">
-          <button onClick={() => setBaseInfoOpen(!baseInfoOpen)}
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 flex items-center text-left">
-            <span className="font-bold text-slate-800">기초재고</span>
-            <span className="ml-2 text-xs text-slate-400">정보</span>
-            <ChevronDown size={18} className={`ml-auto text-slate-400 transition ${baseInfoOpen ? "rotate-180" : ""}`} />
-          </button>
-          {baseInfoOpen && (
-            <div className="max-h-64 overflow-auto rounded-2xl border border-slate-200">
-              <table className="w-full text-xs min-w-[900px]">
-                <thead className="sticky top-0 bg-slate-50 text-slate-500">
-                  <tr>{["구분", "제조사", "색상", "코드 / 두께", "기준일", "A", "B", "C", "기초재고 M"].map((heading) => (
-                    <th key={heading} className="px-3 py-2.5 text-center font-medium whitespace-nowrap">{heading}</th>
-                  ))}</tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {allRows.map((item) => (
-                    <tr key={item.key}>
-                      <td className="px-3 py-2 text-center">{item.product}</td>
-                      <td className="px-3 py-2 text-center">{item.maker}</td>
-                      <td className="px-3 py-2 text-center font-bold">{item.color}</td>
-                      <td className="px-3 py-2 text-center text-slate-400">{item.code || "코드없음"} · {item.thickness}T</td>
-                      <td className="px-2 py-2 text-center">
-                        {baseEditing ? (
-                          <input type="date" value={baseDraft[item.key]?.date || todayStr()} onChange={(e) => setBaseDraftValue(item.key, "date", e.target.value)}
-                            className="h-8 w-[132px] rounded-lg border border-slate-200 px-2 text-center outline-none focus:border-indigo-400" />
-                        ) : displayDate(baseStockDates[item.key])}
-                      </td>
-                      {["A", "B", "C"].map((zone) => (
-                        <td key={zone} className="px-2 py-2 text-center">
-                          {baseEditing ? (
-                            <input type="text" inputMode="decimal" value={baseDraft[item.key]?.zones?.[zone] || ""}
-                              onChange={(e) => setBaseDraftValue(item.key, zone, e.target.value)}
-                              className="h-8 w-16 rounded-lg border border-slate-200 px-2 text-center outline-none focus:border-indigo-400" />
-                          ) : fmt(zoneStock[item.key]?.[zone] || 0)}
-                        </td>
-                      ))}
-                      <td className="px-3 py-2 text-center font-bold text-indigo-700">
-                        {fmt(baseEditing
-                          ? ["A", "B", "C"].reduce((sum, zone) => sum + (Number(baseDraft[item.key]?.zones?.[zone]) || 0), 0)
-                          : baseStock[item.key] || 0)} M
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <div>
-            <h4 className="font-bold text-slate-800 mb-3">재고 변경 타임라인</h4>
-            <div className="space-y-3">
-              {historyDraft.map((item) => (
-                <div key={item.id} className="relative pl-6">
-                  <span className="absolute left-1.5 top-2 bottom-[-14px] w-px bg-indigo-100" />
-                  <span className="absolute left-0 top-2 w-4 h-4 rounded-full bg-white border-4 border-indigo-300" />
-                  <div className="rounded-2xl border border-slate-200 bg-white p-3 grid md:grid-cols-[110px_minmax(160px,1fr)_repeat(3,72px)_190px] gap-2 items-center text-center">
-                    <div className="text-xs text-slate-500">{displayDate(item.registered_at)}</div>
-                    <div>
-                      <div className="font-bold">{item.color}</div>
-                      <div className="text-xs text-slate-400">{item.code || "코드없음"} · {item.thickness}T</div>
-                    </div>
-                    {["A", "B", "C"].map((zone) => (
-                      <div key={zone} className="text-sm"><span className="text-xs text-slate-400 mr-1">{zone}</span>{fmt(item.zones?.[zone] || 0)}</div>
-                    ))}
-                    <div className="font-bold text-indigo-700">총 M {fmt(item.meter)}</div>
-                  </div>
-                </div>
+      <Modal open={historyOpen} onClose={() => {
+        setHistoryOpen(false);
+        setOpenBaseEditorAfterAdd(false);
+        setBaseEditing(false);
+        setSelectedBaseKeys([]);
+      }} title="코일 재고내역" wide="inventory">
+        <div className="min-h-[620px] sm:min-h-[700px] flex flex-col">
+          <div className="-mx-4 sm:-mx-6 -mt-4 sm:-mt-5 flex justify-start border-b border-slate-200 px-4 sm:px-8">
+            <div className="flex items-center gap-8">
+              {[["base", "기초재고"], ["timeline", "변경 타임라인"]].map(([key, label]) => (
+                <button key={key} type="button" onClick={() => setHistoryTab(key)}
+                  className={`relative h-14 px-1 text-sm sm:text-base font-bold transition ${historyTab === key ? "text-indigo-600" : "text-slate-500 hover:text-slate-700"}`}>
+                  {label}
+                  {historyTab === key && <span className="absolute inset-x-0 bottom-0 h-0.5 bg-indigo-600" />}
+                </button>
               ))}
-              {historyDraft.length === 0 && <div className="py-12 text-center text-sm text-slate-400">등록된 변경 기록이 없습니다.</div>}
             </div>
           </div>
+
+          {historyTab === "base" ? (
+            <div className="flex-1 flex flex-col pt-5">
+              <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                <div className="min-h-10 flex-1 rounded-xl bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-600 flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-blue-500 text-white text-xs inline-flex items-center justify-center">i</span>
+                  작업에서 항목을 체크한 뒤 수정 버튼을 눌러주세요.
+                </div>
+                <div className="w-full lg:w-[430px] relative">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input type="search" value={baseSearch} onChange={(event) => setBaseSearch(event.target.value)}
+                    placeholder="구분 · 제조사 · 색상 · 두께 검색"
+                    className="w-full h-10 rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs outline-none focus:border-indigo-400" />
+                </div>
+                <button type="button" onClick={() => {
+                  if (baseEditing) {
+                    selectedBaseKeys.forEach((key) => {
+                      const item = allRows.find((row) => row.key === key);
+                      if (item) resetBaseDraftRow(item);
+                    });
+                    setBaseEditing(false);
+                    return;
+                  }
+                  if (selectedBaseKeys.length === 0) {
+                    appAlert("수정할 항목을 작업 열에서 먼저 선택해주세요.", { title: "선택 안내", type: "warning" });
+                    return;
+                  }
+                  setBaseEditing(true);
+                }}
+                  className="h-10 px-4 rounded-xl border border-indigo-200 bg-white text-xs font-bold text-indigo-600 hover:bg-indigo-50 whitespace-nowrap">
+                  {baseEditing ? "종료" : "수정"}
+                </button>
+                <button type="button" onClick={deleteSelectedBaseStocks} disabled={selectedBaseKeys.length === 0 || baseEditing}
+                  className="h-10 px-4 rounded-xl border border-rose-200 bg-white text-xs font-bold text-rose-500 hover:bg-rose-50 disabled:border-slate-200 disabled:text-slate-300 disabled:hover:bg-white whitespace-nowrap">
+                  삭제
+                </button>
+              </div>
+
+              <div className="mt-5 flex-1 min-h-[420px] max-h-[500px] overflow-auto rounded-2xl border border-slate-200">
+                <table className="w-full text-xs sm:text-sm min-w-[1120px] table-fixed">
+                  <colgroup>
+                    <col className="w-[14%]" /><col className="w-[16%]" /><col className="w-[12%]" />
+                    <col className="w-[15%]" /><col className="w-[8%]" /><col className="w-[8%]" />
+                    <col className="w-[8%]" /><col className="w-[11%]" /><col className="w-[8%]" />
+                  </colgroup>
+                  <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500">
+                    <tr>
+                      {["색상", "코드 / 두께", "제조사", "기준일", "A", "B", "C", "기초재고 M", "작업"].map((heading, index) => (
+                        <th key={`${heading}-${index}`} className="px-2 py-2.5 text-center font-medium whitespace-nowrap">{heading}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {searchedBaseRows.map((item) => {
+                      const custom = customColors.some((color) => keyOf(color) === item.key);
+                      const selected = selectedBaseKeys.includes(item.key);
+                      const draftTotal = ["A", "B", "C"].reduce((sum, zone) => sum + (Number(baseDraft[item.key]?.zones?.[zone]) || 0), 0);
+                      return (
+                        <tr key={item.key} className={selected ? "bg-indigo-50/60" : ""}>
+                          <td className="px-4 py-3 text-left">
+                            <div className="flex items-center gap-3">
+                              <span className="w-3.5 h-3.5 rounded border border-slate-200 shrink-0" style={{ background: hexOf(item.color) }} />
+                              <span className="font-bold truncate">{item.color}</span>
+                            </div>
+                          </td>
+                          <td className="px-2 py-2 text-center text-slate-400">{item.code || "코드없음"} · {item.thickness}T</td>
+                          <td className="px-2 py-2 text-center">{item.maker}</td>
+                          <td className="px-2 py-2 text-center">
+                            {baseEditing && selected
+                              ? <input type="date" value={baseDraft[item.key]?.date || todayStr()} onChange={(e) => setBaseDraftValue(item.key, "date", e.target.value)}
+                                  className="h-10 w-[145px] rounded-xl border border-slate-200 px-2 text-center outline-none focus:border-indigo-400" />
+                              : displayDate(baseStockDates[item.key])}
+                          </td>
+                          {["A", "B", "C"].map((zone) => (
+                            <td key={zone} className="px-1 py-2 text-center">
+                              {baseEditing && selected
+                                ? <input type="text" inputMode="decimal" value={baseDraft[item.key]?.zones?.[zone] || ""}
+                                    onChange={(e) => setBaseDraftValue(item.key, zone, e.target.value)}
+                                    className="h-10 w-20 rounded-xl border border-slate-200 px-2 text-center outline-none focus:border-indigo-400" />
+                                : fmt(zoneStock[item.key]?.[zone] || 0)}
+                            </td>
+                          ))}
+                          <td className="px-2 py-2 text-center font-bold text-indigo-700">{fmt(baseEditing && selected ? draftTotal : baseStock[item.key] || 0)} M</td>
+                          <td className="px-1 py-2 text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center">
+                              <input type="checkbox" checked={selected}
+                                disabled={baseEditing}
+                                onChange={() => {
+                                  if (selected) {
+                                    if (baseEditing) return;
+                                    resetBaseDraftRow(item);
+                                    setSelectedBaseKeys((current) => current.filter((key) => key !== item.key));
+                                  } else {
+                                    setSelectedBaseKeys((current) => [...current, item.key]);
+                                  }
+                                }}
+                                aria-label={`${item.color} 선택`}
+                                title={baseEditing ? "수정 중에는 선택을 변경할 수 없습니다." : selected ? "선택 해제" : "수정 또는 삭제할 항목 선택"}
+                                className="w-4 h-4 accent-indigo-600 disabled:opacity-50" />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {searchedBaseRows.length === 0 && <tr><td colSpan={9} className="px-3 py-10 text-center text-sm text-slate-400">검색 조건에 맞는 기초재고가 없습니다.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-auto pt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <span className="text-sm font-semibold text-slate-600">총 {searchedBaseRows.length}건 · 선택 {selectedBaseKeys.length}건</span>
+                <div className="grid grid-cols-2 sm:flex gap-2">
+                  <button type="button" onClick={() => {
+                    selectedBaseKeys.forEach((key) => {
+                      const item = allRows.find((row) => row.key === key);
+                      if (item) resetBaseDraftRow(item);
+                    });
+                    setBaseEditing(false);
+                  }} className="h-11 px-7 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-600">
+                    취소
+                  </button>
+                  <button type="button" onClick={saveSelectedBaseStocks} disabled={!baseEditing || selectedBaseKeys.length === 0}
+                    className="h-11 px-8 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400">
+                    저장
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 pt-5 space-y-3">
+              <div className="rounded-xl bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-600">
+                기초재고에서 저장한 변경 내용이 최신순으로 표시됩니다.
+              </div>
+              <div className="max-h-[570px] overflow-y-auto pr-1 space-y-3">
+                {historyDraft.map((item) => (
+                  <div key={item.id} className="relative pl-6">
+                    <span className="absolute left-1.5 top-2 bottom-[-14px] w-px bg-indigo-100" />
+                    <span className="absolute left-0 top-2 w-4 h-4 rounded-full bg-white border-4 border-indigo-300" />
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3 grid md:grid-cols-[110px_minmax(160px,1fr)_repeat(3,72px)_150px] gap-2 items-center text-center">
+                      <div className="text-xs text-slate-500">{displayDate(item.registered_at)}</div>
+                      <div><div className="font-bold">{item.color}</div><div className="text-xs text-slate-400">{item.code || "코드없음"} · {item.thickness}T</div></div>
+                      {["A", "B", "C"].map((zone) => <div key={zone} className="text-sm"><span className="text-xs text-slate-400 mr-1">{zone}</span>{fmt(item.zones?.[zone] || 0)}</div>)}
+                      <div className="font-bold text-indigo-700">총 M {fmt(item.meter)}</div>
+                    </div>
+                  </div>
+                ))}
+                {historyDraft.length === 0 && <div className="py-16 text-center text-sm text-slate-400">등록된 변경 기록이 없습니다.</div>}
+              </div>
+            </div>
+          )}
         </div>
       </Modal>
     </div>
@@ -1937,20 +2538,28 @@ function DetailPanel({ rows, extra }) {
    출고관리  (제품구분별 FIFO 차감)
    ========================================================================= */
 const blankOutbound = () => ({
+  registration_type: "outbound",
   outbound_date: todayStr(), customer: "", arrival_date: todayStr(), arrival_time: "09:00",
+  reservation_date: todayStr(), planned_date: todayStr(),
   product_type: "강판", coil_number: "", manufacturer: "", color_name: "", thickness: "",
   color_code: "", site_address: "", outbound_meter: 0, memo: "", attachments: [],
 });
 
-function Outbound({ ctx, quickOpen, clearQuick }) {
-  const { outbound, setOutbound, coils, setCoils, baseStock, zoneStock, customColors, discontinuedColors } = ctx;
+function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
+  const {
+    outbound, setOutbound, reservations, setReservations, coils, setCoils,
+    baseStock, setBaseStock, stockHistory, setStockHistory, zoneStock, setZoneStock,
+    customColors, discontinuedColors, deletedBaseStockKeys,
+  } = ctx;
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blankOutbound());
   const [editId, setEditId] = useState(null);
-  const [pendingOpen, setPendingOpen] = useState(true);
   const [q, setQ] = useState("");
   const [from, setFrom] = useState(""); const [to, setTo] = useState("");
   const [colorMenuOpen, setColorMenuOpen] = useState(false);
+  const [reservationOpen, setReservationOpen] = useState(false);
+  const [detailKey, setDetailKey] = useState("");
+  const [pendingDetail, setPendingDetail] = useState(null);
 
   useEffect(() => {
     if (!quickOpen) return;
@@ -1963,7 +2572,14 @@ function Outbound({ ctx, quickOpen, clearQuick }) {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const availOf = (pt) => coils.filter((c) => c.product_type === pt && c.current_meter > 0).reduce((a, c) => a + c.current_meter, 0);
   const stockKey = (item) => `${item.product}|${item.maker}|${item.code}|${item.color}|${item.thickness}`;
-  const colorCatalog = [...new Map([...COLOR_MASTER, ...customColors].map((item) => [stockKey(item), item])).values()]
+  const registrationCatalog = [...new Map([...COLOR_MASTER, ...customColors].map((item) => [stockKey(item), item])).values()]
+    .filter((item) => {
+      const key = stockKey(item);
+      const isPdfDefault = COLOR_MASTER.some((master) => stockKey(master) === key);
+      return isPdfDefault || (Object.prototype.hasOwnProperty.call(baseStock, key) && !deletedBaseStockKeys.includes(key));
+    });
+  const productOptions = [...new Set(registrationCatalog.map((item) => item.product).filter(Boolean))];
+  const colorCatalog = registrationCatalog
     .filter((item) => item.product === form.product_type && !discontinuedColors.includes(stockKey(item)));
   const colorMatches = form.color_name.trim()
     ? colorCatalog.filter((item) => item.color.includes(form.color_name.trim())).slice(0, 10)
@@ -1973,10 +2589,20 @@ function Outbound({ ctx, quickOpen, clearQuick }) {
     String(item.code || "") === String(form.color_code || "") && String(item.thickness) === String(form.thickness)
   );
   const selectedKey = selectedColor ? stockKey(selectedColor) : "";
-  const selectedZones = { A: 0, B: 0, C: 0, ...(zoneStock[selectedKey] || {}) };
-  const selectedTotal = selectedKey ? Number(baseStock[selectedKey]) || 0 : 0;
+  const selectedZones = selectedKey && zoneStock[selectedKey]
+    ? { A: 0, B: 0, C: 0, ...zoneStock[selectedKey] }
+    : { A: selectedKey ? Number(baseStock[selectedKey]) || 0 : 0, B: 0, C: 0 };
   const selectedZoneTotal = ["A", "B", "C"].reduce((sum, zone) => sum + (Number(selectedZones[zone]) || 0), 0);
-  const customerList = [...new Set(outbound.map((o) => o.customer).filter(Boolean))];
+  const selectedTotal = selectedZoneTotal;
+  const currentForKey = (key) => zoneStock[key]
+    ? ["A", "B", "C"].reduce((sum, zone) => sum + (Number(zoneStock[key]?.[zone]) || 0), 0)
+    : Number(baseStock[key]) || 0;
+  const reservedForKey = (key, excludeId = "") => reservations
+    .filter((item) => item.coil_key === key && item.id !== excludeId)
+    .reduce((sum, item) => sum + (Number(item.reserved_meter) || 0), 0);
+  const selectedReserved = selectedKey ? reservedForKey(selectedKey) : 0;
+  const selectedAvailable = Math.max(0, selectedTotal - selectedReserved);
+  const customerList = [...new Set([...outbound, ...reservations].map((o) => o.customer).filter(Boolean))];
   const chooseColor = (item) => {
     setForm((current) => ({
       ...current,
@@ -2005,12 +2631,63 @@ function Outbound({ ctx, quickOpen, clearQuick }) {
   }));
 
   const submit = () => {
-    if (!form.outbound_date || !form.customer || !form.arrival_date || !form.arrival_time ||
-      !form.product_type || !form.manufacturer || !form.color_name || !form.thickness || !form.site_address) {
+    const isReservation = form.registration_type === "reservation";
+    const commonMissing = !form.customer || !form.product_type || !form.manufacturer ||
+      !form.color_name || !form.thickness || !form.site_address;
+    const typeMissing = isReservation
+      ? !form.reservation_date || !form.planned_date
+      : !form.outbound_date || !form.arrival_date || !form.arrival_time;
+    if (commonMissing || typeMissing) {
       appAlert("*필수입력을 작성해주세요", { title: "필수입력 안내", type: "warning" });
       return;
     }
     const m = Number(form.outbound_meter) || 0;
+    if (isReservation && m <= 0) {
+      appAlert("예약 예정량 M를 입력해주세요.", { title: "수량 입력 안내", type: "warning" });
+      return;
+    }
+    if (!selectedKey) {
+      appAlert("등록된 코일 색상을 선택해주세요.", { title: "코일 선택 안내", type: "warning" });
+      return;
+    }
+    if (isReservation) {
+      if (m > selectedAvailable) {
+        appAlert(`가용 재고 ${fmt(selectedAvailable)} M를 초과할 수 없습니다.`, { title: "예약 수량 확인", type: "warning" });
+        return;
+      }
+      const rec = {
+        id: uid(),
+        coil_key: selectedKey,
+        reservation_date: form.reservation_date,
+        planned_date: form.planned_date,
+        customer: form.customer,
+        product_type: form.product_type,
+        manufacturer: form.manufacturer,
+        color_name: form.color_name,
+        color_code: form.color_code,
+        thickness: form.thickness,
+        site_address: form.site_address,
+        memo: form.memo,
+        reserved_meter: m,
+        created_at: todayStr(),
+        updated_at: todayStr(),
+      };
+      setReservations((list) => [rec, ...list]);
+      setOpen(false);
+      setEditId(null);
+      setForm(blankOutbound());
+      setReservationOpen(true);
+      appAlert("예약현황에 등록되었습니다.", {
+        title: "예약 등록 완료",
+        type: "success",
+        submessage: "실제 재고는 차감되지 않고 가용 재고에만 반영됩니다.",
+      });
+      return;
+    }
+    if (m > 0 && m > selectedAvailable) {
+      appAlert(`예약량을 제외한 가용 재고는 ${fmt(selectedAvailable)} M입니다.`, { title: "출고 수량 확인", type: "warning" });
+      return;
+    }
     const avail = availOf(form.product_type);
     if (editId) {
       setOutbound((list) => list.map((o) => o.id === editId ? { ...o, ...form, outbound_meter: m, updated_at: todayStr() } : o));
@@ -2036,6 +2713,74 @@ function Outbound({ ctx, quickOpen, clearQuick }) {
       setOutbound((l) => l.filter((x) => x.id !== id));
     }
   };
+
+  const processReservation = async (reservation) => {
+    const key = reservation.coil_key;
+    const current = currentForKey(key);
+    const meter = Number(reservation.reserved_meter) || 0;
+    if (meter > current) {
+      appAlert(`현재 재고 ${fmt(current)} M보다 예약량이 큽니다.`, { title: "출고 처리 불가", type: "warning" });
+      return;
+    }
+    if (!await appConfirm("예약 항목을 실제 출고로 처리하시겠습니까? 현재 재고가 차감됩니다.", { title: "예약 출고 처리" })) return;
+
+    const currentZones = zoneStock[key] ? { A: 0, B: 0, C: 0, ...zoneStock[key] } : { A: current, B: 0, C: 0 };
+    let remain = meter;
+    const nextZones = { ...currentZones };
+    ["A", "B", "C"].forEach((zone) => {
+      const used = Math.min(Number(nextZones[zone]) || 0, remain);
+      nextZones[zone] = (Number(nextZones[zone]) || 0) - used;
+      remain -= used;
+    });
+    const nextTotal = Math.max(0, current - meter);
+    setZoneStock((values) => ({ ...values, [key]: nextZones }));
+    setBaseStock((values) => ({ ...values, [key]: nextTotal }));
+    setStockHistory((history) => [{
+      id: uid(), key, registered_at: todayStr(), zones: nextZones, meter: nextTotal,
+      source: "reservation-outbound", created_at: new Date().toISOString(),
+    }, ...history]);
+    setReservations((list) => list.filter((item) => item.id !== reservation.id));
+    setOutbound((list) => [{
+      id: uid(),
+      registration_type: "reservation-converted",
+      outbound_date: todayStr(),
+      arrival_date: reservation.planned_date,
+      arrival_time: "",
+      customer: reservation.customer,
+      product_type: reservation.product_type,
+      coil_number: reservation.coil_key,
+      manufacturer: reservation.manufacturer,
+      color_name: reservation.color_name,
+      color_code: reservation.color_code,
+      thickness: reservation.thickness,
+      site_address: reservation.site_address,
+      outbound_meter: meter,
+      memo: reservation.memo,
+      attachments: [],
+      before_meter: current,
+      after_meter: nextTotal,
+      is_completed: true,
+      completed_at: todayStr(),
+      created_at: todayStr(),
+      updated_at: todayStr(),
+    }, ...list]);
+    appAlert("예약 항목이 출고 처리되었습니다.", { title: "출고 처리 완료", type: "success" });
+  };
+
+  const reservationRows = [...reservations].sort((a, b) =>
+    String(a.planned_date).localeCompare(String(b.planned_date)) ||
+    String(a.created_at).localeCompare(String(b.created_at))
+  );
+  const detailReservations = detailKey ? reservationRows.filter((item) => item.coil_key === detailKey) : [];
+  const detailCatalogItem = detailKey ? registrationCatalog.find((item) => stockKey(item) === detailKey) : null;
+  const detailCurrent = detailKey ? currentForKey(detailKey) : 0;
+  const detailReserved = detailKey ? reservedForKey(detailKey) : 0;
+  const detailOutbound = detailKey ? outbound
+    .filter((item) => item.coil_number === detailKey ||
+      (item.product_type === detailCatalogItem?.product && item.manufacturer === detailCatalogItem?.maker &&
+        item.color_name === detailCatalogItem?.color && String(item.thickness) === String(detailCatalogItem?.thickness)))
+    .sort((a, b) => String(b.outbound_date).localeCompare(String(a.outbound_date)))
+    .slice(0, 5) : [];
 
   const incomplete = outbound.filter((o) => !o.is_completed).sort((a, b) => a.outbound_date.localeCompare(b.outbound_date));
   const all = outbound
@@ -2063,36 +2808,87 @@ function Outbound({ ctx, quickOpen, clearQuick }) {
         </div>
       </div>
 
-      {/* 상단: 미완료(승인대기) */}
-      <Card className="overflow-hidden print-card">
-        <button onClick={() => setPendingOpen((v) => !v)} className="w-full px-5 py-4 flex items-center gap-2 no-print">
-          <Clock size={18} className="text-indigo-400" /><h3 className="font-semibold">출고 대기</h3><span className="text-xs text-slate-400">{incomplete.length}건</span>
-          <span className="ml-auto w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500">{pendingOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}</span>
-        </button>
-        {pendingOpen && <div className="overflow-x-auto border-t border-slate-100">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-xs">
-              <tr>{["출고일", "거래처", "구분", "색상 / 두께", "출고량", "완료"].map((h) => <th key={h} className="px-3 py-2.5 text-left font-medium whitespace-nowrap">{h}</th>)}</tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {incomplete.map((o) => {
-                const overdue = o.outbound_date < todayStr(); const today = o.outbound_date === todayStr();
-                return (
-                  <tr key={o.id} className={overdue ? "bg-rose-50/50" : today ? "bg-amber-50/40" : ""}>
-                    <td className="px-3 py-2.5 whitespace-nowrap">{o.outbound_date}</td>
-                    <td className="px-3 py-2.5 font-normal whitespace-nowrap">{o.customer || "-"}</td>
-                    <td className="px-3 py-2.5">{o.product_type}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">{o.color_name || "-"}{o.thickness ? ` / ${o.thickness}T` : ""}</td>
-                    <td className="px-3 py-2.5 font-medium whitespace-nowrap">{fmt(o.outbound_meter)} M</td>
-                    <td className="px-3 py-2.5 no-print"><button onClick={() => approve(o)} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium inline-flex items-center gap-1 hover:bg-emerald-700"><Check size={13} />완료 승인</button></td>
-                  </tr>
-                );
-              })}
-              {incomplete.length === 0 && <tr><td colSpan={6} className="px-3 py-8 text-center text-slate-400">출고 대기 건이 없습니다.</td></tr>}
-            </tbody>
-          </table>
-        </div>}
-      </Card>
+      {/* 상단: 미완료(출고 대기) */}
+      <button onClick={() => setPendingOpen((value) => !value)}
+        className={`outbound-pending-trigger w-full sm:w-[340px] h-11 px-3 rounded-xl flex items-center gap-2 text-left no-print ${incomplete.length > 0 ? "has-pending" : ""}`}>
+        <span className="w-6 h-6 flex items-center justify-center shrink-0">
+          <PastelClock size={20} />
+        </span>
+        <span className="font-semibold text-slate-700 whitespace-nowrap">출고 대기</span>
+        <span className="ml-auto text-sm font-bold text-indigo-600">{incomplete.length}건</span>
+        <span className={`text-lg leading-none text-slate-400 transition-transform ${pendingOpen ? "rotate-90" : ""}`}>&gt;</span>
+      </button>
+
+      {pendingOpen && (
+        <Card className="outbound-pending-panel w-full max-w-3xl overflow-hidden print-card">
+          <div className="divide-y divide-rose-100/60">
+            {incomplete.length === 0 && <div className="px-5 py-9 text-center text-sm text-slate-400">미완료 출고 건이 없습니다.</div>}
+            {incomplete.map((o) => (
+              <div key={o.id} className="px-4 sm:px-5 py-3.5 flex items-center gap-3 overflow-hidden bg-white">
+                <div className="w-6 h-6 flex items-center justify-center shrink-0"><PastelTruck size={20} /></div>
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <div className="flex items-center gap-2 min-w-0 whitespace-nowrap">
+                    <button type="button" onClick={() => setPendingDetail(o)} title={o.customer || "거래처 미입력"}
+                      className="max-w-[65%] truncate text-sm font-bold text-indigo-800 underline underline-offset-2 decoration-indigo-300 hover:text-indigo-600">
+                      {o.customer || "거래처 미입력"}
+                    </button>
+                    <span className={`shrink-0 text-[11px] font-medium ${o.outbound_date < todayStr() ? "text-rose-500" : o.outbound_date === todayStr() ? "text-amber-600" : "text-slate-400"}`}>
+                      {outboundDayStatus(o.outbound_date)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      <button onClick={() => setReservationOpen((value) => !value)}
+        className={`outbound-pending-trigger w-full sm:w-[340px] h-11 px-3 rounded-xl flex items-center gap-2 text-left no-print ${reservationRows.length > 0 ? "has-pending" : ""}`}>
+        <span className="w-6 h-6 flex items-center justify-center shrink-0">
+          <PastelCalendar size={20} />
+        </span>
+        <span className="font-semibold text-slate-700">예약현황</span>
+        <span className="ml-auto text-sm font-bold text-indigo-600">{reservationRows.length}건</span>
+        <span className={`text-lg leading-none text-slate-400 transition-transform ${reservationOpen ? "rotate-90" : ""}`}>&gt;</span>
+      </button>
+
+      {reservationOpen && (
+        <Card className="outbound-pending-panel w-full max-w-3xl overflow-hidden border-violet-200/80 print-card">
+          <div className="divide-y divide-violet-100">
+            {reservationRows.length === 0 && <div className="px-5 py-9 text-center text-sm text-slate-400">등록된 예약이 없습니다.</div>}
+            {reservationRows.map((reservation, index) => {
+              const current = currentForKey(reservation.coil_key);
+              const reserved = reservedForKey(reservation.coil_key);
+              const available = Math.max(0, current - reserved);
+              const productText = `${reservation.product_type} · ${reservation.manufacturer} · ${reservation.color_name}${reservation.thickness ? `(${reservation.thickness}T)` : ""}`;
+              return (
+                <div key={reservation.id} className={`px-4 sm:px-5 py-3.5 overflow-hidden ${index % 2 === 0 ? "bg-violet-50/60" : "bg-white"}`}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <button type="button" onClick={() => setDetailKey(reservation.coil_key)} className="flex-1 min-w-0 overflow-hidden text-left">
+                      <div className="flex items-center gap-2 min-w-0 overflow-hidden whitespace-nowrap text-sm">
+                        <span title={reservation.customer} className="inline-block max-w-[38%] shrink-0 truncate rounded px-1 font-bold text-indigo-800"
+                          style={{ backgroundColor: "rgba(167, 139, 250, 0.2)" }}>
+                          {reservation.customer}
+                        </span>
+                        <span title={productText} className="min-w-0 flex-1 truncate text-slate-700">{productText}</span>
+                        <span className="shrink-0 font-semibold text-violet-700">예약 {fmt(reservation.reserved_meter)} M</span>
+                      </div>
+                      <div className="mt-1 truncate text-[11px] text-slate-400" title={`사용 예정일 ${reservation.planned_date} / 현재 ${fmt(current)} M · 가용 ${fmt(available)} M`}>
+                        사용 예정일 {reservation.planned_date} / 현재 {fmt(current)} M · 가용 {fmt(available)} M
+                      </div>
+                    </button>
+                    <button type="button" onClick={() => processReservation(reservation)}
+                      className="shrink-0 px-3 py-2 rounded-xl border border-indigo-200 bg-white text-xs font-semibold text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50">
+                      출고 처리
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* 하단: 전체 이력 */}
       <div className="border-t border-slate-300/80" />
@@ -2135,57 +2931,94 @@ function Outbound({ ctx, quickOpen, clearQuick }) {
         </div>
       </Card>
 
-      <Modal open={open} onClose={() => { setOpen(false); setEditId(null); }} title={editId ? "출고 내역 수정" : "출고 등록"} wide>
+      <Modal open={open} onClose={() => { setOpen(false); setEditId(null); }} title={editId ? "출고 내역 수정" : "출고 등록"} wide="medium">
         <datalist id="customer-options">{customerList.map((customer) => <option key={customer} value={customer} />)}</datalist>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="출고일" required><input type="date" className={inputCls} value={form.outbound_date} onChange={(e) => set("outbound_date", e.target.value)} /></Field>
-          <Field label="거래처" required><input list="customer-options" className={inputCls} value={form.customer} onChange={(e) => set("customer", e.target.value)} placeholder="직접 입력 또는 등록 거래처 선택" /></Field>
-          <Field label="도착일"><input type="date" className={inputCls} value={form.arrival_date} onChange={(e) => set("arrival_date", e.target.value)} /></Field>
-          <Field label="도착 시간"><input type="time" className={inputCls} value={form.arrival_time} onChange={(e) => set("arrival_time", e.target.value)} /></Field>
-          <div className="min-w-0">
-            <Field label="제품 구분" required><select className={`${inputCls} h-[42px]`} value={form.product_type} onChange={(e) => setForm((f) => ({ ...f, product_type: e.target.value, coil_number: "", manufacturer: "", color_name: "", color_code: "", thickness: "" }))}><option>강판</option><option>징크</option></select></Field>
-          </div>
-          <div className="relative min-w-0">
-            <Field label="코일 색상" required>
-              <div className="flex items-center gap-2">
-                <Swatch name={form.color_name} />
-                <input className={inputCls} value={form.color_name}
-                  onFocus={() => setColorMenuOpen(true)}
-                  onChange={(e) => {
-                    setForm((current) => ({ ...current, color_name: e.target.value, manufacturer: "", color_code: "", thickness: "", coil_number: "" }));
-                    setColorMenuOpen(true);
-                  }}
-                  placeholder="등록된 코일 색상 검색" />
-              </div>
-            </Field>
-            {colorMenuOpen && (
-              <div className="absolute z-30 left-8 right-0 top-full mt-1 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl">
-                {colorMatches.map((item) => (
-                  <button type="button" key={stockKey(item)} onClick={() => chooseColor(item)}
-                    className="w-full px-3 py-2.5 flex items-center gap-3 text-left hover:bg-indigo-50">
-                    <span className="w-6 h-6 rounded-lg border border-slate-200 shrink-0" style={{ background: hexOf(item.color) }} />
-                    <span className="font-medium text-sm">{item.color}</span>
-                    <span className="ml-auto text-xs text-slate-400">{item.maker} · {item.code || "코드없음"} · {item.thickness}T</span>
+        <div className="space-y-4">
+          {!editId && (
+            <Field label="등록 유형" required>
+              <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-100">
+                {[["outbound", "출고 등록"], ["reservation", "예약 등록"]].map(([value, label]) => (
+                  <button key={value} type="button" onClick={() => set("registration_type", value)}
+                    className={`h-10 rounded-lg text-sm font-semibold transition ${form.registration_type === value ? "bg-white text-indigo-700 shadow-sm border border-indigo-200" : "text-slate-500 hover:text-slate-700"}`}>
+                    {label}
                   </button>
                 ))}
-                {colorMatches.length === 0 && <div className="px-3 py-6 text-center text-sm text-slate-400">일치하는 등록 색상이 없습니다.</div>}
               </div>
-            )}
+            </Field>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] gap-4">
+            {form.registration_type === "reservation"
+              ? <Field label="예약일" required><input type="date" className={inputCls} value={form.reservation_date} onChange={(e) => set("reservation_date", e.target.value)} /></Field>
+              : <Field label="출고일" required><input type="date" className={inputCls} value={form.outbound_date} onChange={(e) => set("outbound_date", e.target.value)} /></Field>}
+            <Field label="거래처" required><input list="customer-options" className={inputCls} value={form.customer} onChange={(e) => set("customer", e.target.value)} placeholder="직접 입력 또는 등록 거래처 선택" /></Field>
           </div>
-          <Field label="출고량">
-            <div className="relative">
-              <input type="text" inputMode="decimal" className={`${inputCls} pr-9`} value={form.outbound_meter}
-                onChange={(e) => set("outbound_meter", e.target.value.replace(/[^0-9.]/g, ""))} placeholder="선택 입력" />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">M</span>
+          {form.registration_type === "outbound" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="도착일"><input type="date" className={inputCls} value={form.arrival_date} onChange={(e) => set("arrival_date", e.target.value)} /></Field>
+              <Field label="도착 시간"><input type="time" className={inputCls} value={form.arrival_time} onChange={(e) => set("arrival_time", e.target.value)} /></Field>
             </div>
-          </Field>
-          <Field label="선택 코일 정보">
-            <div className="h-[42px] px-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center text-sm text-slate-600">
-              {selectedColor ? `${selectedColor.maker} · ${selectedColor.code || "코드없음"} · ${selectedColor.thickness}T` : "코일 색상을 선택하면 자동 표시됩니다."}
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] gap-4">
+            <div className="min-w-0">
+              <Field label="제품 구분" required><select className={`${inputCls} h-[42px]`} value={form.product_type} onChange={(e) => setForm((f) => ({ ...f, product_type: e.target.value, coil_number: "", manufacturer: "", color_name: "", color_code: "", thickness: "" }))}>{productOptions.map((product) => <option key={product}>{product}</option>)}</select></Field>
             </div>
-          </Field>
-          <div className="md:col-span-2"><Field label="현장주소" required><input className={inputCls} value={form.site_address} onChange={(e) => set("site_address", e.target.value)} placeholder="예: 서울 강남구 역삼로 123 ○○현장" /></Field></div>
-          <div className="md:col-span-2">
+            <div className="relative min-w-0">
+              <Field label="코일 색상" required>
+                <div className="flex items-center gap-2">
+                  <Swatch name={form.color_name} />
+                  <input className={inputCls} value={form.color_name}
+                    onFocus={() => setColorMenuOpen(true)}
+                    onChange={(e) => {
+                      setForm((current) => ({ ...current, color_name: e.target.value, manufacturer: "", color_code: "", thickness: "", coil_number: "" }));
+                      setColorMenuOpen(true);
+                    }}
+                    placeholder="등록된 코일 색상 검색" />
+                </div>
+              </Field>
+              {colorMenuOpen && (
+                <div className="absolute z-30 left-8 right-0 top-full mt-1 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+                  {colorMatches.map((item) => (
+                    <button type="button" key={stockKey(item)} onClick={() => chooseColor(item)}
+                      className="w-full px-3 py-2.5 flex items-center gap-3 text-left hover:bg-indigo-50">
+                      <span className="w-6 h-6 rounded-lg border border-slate-200 shrink-0" style={{ background: hexOf(item.color) }} />
+                      <span className="font-medium text-sm">{item.color}</span>
+                      <span className="ml-auto text-xs text-slate-400">{item.maker} · {item.code || "코드없음"} · {item.thickness}T</span>
+                    </button>
+                  ))}
+                  {colorMatches.length === 0 && <div className="px-3 py-6 text-center text-sm text-slate-400">일치하는 등록 색상이 없습니다.</div>}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className={`grid grid-cols-1 gap-4 ${form.registration_type === "reservation" ? "md:grid-cols-2" : "md:grid-cols-[minmax(0,0.64fr)_minmax(0,1.36fr)]"}`}>
+            <Field label={form.registration_type === "reservation" ? "예약 예정량" : "출고량"} required={form.registration_type === "reservation"}>
+              <div className="relative">
+                <input type="text" inputMode="decimal" className={`${inputCls} pr-9`} value={form.outbound_meter}
+                  onChange={(e) => set("outbound_meter", e.target.value.replace(/[^0-9.]/g, ""))}
+                  placeholder={form.registration_type === "reservation" ? "수량 입력" : "선택 입력"} />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">M</span>
+              </div>
+            </Field>
+            {form.registration_type === "reservation"
+              ? <Field label="사용 예정일" required><input type="date" className={inputCls} value={form.planned_date} onChange={(e) => set("planned_date", e.target.value)} /></Field>
+              : <Field label="선택 코일 정보">
+                  <div className="h-[42px] px-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center text-sm text-slate-600">
+                    {selectedColor ? `${selectedColor.maker} · ${selectedColor.code || "코드없음"} · ${selectedColor.thickness}T` : "코일 색상을 선택하면 자동 표시됩니다."}
+                  </div>
+                </Field>}
+          </div>
+          {form.registration_type === "reservation" && (
+            <Field label="선택 코일 정보">
+              <div className="h-[42px] px-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center text-sm text-slate-600">
+                {selectedColor ? `${selectedColor.maker} · ${selectedColor.code || "코드없음"} · ${selectedColor.thickness}T` : "코일 색상을 선택하면 자동 표시됩니다."}
+              </div>
+            </Field>
+          )}
+          <Field label="현장주소" required><input className={inputCls} value={form.site_address} onChange={(e) => set("site_address", e.target.value)} placeholder="예: 서울 강남구 역삼로 123 ○○현장" /></Field>
+          {form.registration_type === "reservation" && (
+            <Field label="메모"><AutoGrowTextarea className={inputCls} value={form.memo} onChange={(e) => set("memo", e.target.value)} placeholder="예약 관련 메모를 입력하세요" /></Field>
+          )}
+          {form.registration_type === "outbound" && <div>
             <Field label="첨부파일 / 이미지">
               <label onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); attachFiles(e.dataTransfer.files); }}
                 className="min-h-28 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/70 flex flex-col items-center justify-center text-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/40 transition">
@@ -2204,18 +3037,95 @@ function Outbound({ ctx, quickOpen, clearQuick }) {
                 </div>
               ))}
             </div>}
-          </div>
+          </div>}
         </div>
         <div className="mt-4 p-3 rounded-xl bg-slate-50 flex items-center justify-between text-sm">
           <span className="text-slate-600">{selectedColor ? `${selectedColor.color} 기초재고 기준` : `현재 ${form.product_type} 기초재고 기준`}</span>
-          <span className="font-bold text-slate-700">{fmt(selectedColor ? selectedTotal : availOf(form.product_type))} M <span className="ml-1 text-xs font-medium text-slate-400">({fmt(selectedZoneTotal)}) M · A+B+C</span></span>
+          <span className="text-right">
+            <strong className="text-slate-700">{fmt(selectedColor ? selectedTotal : availOf(form.product_type))} M</strong>
+            {selectedColor && (
+              <span className="ml-2 text-xs font-medium text-slate-400">
+                A({fmt(selectedZones.A)}) + B({fmt(selectedZones.B)}) + C({fmt(selectedZones.C)})
+              </span>
+            )}
+            {selectedColor && (
+              <span className="block mt-1 text-xs font-medium text-violet-600">
+                예약 {fmt(selectedReserved)} M · 가용 {fmt(selectedAvailable)} M
+              </span>
+            )}
+          </span>
         </div>
-        {Number(form.outbound_meter) > (selectedColor ? selectedTotal : availOf(form.product_type)) && <p className="text-rose-500 text-sm mt-2">출고량이 가용 재고보다 큽니다. (완료 처리 시 제한됩니다)</p>}
+        {form.registration_type === "reservation" && Number(form.outbound_meter) > selectedAvailable && <p className="text-rose-500 text-sm mt-2">예약 예정량이 가용 재고보다 큽니다.</p>}
+        {form.registration_type === "outbound" && Number(form.outbound_meter) > (selectedColor ? selectedAvailable : availOf(form.product_type)) && <p className="text-rose-500 text-sm mt-2">출고량이 예약량을 제외한 가용 재고보다 큽니다.</p>}
         <div className="mobile-safe-actions z-10 mt-5 -mx-1 px-1 pt-2 grid grid-cols-2 sm:flex sm:justify-end gap-2">
           <button onClick={() => { setOpen(false); setEditId(null); }} className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600">취소</button>
-          <button onClick={submit} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">{editId ? "수정 저장" : "저장"}</button>
+          <button onClick={submit} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">{editId ? "수정 저장" : form.registration_type === "reservation" ? "예약 저장" : "저장"}</button>
         </div>
       </Modal>
+
+      <Modal open={Boolean(detailKey)} onClose={() => setDetailKey("")} title="코일 상세정보" wide="medium">
+        <div className="space-y-5">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-lg border border-slate-200" style={{ background: hexOf(detailCatalogItem?.color) }} />
+              <div>
+                <div className="font-bold text-slate-800">{detailCatalogItem?.color || "코일"}</div>
+                <div className="text-xs text-slate-400">
+                  {detailCatalogItem ? `${detailCatalogItem.product} · ${detailCatalogItem.maker} · ${detailCatalogItem.code || "코드없음"} · ${detailCatalogItem.thickness}T` : detailKey}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            {[
+              ["현재 재고", detailCurrent, "text-slate-800"],
+              ["예약 예정", detailReserved, "text-violet-700"],
+              ["가용 재고", Math.max(0, detailCurrent - detailReserved), "text-indigo-700"],
+            ].map(([label, value, color]) => (
+              <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-2 sm:px-4 py-3 text-center">
+                <div className="text-[11px] sm:text-xs text-slate-500">{label}</div>
+                <div className={`mt-1 text-base sm:text-xl font-extrabold ${color}`}>{fmt(value)} M</div>
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-slate-800 mb-2">예약 내역</h4>
+            <div className="space-y-2">
+              {detailReservations.map((item) => (
+                <div key={item.id} className="rounded-xl border border-violet-100 bg-violet-50/50 px-3 py-3 text-sm">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span title={item.customer} className="min-w-0 flex-1 truncate font-semibold text-indigo-800">{item.customer}</span>
+                    <span className="shrink-0 font-bold text-violet-700">{fmt(item.reserved_meter)} M</span>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">사용 예정일 {item.planned_date}</div>
+                  <div className="mt-1 truncate text-xs text-slate-500" title={item.site_address}>현장 {item.site_address}</div>
+                  {item.memo && <div className="mt-1 text-xs text-slate-500">메모 {item.memo}</div>}
+                </div>
+              ))}
+              {detailReservations.length === 0 && <div className="rounded-xl bg-slate-50 px-3 py-5 text-center text-sm text-slate-400">예약 내역이 없습니다.</div>}
+            </div>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-slate-800 mb-2">최근 출고 내역</h4>
+            <div className="space-y-2">
+              {detailOutbound.map((item) => (
+                <div key={item.id} className="rounded-xl border border-slate-200 px-3 py-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate font-medium text-slate-700" title={item.customer}>{item.customer || "거래처 미입력"}</span>
+                    {Number(item.outbound_meter) > 0 && <span className="shrink-0 font-semibold text-indigo-700">{fmt(item.outbound_meter)} M</span>}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-400">{item.outbound_date} · {item.is_completed ? "출고 완료" : "출고 대기"}</div>
+                </div>
+              ))}
+              {detailOutbound.length === 0 && <div className="rounded-xl bg-slate-50 px-3 py-5 text-center text-sm text-slate-400">최근 출고 내역이 없습니다.</div>}
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      <OutboundSummaryModal item={pendingDetail} onClose={() => setPendingDetail(null)} />
     </div>
   );
 }
