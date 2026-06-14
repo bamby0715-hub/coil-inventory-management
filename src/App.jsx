@@ -209,7 +209,7 @@ function StatusBadge({ status }) {
 }
 function Modal({ open, onClose, title, children, wide, plainHeader = false, hideClose = false, headerActions }) {
   if (!open) return null;
-  const widthClass = wide === "inventory" ? "max-w-[1480px]" : wide === "medium" ? "max-w-3xl" : wide ? "max-w-5xl" : "max-w-xl";
+  const widthClass = wide === "inventory" ? "max-w-[1240px]" : wide === "medium" ? "max-w-3xl" : wide ? "max-w-5xl" : "max-w-xl";
   return (
     <div className="fixed inset-0 z-[60] flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto bg-slate-900/50 backdrop-blur-sm no-print">
       <div className={`bg-white rounded-2xl shadow-2xl w-full ${widthClass} my-2 sm:my-4 max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col`}>
@@ -221,52 +221,6 @@ function Modal({ open, onClose, title, children, wide, plainHeader = false, hide
           </div>
         </div>
         <div className="min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 sm:py-5">{children}</div>
-      </div>
-    </div>
-  );
-}
-function OutboundSummaryModal({ item, onClose }) {
-  if (!item) return null;
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-6 bg-slate-900/50 backdrop-blur-sm no-print" onMouseDown={onClose}>
-      <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-[0_24px_65px_rgba(15,23,42,0.32)]" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="flex items-center justify-between gap-4 px-5 pt-5 pb-4 sm:px-6 sm:pt-5 sm:pb-4">
-          <h3 className="min-w-0 truncate text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
-            {item.customer || "거래처"} 출고 요약
-          </h3>
-          <button type="button" onClick={onClose}
-            className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
-            aria-label="닫기">
-            <X size={24} className="sm:hidden" />
-            <X size={22} className="hidden sm:block" strokeWidth={1.7} />
-          </button>
-        </div>
-        <div className="mx-5 border-t border-slate-200 sm:mx-6" />
-        <div className="space-y-4 px-5 py-5 sm:px-6 sm:py-6">
-          <div className="grid grid-cols-[26px_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[28px_minmax(0,1fr)] sm:gap-4">
-            <CalendarDays size={25} className="text-slate-500 sm:hidden" strokeWidth={1.8} />
-            <CalendarDays size={25} className="hidden text-slate-500 sm:block" strokeWidth={1.7} />
-            <div className="min-w-0 text-sm font-medium text-slate-900 sm:text-base">
-              {item.outbound_date || "-"}
-              <span className="mx-2 text-slate-500 sm:mx-4">→</span>
-              {item.arrival_date || "-"}{item.arrival_time ? ` ${item.arrival_time}` : ""}
-            </div>
-          </div>
-          <div className="grid grid-cols-[26px_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[28px_minmax(0,1fr)] sm:gap-4">
-            <Package size={25} className="text-slate-500 sm:hidden" strokeWidth={1.8} />
-            <Package size={25} className="hidden text-slate-500 sm:block" strokeWidth={1.7} />
-            <div className="min-w-0 text-sm font-medium text-slate-900 sm:text-base">
-              {item.product_type || "-"} · {item.manufacturer || "-"} · {item.color_name || "-"} ·{" "}
-              <span className="font-semibold text-indigo-600">{fmt(item.outbound_meter || 0)} M</span>
-            </div>
-          </div>
-          <div className="grid grid-cols-[26px_minmax(0,1fr)] items-start gap-3 sm:grid-cols-[28px_minmax(0,1fr)] sm:gap-4">
-            <MapPin size={25} className="mt-0.5 text-slate-500 sm:hidden" strokeWidth={1.8} />
-            <MapPin size={25} className="mt-0.5 hidden text-slate-500 sm:block" strokeWidth={1.7} />
-            <div className="min-w-0 break-words text-sm font-medium text-slate-900 sm:text-base">{item.site_address || "-"}</div>
-          </div>
-          {item.memo && <div className="ml-11 border-t border-slate-100 pt-4 text-xs leading-5 text-slate-500 sm:ml-16 sm:text-sm">{item.memo}</div>}
-        </div>
       </div>
     </div>
   );
@@ -406,6 +360,7 @@ export default function CoilInventory() {
   const [quickAction, setQuickAction] = useState(null);
   const [briefingOpen, setBriefingOpen] = useState(false);
   const [outboundPendingOpen, setOutboundPendingOpen] = useState(false);
+  const [outboundDetailId, setOutboundDetailId] = useState("");
 
   const initial = useMemo(seed, []);
   const [coils, setCoils] = useStore("coils", initial.coils);
@@ -448,6 +403,12 @@ export default function CoilInventory() {
   const ctx = { coils, setCoils, inbound, setInbound, outbound, setOutbound, reservations, setReservations, baseStock, setBaseStock, stockHistory, setStockHistory, customColors, setCustomColors, discontinuedColors, setDiscontinuedColors, zoneStock, setZoneStock, baseStockDates, setBaseStockDates, deletedBaseStockKeys, setDeletedBaseStockKeys };
   const goto = (k) => { setMenu(k); setDrawer(false); };
   const openQuick = (kind) => { setQuickAction(kind); setMenu(kind); setDrawer(false); };
+  const openOutboundDetail = (id = "") => {
+    setOutboundDetailId(id);
+    setOutboundPendingOpen(true);
+    setMenu("outbound");
+    setDrawer(false);
+  };
   const resetAllData = () => {
     setCoils([]);
     setInbound([]);
@@ -486,10 +447,11 @@ export default function CoilInventory() {
       {briefingOpen && <TodayBriefing ctx={ctx} onClose={() => setBriefingOpen(false)} />}
 
       <main className="max-w-[1400px] mx-auto p-4 md:p-8">
-        {menu === "dashboard" && <Dashboard ctx={ctx} openQuick={openQuick} resetAllData={resetAllData} />}
+        {menu === "dashboard" && <Dashboard ctx={ctx} openQuick={openQuick} openOutboundDetail={openOutboundDetail} resetAllData={resetAllData} />}
         {menu === "inbound" && <Inbound ctx={ctx} quickOpen={quickAction === "inbound"} clearQuick={() => setQuickAction(null)} />}
         {menu === "outbound" && <Outbound ctx={ctx} quickOpen={quickAction === "outbound"} clearQuick={() => setQuickAction(null)}
-          pendingOpen={outboundPendingOpen} setPendingOpen={setOutboundPendingOpen} />}
+          pendingOpen={outboundPendingOpen} setPendingOpen={setOutboundPendingOpen}
+          initialDetailId={outboundDetailId} clearInitialDetail={() => setOutboundDetailId("")} />}
         {menu === "coil" && <CoilManagement ctx={ctx} />}
         {menu === "inventory" && <Inventory ctx={ctx} />}
       </main>
@@ -886,12 +848,10 @@ function ProductStockCard({ stat, open, onToggle }) {
   );
 }
 
-function Dashboard({ ctx, openQuick, resetAllData }) {
+function Dashboard({ ctx, openQuick, openOutboundDetail, resetAllData }) {
   const { coils, setCoils, outbound, setOutbound, baseStock, customColors, discontinuedColors } = ctx;
   const [slide, setSlide] = useState(0);
   const [mobileProduct, setMobileProduct] = useState("");
-  const [selectedTodo, setSelectedTodo] = useState(null);
-  const [todoOpen, setTodoOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const t = useRef();
   const slides = [
@@ -952,7 +912,7 @@ function Dashboard({ ctx, openQuick, resetAllData }) {
   const summaryCards = [
     { label: "총 보유 재고", value: fmt(totalMeter), unit: "M", icon: Layers3 },
     { label: "오늘 출고 예정", value: todayShip, unit: "건", icon: CalendarDays },
-    { label: "출고 대기", value: incomplete.length, unit: "건", icon: Clock },
+    { label: "출고대기", value: incomplete.length, unit: "건", icon: Clock },
     { label: "출고 보류", value: held, unit: "건", icon: AlertTriangle },
   ];
 
@@ -1026,41 +986,12 @@ function Dashboard({ ctx, openQuick, resetAllData }) {
           <span className="metric-icon w-[18px] h-[18px] flex items-center justify-center shrink-0"><Layers3 size={18} strokeWidth={2} /></span>
           <span className="leading-none">코일관리</span>
         </button>
-        <button onClick={() => setTodoOpen((open) => !open)} className={`pastel-outline h-11 min-w-[188px] px-4 rounded-xl text-sm font-medium text-slate-700 transition inline-flex items-center justify-center gap-2 focus-visible:outline-none ${todo.length > 0 ? "pending-active" : ""}`}>
+        <button onClick={() => openOutboundDetail(todo[0]?.id || "")} className={`pastel-outline h-11 min-w-[188px] px-4 rounded-xl text-sm font-medium text-slate-700 transition inline-flex items-center justify-center gap-2 focus-visible:outline-none ${todo.length > 0 ? "pending-active" : ""}`}>
           <span className="metric-icon w-[18px] h-[18px] flex items-center justify-center shrink-0"><Clock size={18} strokeWidth={2} /></span>
           <span className="leading-none">미완료 내역 <span className="ml-1.5 text-indigo-700">{todo.length}건</span></span>
-          <span className={`text-base leading-none text-slate-400 transition-transform ${todoOpen ? "rotate-90" : ""}`}>&gt;</span>
+          <span className="text-base leading-none text-slate-400">&gt;</span>
         </button>
       </div>
-
-      {/* 미완료 출고 투두리스트 */}
-      {todoOpen && <Card className="overflow-hidden">
-        <div className="px-4 sm:px-5 py-4 border-b border-slate-100 flex items-center gap-3">
-          <div className="metric-icon shrink-0"><Clock size={22} /></div>
-          <div><div className="flex items-center gap-2"><h3 className="font-bold">미완료 내역</h3><span className="text-xs text-slate-400">{todo.length}건</span></div><p className="text-xs text-slate-400 mt-0.5">출고일 기준 오름차순으로 표시됩니다.</p></div>
-        </div>
-        <div className="divide-y divide-slate-50">
-          {todo.length === 0 && <div className="px-5 py-8 text-center text-slate-400 text-sm">미완료 출고 건이 없습니다.</div>}
-          {todo.map((o) => {
-            return (
-              <div key={o.id} className="px-4 sm:px-5 py-3.5 flex items-center gap-3 bg-white">
-                <div className="w-6 h-6 flex items-center justify-center shrink-0"><PastelTruck size={20} /></div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 min-w-0 whitespace-nowrap">
-                    <button onClick={() => setSelectedTodo(o)} title={o.customer || "거래처 미입력"}
-                      className="max-w-[65%] truncate text-sm font-extrabold text-indigo-800 underline underline-offset-2 decoration-indigo-300 hover:text-indigo-600">
-                      {o.customer || "거래처 미입력"}
-                    </button>
-                    <span className={`shrink-0 text-[11px] font-medium ${o.outbound_date < currentDate ? "text-rose-500" : o.outbound_date === currentDate ? "text-amber-600" : "text-slate-400"}`}>
-                      {outboundDayStatus(o.outbound_date)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>}
 
       <div className="grid grid-cols-4 gap-2 md:gap-4">
         {summaryCards.map((card) => {
@@ -1086,8 +1017,6 @@ function Dashboard({ ctx, openQuick, resetAllData }) {
             onToggle={() => setMobileProduct((current) => current === stat.product ? "" : stat.product)} />
         ))}
       </div>
-
-      <OutboundSummaryModal item={selectedTodo} onClose={() => setSelectedTodo(null)} />
 
     </div>
   );
@@ -1449,13 +1378,12 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
           {summaryGroups.length > 0 && (
           <div className="mx-auto max-w-full border-t border-slate-200 px-2 pt-3">
             <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-sm text-slate-500">
-              <span className="text-xs font-medium text-slate-400">조회 합계</span>
               {summaryGroups.map((group) => {
                 const purchaserCount = new Set(group.rows.map((row) => row.purchaser).filter(Boolean)).size;
                 return (
                   <span key={group.product}>
                     <b className="font-semibold text-slate-700">{group.product}</b>
-                    <span className="ml-1.5">{group.rows.length}건 / 매입처 {purchaserCount || "-"}</span>
+                    <span className="ml-1.5">{group.rows.length}/{purchaserCount || "-"}</span>
                   </span>
                 );
               })}
@@ -1586,6 +1514,7 @@ function CoilManagement({ ctx }) {
   const [selectedBaseKeys, setSelectedBaseKeys] = useState([]);
   const [openBaseEditorAfterAdd, setOpenBaseEditorAfterAdd] = useState(false);
   const [baseSearch, setBaseSearch] = useState("");
+  const [historySearch, setHistorySearch] = useState("");
   const [baseDraft, setBaseDraft] = useState({});
   const [historyDraft, setHistoryDraft] = useState([]);
   const [rankingProduct, setRankingProduct] = useState("강판");
@@ -1643,6 +1572,19 @@ function CoilManagement({ ctx }) {
       .join(" ")
       .toLocaleLowerCase()
       .includes(keyword);
+  });
+  const searchedHistoryRows = historyDraft.filter((item) => {
+    const keyword = historySearch.trim().toLocaleLowerCase();
+    if (!keyword) return true;
+    return [
+      item.registered_at,
+      item.product,
+      item.maker,
+      item.color,
+      item.code,
+      item.thickness,
+      `${item.thickness}T`,
+    ].join(" ").toLocaleLowerCase().includes(keyword);
   });
   const rows = allRows.filter((item) => !item.soldOut);
   const filteredRows = allRows.filter((item) =>
@@ -1759,92 +1701,68 @@ function CoilManagement({ ctx }) {
         },
     }));
   };
-  const saveSelectedBaseStocks = () => {
+  const saveSelectedBaseStocks = async () => {
     if (selectedBaseKeys.length === 0) {
-      appAlert("저장할 항목을 작업 열에서 선택해주세요.", { title: "선택 안내", type: "warning" });
+      appAlert("수정할 항목을 선택해주세요.", { title: "선택 안내", type: "warning" });
       return;
     }
-    const timestamp = Date.now();
-    const records = selectedBaseKeys.map((key, index) => {
-      const item = allRows.find((row) => row.key === key);
-      const draft = baseDraft[key] || {};
+    if (!await appConfirm(`선택된 ${selectedBaseKeys.length}건의 재고를 수정하시겠습니까?`, {
+      title: "기초재고 수정 확인",
+    })) return;
+
+    const selectedItems = allRows.filter((item) => selectedBaseKeys.includes(item.key));
+    const now = Date.now();
+    const records = selectedItems.map((item, index) => {
+      const draft = baseDraft[item.key] || {};
       const zones = { A: "", B: "", C: "", ...(draft.zones || {}) };
       const meter = ["A", "B", "C"].reduce((sum, zone) => sum + (Number(zones[zone]) || 0), 0);
       return {
-        id: `${key}-${timestamp}-${index}`,
-        key,
+        id: `${item.key}-${now + index}`,
+        key: item.key,
         registered_at: draft.date || todayStr(),
-        created_at: new Date(timestamp + index).toISOString(),
-        product: item?.product || "",
-        maker: item?.maker || "",
-        color: item?.color || "",
-        code: item?.code || "",
-        thickness: item?.thickness || "",
+        created_at: new Date(now + index).toISOString(),
+        product: item.product,
+        maker: item.maker,
+        color: item.color,
+        code: item.code,
+        thickness: item.thickness,
         meter,
         zones,
       };
     });
-    setZoneStock((current) => {
-      const next = { ...current };
-      records.forEach((record) => { next[record.key] = record.zones; });
-      return next;
-    });
-    setBaseStock((current) => {
-      const next = { ...current };
-      records.forEach((record) => { next[record.key] = record.meter; });
-      return next;
-    });
-    setBaseStockDates((current) => {
-      const next = { ...current };
-      records.forEach((record) => { next[record.key] = record.registered_at; });
-      return next;
-    });
-    setZoneDraft((current) => {
-      const next = { ...current };
-      records.forEach((record) => { next[record.key] = record.zones; });
-      return next;
-    });
-    setStockHistory((current) => [...records.reverse(), ...current]);
-    setHistoryDraft((current) => [...records, ...current]);
-    setBaseEditing(false);
-    setSelectedBaseKeys([]);
-    appAlert(`${records.length}개 기초재고가 저장되었습니다.`, { title: "기초재고 저장", type: "success" });
-  };
-  const resetBaseDraftRow = (item) => {
-    setBaseDraft((current) => ({
+    const recordsByKey = Object.fromEntries(records.map((record) => [record.key, record]));
+
+    setZoneStock((current) => ({
       ...current,
-      [item.key]: {
+      ...Object.fromEntries(records.map((record) => [record.key, record.zones])),
+    }));
+    setBaseStock((current) => ({
+      ...current,
+      ...Object.fromEntries(records.map((record) => [record.key, record.meter])),
+    }));
+    setBaseStockDates((current) => ({
+      ...current,
+      ...Object.fromEntries(records.map((record) => [record.key, record.registered_at])),
+    }));
+    setZoneDraft((current) => ({
+      ...current,
+      ...Object.fromEntries(records.map((record) => [record.key, record.zones])),
+    }));
+    setStockHistory((current) => [...records].reverse().concat(current));
+    setHistoryDraft((current) => [...records].reverse().concat(current));
+    setBaseDraft(Object.fromEntries(allRows.map((item) => {
+      const saved = recordsByKey[item.key];
+      return [item.key, saved ? {
+        zones: saved.zones,
+        date: saved.registered_at,
+      } : {
         zones: { A: baseStock[item.key] || "", B: "", C: "", ...(zoneStock[item.key] || {}) },
         date: baseStockDates[item.key] || todayStr(),
-      },
-    }));
-  };
-  const saveBaseStockRow = (item) => {
-    const draft = baseDraft[item.key] || {};
-    const zones = { A: "", B: "", C: "", ...(draft.zones || {}) };
-    const meter = ["A", "B", "C"].reduce((sum, zone) => sum + (Number(zones[zone]) || 0), 0);
-    const registeredAt = draft.date || todayStr();
-    const record = {
-      id: `${item.key}-${Date.now()}`,
-      key: item.key,
-      registered_at: registeredAt,
-      created_at: new Date().toISOString(),
-      product: item.product,
-      maker: item.maker,
-      color: item.color,
-      code: item.code,
-      thickness: item.thickness,
-      meter,
-      zones,
-    };
-    setZoneStock((current) => ({ ...current, [item.key]: zones }));
-    setBaseStock((current) => ({ ...current, [item.key]: meter }));
-    setBaseStockDates((current) => ({ ...current, [item.key]: registeredAt }));
-    setZoneDraft((current) => ({ ...current, [item.key]: zones }));
-    setStockHistory((current) => [record, ...current]);
-    setHistoryDraft((current) => [record, ...current]);
-    setSelectedBaseKeys((current) => current.filter((key) => key !== item.key));
-    appAlert(`${item.color} 기초재고가 저장되었습니다.`, { title: "기초재고 저장", type: "success" });
+      }];
+    })));
+    setSelectedBaseKeys([]);
+    setBaseEditing(false);
+    appAlert(`선택된 ${records.length}건의 기초재고가 수정되었습니다.`, { title: "기초재고 수정 완료", type: "success" });
   };
   const deleteSelectedBaseStocks = async () => {
     const deletable = selectedBaseKeys.filter((key) => customColors.some((color) => keyOf(color) === key));
@@ -2210,7 +2128,7 @@ function CoilManagement({ ctx }) {
         <div className="min-h-[620px] sm:min-h-[700px] flex flex-col">
           <div className="-mx-4 sm:-mx-6 -mt-4 sm:-mt-5 flex justify-start border-b border-slate-200 px-4 sm:px-8">
             <div className="flex items-center gap-8">
-              {[["base", "기초재고"], ["timeline", "변경 타임라인"]].map(([key, label]) => (
+              {[["base", "기초재고"], ["timeline", "타임라인"]].map(([key, label]) => (
                 <button key={key} type="button" onClick={() => setHistoryTab(key)}
                   className={`relative h-14 px-1 text-sm sm:text-base font-bold transition ${historyTab === key ? "text-indigo-600" : "text-slate-500 hover:text-slate-700"}`}>
                   {label}
@@ -2235,33 +2153,28 @@ function CoilManagement({ ctx }) {
                 </div>
                 <button type="button" onClick={() => {
                   if (baseEditing) {
-                    selectedBaseKeys.forEach((key) => {
-                      const item = allRows.find((row) => row.key === key);
-                      if (item) resetBaseDraftRow(item);
-                    });
-                    setBaseEditing(false);
+                    saveSelectedBaseStocks();
                     return;
                   }
-                  if (selectedBaseKeys.length === 0) {
-                    appAlert("수정할 항목을 작업 열에서 먼저 선택해주세요.", { title: "선택 안내", type: "warning" });
-                    return;
-                  }
+                  setSelectedBaseKeys([]);
                   setBaseEditing(true);
                 }}
                   className="h-10 px-4 rounded-xl border border-indigo-200 bg-white text-xs font-bold text-indigo-600 hover:bg-indigo-50 whitespace-nowrap">
-                  {baseEditing ? "종료" : "수정"}
+                  수정
                 </button>
-                <button type="button" onClick={deleteSelectedBaseStocks} disabled={selectedBaseKeys.length === 0 || baseEditing}
+                <button type="button" onClick={deleteSelectedBaseStocks}
+                  disabled={!selectedBaseKeys.some((key) => customColors.some((color) => keyOf(color) === key))}
+                  title="새로 추가한 코일을 선택하면 삭제할 수 있습니다."
                   className="h-10 px-4 rounded-xl border border-rose-200 bg-white text-xs font-bold text-rose-500 hover:bg-rose-50 disabled:border-slate-200 disabled:text-slate-300 disabled:hover:bg-white whitespace-nowrap">
                   삭제
                 </button>
               </div>
 
-              <div className="mt-5 flex-1 min-h-[420px] max-h-[500px] overflow-auto rounded-2xl border border-slate-200">
-                <table className="w-full text-xs sm:text-sm min-w-[1120px] table-fixed">
+              <div className="mt-5 flex-1 min-h-[470px] max-h-[550px] overflow-auto rounded-2xl border border-slate-200">
+                <table className="w-full text-xs sm:text-sm min-w-[920px] table-fixed">
                   <colgroup>
-                    <col className="w-[14%]" /><col className="w-[16%]" /><col className="w-[12%]" />
-                    <col className="w-[15%]" /><col className="w-[8%]" /><col className="w-[8%]" />
+                    <col className="w-[15%]" /><col className="w-[15%]" /><col className="w-[11%]" />
+                    <col className="w-[16%]" /><col className="w-[8%]" /><col className="w-[8%]" />
                     <col className="w-[8%]" /><col className="w-[11%]" /><col className="w-[8%]" />
                   </colgroup>
                   <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500">
@@ -2273,51 +2186,47 @@ function CoilManagement({ ctx }) {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {searchedBaseRows.map((item) => {
-                      const custom = customColors.some((color) => keyOf(color) === item.key);
                       const selected = selectedBaseKeys.includes(item.key);
                       const draftTotal = ["A", "B", "C"].reduce((sum, zone) => sum + (Number(baseDraft[item.key]?.zones?.[zone]) || 0), 0);
                       return (
                         <tr key={item.key} className={selected ? "bg-indigo-50/60" : ""}>
-                          <td className="px-4 py-3 text-left">
-                            <div className="flex items-center gap-3">
+                          <td className="px-3 py-3 text-left">
+                            <div className="flex items-center gap-2">
                               <span className="w-3.5 h-3.5 rounded border border-slate-200 shrink-0" style={{ background: hexOf(item.color) }} />
                               <span className="font-bold truncate">{item.color}</span>
                             </div>
                           </td>
-                          <td className="px-2 py-2 text-center text-slate-400">{item.code || "코드없음"} · {item.thickness}T</td>
-                          <td className="px-2 py-2 text-center">{item.maker}</td>
+                          <td className="px-1.5 py-2 text-center text-slate-400 whitespace-nowrap">{item.code || "코드없음"} · {item.thickness}T</td>
+                          <td className="px-1.5 py-2 text-center whitespace-nowrap">{item.maker}</td>
                           <td className="px-2 py-2 text-center">
-                            {baseEditing && selected
+                            {baseEditing
                               ? <input type="date" value={baseDraft[item.key]?.date || todayStr()} onChange={(e) => setBaseDraftValue(item.key, "date", e.target.value)}
-                                  className="h-10 w-[145px] rounded-xl border border-slate-200 px-2 text-center outline-none focus:border-indigo-400" />
+                                  className="h-9 w-[132px] rounded-xl border border-slate-200 px-1 text-center outline-none focus:border-indigo-400" />
                               : displayDate(baseStockDates[item.key])}
                           </td>
                           {["A", "B", "C"].map((zone) => (
                             <td key={zone} className="px-1 py-2 text-center">
-                              {baseEditing && selected
+                              {baseEditing
                                 ? <input type="text" inputMode="decimal" value={baseDraft[item.key]?.zones?.[zone] || ""}
                                     onChange={(e) => setBaseDraftValue(item.key, zone, e.target.value)}
-                                    className="h-10 w-20 rounded-xl border border-slate-200 px-2 text-center outline-none focus:border-indigo-400" />
+                                    className="h-9 w-16 rounded-xl border border-slate-200 px-1 text-center outline-none focus:border-indigo-400" />
                                 : fmt(zoneStock[item.key]?.[zone] || 0)}
                             </td>
                           ))}
-                          <td className="px-2 py-2 text-center font-bold text-indigo-700">{fmt(baseEditing && selected ? draftTotal : baseStock[item.key] || 0)} M</td>
+                          <td className="px-2 py-2 text-center font-bold text-indigo-700">{fmt(baseEditing ? draftTotal : baseStock[item.key] || 0)} M</td>
                           <td className="px-1 py-2 text-center whitespace-nowrap">
-                            <div className="flex items-center justify-center">
+                            <div className="flex items-center justify-center gap-1">
                               <input type="checkbox" checked={selected}
-                                disabled={baseEditing}
                                 onChange={() => {
                                   if (selected) {
-                                    if (baseEditing) return;
-                                    resetBaseDraftRow(item);
                                     setSelectedBaseKeys((current) => current.filter((key) => key !== item.key));
                                   } else {
                                     setSelectedBaseKeys((current) => [...current, item.key]);
                                   }
                                 }}
                                 aria-label={`${item.color} 선택`}
-                                title={baseEditing ? "수정 중에는 선택을 변경할 수 없습니다." : selected ? "선택 해제" : "수정 또는 삭제할 항목 선택"}
-                                className="w-4 h-4 accent-indigo-600 disabled:opacity-50" />
+                                title={selected ? "선택 해제" : baseEditing ? "수정할 항목 선택" : "삭제할 항목 선택"}
+                                className="w-4 h-4 accent-indigo-600" />
                             </div>
                           </td>
                         </tr>
@@ -2327,44 +2236,41 @@ function CoilManagement({ ctx }) {
                   </tbody>
                 </table>
               </div>
-              <div className="mt-auto pt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <span className="text-sm font-semibold text-slate-600">총 {searchedBaseRows.length}건 · 선택 {selectedBaseKeys.length}건</span>
-                <div className="grid grid-cols-2 sm:flex gap-2">
-                  <button type="button" onClick={() => {
-                    selectedBaseKeys.forEach((key) => {
-                      const item = allRows.find((row) => row.key === key);
-                      if (item) resetBaseDraftRow(item);
-                    });
-                    setBaseEditing(false);
-                  }} className="h-11 px-7 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-600">
-                    취소
-                  </button>
-                  <button type="button" onClick={saveSelectedBaseStocks} disabled={!baseEditing || selectedBaseKeys.length === 0}
-                    className="h-11 px-8 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400">
-                    저장
-                  </button>
-                </div>
-              </div>
             </div>
           ) : (
             <div className="flex-1 pt-5 space-y-3">
-              <div className="rounded-xl bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-600">
-                기초재고에서 저장한 변경 내용이 최신순으로 표시됩니다.
+              <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                <div className="min-h-10 flex-1 rounded-xl bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-600 flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-blue-500 text-white text-xs inline-flex items-center justify-center shrink-0">i</span>
+                  기초재고에서 저장한 변경 내용이 최신순으로 표시됩니다.
+                </div>
+                <div className="w-full lg:w-[430px] relative">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input type="search" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)}
+                    placeholder="구분 · 제조사 · 색상 · 두께 검색"
+                    className="w-full h-10 rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs outline-none focus:border-indigo-400" />
+                </div>
               </div>
-              <div className="max-h-[570px] overflow-y-auto pr-1 space-y-3">
-                {historyDraft.map((item) => (
-                  <div key={item.id} className="relative pl-6">
+              <div className="space-y-2">
+                {searchedHistoryRows.map((item) => (
+                  <div key={item.id} className="relative pl-6 w-full">
                     <span className="absolute left-1.5 top-2 bottom-[-14px] w-px bg-indigo-100" />
                     <span className="absolute left-0 top-2 w-4 h-4 rounded-full bg-white border-4 border-indigo-300" />
-                    <div className="rounded-2xl border border-slate-200 bg-white p-3 grid md:grid-cols-[110px_minmax(160px,1fr)_repeat(3,72px)_150px] gap-2 items-center text-center">
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 grid md:grid-cols-[96px_minmax(210px,1fr)_repeat(3,64px)_110px] gap-2 items-center text-center">
                       <div className="text-xs text-slate-500">{displayDate(item.registered_at)}</div>
-                      <div><div className="font-bold">{item.color}</div><div className="text-xs text-slate-400">{item.code || "코드없음"} · {item.thickness}T</div></div>
+                      <div className="font-bold text-left truncate" title={`${item.color} (${item.code || "코드없음"} · ${item.thickness}T)`}>
+                        {item.color} <span className="text-xs font-normal text-slate-400">({item.code || "코드없음"} · {item.thickness}T)</span>
+                      </div>
                       {["A", "B", "C"].map((zone) => <div key={zone} className="text-sm"><span className="text-xs text-slate-400 mr-1">{zone}</span>{fmt(item.zones?.[zone] || 0)}</div>)}
-                      <div className="font-bold text-indigo-700">총 M {fmt(item.meter)}</div>
+                      <div className="font-bold text-indigo-700">총 {fmt(item.meter)} M</div>
                     </div>
                   </div>
                 ))}
-                {historyDraft.length === 0 && <div className="py-16 text-center text-sm text-slate-400">등록된 변경 기록이 없습니다.</div>}
+                {searchedHistoryRows.length === 0 && (
+                  <div className="py-16 text-center text-sm text-slate-400">
+                    {historyDraft.length === 0 ? "등록된 변경 기록이 없습니다." : "검색 조건에 맞는 변경 기록이 없습니다."}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2542,10 +2448,10 @@ const blankOutbound = () => ({
   outbound_date: todayStr(), customer: "", arrival_date: todayStr(), arrival_time: "09:00",
   reservation_date: todayStr(), planned_date: todayStr(),
   product_type: "강판", coil_number: "", manufacturer: "", color_name: "", thickness: "",
-  color_code: "", site_address: "", outbound_meter: 0, memo: "", attachments: [],
+  color_code: "", site_address: "", manager: "", outbound_meter: "", memo: "", attachments: [],
 });
 
-function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
+function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, initialDetailId, clearInitialDetail }) {
   const {
     outbound, setOutbound, reservations, setReservations, coils, setCoils,
     baseStock, setBaseStock, stockHistory, setStockHistory, zoneStock, setZoneStock,
@@ -2557,8 +2463,10 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
   const [q, setQ] = useState("");
   const [from, setFrom] = useState(""); const [to, setTo] = useState("");
   const [colorMenuOpen, setColorMenuOpen] = useState(false);
+  const [customerMenuOpen, setCustomerMenuOpen] = useState(false);
   const [reservationOpen, setReservationOpen] = useState(false);
   const [detailKey, setDetailKey] = useState("");
+  const [, setDetailRefreshTick] = useState(0);
   const [pendingDetail, setPendingDetail] = useState(null);
 
   useEffect(() => {
@@ -2568,6 +2476,12 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
     setOpen(true);
     clearQuick();
   }, [quickOpen, clearQuick]);
+  useEffect(() => {
+    if (!initialDetailId) return;
+    const target = outbound.find((item) => item.id === initialDetailId && !item.is_completed);
+    if (target) setPendingDetail(target);
+    clearInitialDetail();
+  }, [initialDetailId, outbound, clearInitialDetail]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const availOf = (pt) => coils.filter((c) => c.product_type === pt && c.current_meter > 0).reduce((a, c) => a + c.current_meter, 0);
@@ -2602,7 +2516,11 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
     .reduce((sum, item) => sum + (Number(item.reserved_meter) || 0), 0);
   const selectedReserved = selectedKey ? reservedForKey(selectedKey) : 0;
   const selectedAvailable = Math.max(0, selectedTotal - selectedReserved);
-  const customerList = [...new Set([...outbound, ...reservations].map((o) => o.customer).filter(Boolean))];
+  const customerList = [...new Set([...outbound, ...reservations].map((o) => o.customer?.trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "ko"));
+  const customerMatches = form.customer.trim()
+    ? customerList.filter((customer) => customer.toLocaleLowerCase().includes(form.customer.trim().toLocaleLowerCase())).slice(0, 8)
+    : customerList.slice(0, 8);
   const chooseColor = (item) => {
     setForm((current) => ({
       ...current,
@@ -2632,24 +2550,13 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
 
   const submit = () => {
     const isReservation = form.registration_type === "reservation";
-    const commonMissing = !form.customer || !form.product_type || !form.manufacturer ||
-      !form.color_name || !form.thickness || !form.site_address;
-    const typeMissing = isReservation
-      ? !form.reservation_date || !form.planned_date
-      : !form.outbound_date || !form.arrival_date || !form.arrival_time;
+    const commonMissing = !form.customer || !selectedKey;
+    const typeMissing = isReservation ? !form.reservation_date : !form.outbound_date;
     if (commonMissing || typeMissing) {
       appAlert("*필수입력을 작성해주세요", { title: "필수입력 안내", type: "warning" });
       return;
     }
     const m = Number(form.outbound_meter) || 0;
-    if (isReservation && m <= 0) {
-      appAlert("예약 예정량 M를 입력해주세요.", { title: "수량 입력 안내", type: "warning" });
-      return;
-    }
-    if (!selectedKey) {
-      appAlert("등록된 코일 색상을 선택해주세요.", { title: "코일 선택 안내", type: "warning" });
-      return;
-    }
     if (isReservation) {
       if (m > selectedAvailable) {
         appAlert(`가용 재고 ${fmt(selectedAvailable)} M를 초과할 수 없습니다.`, { title: "예약 수량 확인", type: "warning" });
@@ -2667,6 +2574,7 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
         color_code: form.color_code,
         thickness: form.thickness,
         site_address: form.site_address,
+        manager: form.manager,
         memo: form.memo,
         reserved_meter: m,
         created_at: todayStr(),
@@ -2677,36 +2585,202 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
       setEditId(null);
       setForm(blankOutbound());
       setReservationOpen(true);
-      appAlert("예약현황에 등록되었습니다.", {
+      appAlert("예약 현황에 등록되었습니다.", {
         title: "예약 등록 완료",
         type: "success",
         submessage: "실제 재고는 차감되지 않고 가용 재고에만 반영됩니다.",
       });
       return;
     }
-    if (m > 0 && m > selectedAvailable) {
+    const editingRecord = editId ? outbound.find((item) => item.id === editId) : null;
+    const editingMeter = Number(editingRecord?.outbound_meter) || 0;
+    const editingDeducted = editingRecord?.stock_deducted === true ||
+      (editingRecord?.stock_deducted !== false && editingRecord?.registration_type !== "reservation-converted");
+    const additionalMeter = editingRecord && editingDeducted ? Math.max(0, m - editingMeter) : m;
+    if (additionalMeter > 0 && additionalMeter > selectedAvailable) {
       appAlert(`예약량을 제외한 가용 재고는 ${fmt(selectedAvailable)} M입니다.`, { title: "출고 수량 확인", type: "warning" });
       return;
     }
-    const avail = availOf(form.product_type);
     if (editId) {
-      setOutbound((list) => list.map((o) => o.id === editId ? { ...o, ...form, outbound_meter: m, updated_at: todayStr() } : o));
+      const original = outbound.find((item) => item.id === editId);
+      const originalCatalogItem = original ? registrationCatalog.find((item) =>
+        stockKey(item) === original.coil_number ||
+        (item.product === original.product_type && item.maker === original.manufacturer &&
+          item.color === original.color_name && String(item.thickness) === String(original.thickness))
+      ) : null;
+      const originalKey = originalCatalogItem ? stockKey(originalCatalogItem) : "";
+      if (originalKey && originalKey !== selectedKey) {
+        appAlert("출고 대기 수정에서는 코일 색상을 변경할 수 없습니다.", {
+          title: "코일 색상 확인",
+          type: "warning",
+          submessage: "다른 코일로 변경하려면 기존 내역을 삭제한 뒤 다시 등록해주세요.",
+        });
+        return;
+      }
+      const originalMeter = Number(original?.outbound_meter) || 0;
+      const current = selectedKey ? currentForKey(selectedKey) : 0;
+      const wasDeducted = original?.stock_deducted === true ||
+        (original?.stock_deducted !== false && original?.registration_type !== "reservation-converted");
+      let nextTotal = current;
+      if (wasDeducted && selectedKey) {
+        const delta = m - originalMeter;
+        if (delta > current) {
+          appAlert(`추가 출고량 ${fmt(delta)} M이 현재 재고 ${fmt(current)} M보다 큽니다.`, {
+            title: "출고량 수정 불가",
+            type: "warning",
+          });
+          return;
+        }
+        if (delta !== 0) {
+          const nextZones = { ...selectedZones };
+          if (delta > 0) {
+            let remain = delta;
+            ["A", "B", "C"].forEach((zone) => {
+              const zoneMeter = Number(nextZones[zone]) || 0;
+              const used = Math.min(zoneMeter, remain);
+              nextZones[zone] = zoneMeter - used;
+              remain -= used;
+            });
+          } else {
+            nextZones.A = (Number(nextZones.A) || 0) + Math.abs(delta);
+          }
+          nextTotal = Math.max(0, current - delta);
+          setZoneStock((values) => ({ ...values, [selectedKey]: nextZones }));
+          setBaseStock((values) => ({ ...values, [selectedKey]: nextTotal }));
+          setStockHistory((history) => [{
+            id: uid(),
+            key: selectedKey,
+            registered_at: form.outbound_date || todayStr(),
+            created_at: new Date().toISOString(),
+            product: selectedColor.product,
+            maker: selectedColor.maker,
+            color: selectedColor.color,
+            code: selectedColor.code,
+            thickness: selectedColor.thickness,
+            zones: nextZones,
+            meter: nextTotal,
+            source: "outbound-edit",
+          }, ...history]);
+        }
+      }
+      setOutbound((list) => list.map((o) => o.id === editId ? {
+        ...o,
+        ...form,
+        outbound_meter: m,
+        before_meter: wasDeducted ? nextTotal + m : current,
+        after_meter: wasDeducted ? nextTotal : Math.max(0, current - m),
+        stock_deducted: wasDeducted,
+        updated_at: todayStr(),
+      } : o));
     } else {
       const rec = {
-        id: uid(), ...form, outbound_meter: m, before_meter: avail, after_meter: avail - m,
-        is_completed: false, completed_at: null, created_at: todayStr(), updated_at: todayStr(),
+        id: uid(), ...form, outbound_meter: m, before_meter: selectedTotal, after_meter: Math.max(0, selectedTotal - m),
+        stock_deducted: m > 0, is_completed: false, completed_at: null, created_at: todayStr(), updated_at: todayStr(),
       };
       setOutbound((list) => [rec, ...list]);
+      if (m > 0 && selectedKey) {
+        let remain = m;
+        const nextZones = { ...selectedZones };
+        ["A", "B", "C"].forEach((zone) => {
+          const current = Number(nextZones[zone]) || 0;
+          const used = Math.min(current, remain);
+          nextZones[zone] = current - used;
+          remain -= used;
+        });
+        const nextTotal = Math.max(0, selectedTotal - m);
+        setZoneStock((values) => ({ ...values, [selectedKey]: nextZones }));
+        setBaseStock((values) => ({ ...values, [selectedKey]: nextTotal }));
+        setStockHistory((history) => [{
+          id: uid(),
+          key: selectedKey,
+          registered_at: form.outbound_date || todayStr(),
+          created_at: new Date().toISOString(),
+          product: selectedColor.product,
+          maker: selectedColor.maker,
+          color: selectedColor.color,
+          code: selectedColor.code,
+          thickness: selectedColor.thickness,
+          zones: nextZones,
+          meter: nextTotal,
+          source: "outbound-registration",
+        }, ...history]);
+      }
     }
     setOpen(false); setEditId(null); setForm(blankOutbound());
-    appAlert("출고대기로 자동 등록됩니다.", {
+    appAlert("출고 대기로 자동 등록됩니다.", {
       title: "출고 등록 완료",
       type: "success",
       submessage: "완료 버튼을 눌러 출고 완료해주세요.",
     });
   };
 
-  const approve = (o) => completeOutboundRecord(o, coils, setCoils, setOutbound);
+  const approve = async (o) => {
+    const catalogItem = registrationCatalog.find((item) =>
+      stockKey(item) === o.coil_number ||
+      (item.product === o.product_type && item.maker === o.manufacturer &&
+        item.color === o.color_name && String(item.thickness) === String(o.thickness))
+    );
+    const key = catalogItem ? stockKey(catalogItem) : "";
+    const current = key ? currentForKey(key) : 0;
+    const meter = Number(o.outbound_meter) || 0;
+    const alreadyDeducted = o.stock_deducted === true ||
+      (o.stock_deducted !== false && o.registration_type !== "reservation-converted");
+
+    if (!alreadyDeducted && meter > current) {
+      appAlert(`현재 재고 ${fmt(current)} M보다 출고 예정 ${fmt(meter)} M이 커서 완료할 수 없습니다.`, {
+        title: "출고 처리 안내",
+        type: "warning",
+        submessage: "상세정보의 수정 아이콘에서 출고 예정 M을 확인해주세요.",
+      });
+      return;
+    }
+    if (!await appConfirm("이 출고 건을 출고 완료 처리하시겠습니까?", {
+      title: "출고 완료 확인",
+      submessage: alreadyDeducted ? "등록 시 반영된 재고는 다시 차감되지 않습니다." : "완료 처리 시 재고가 차감됩니다.",
+    })) return;
+
+    let after = current;
+    if (!alreadyDeducted && meter > 0 && key) {
+      let remain = meter;
+      const currentZones = zoneStock[key]
+        ? { A: 0, B: 0, C: 0, ...zoneStock[key] }
+        : { A: current, B: 0, C: 0 };
+      const nextZones = { ...currentZones };
+      ["A", "B", "C"].forEach((zone) => {
+        const zoneMeter = Number(nextZones[zone]) || 0;
+        const used = Math.min(zoneMeter, remain);
+        nextZones[zone] = zoneMeter - used;
+        remain -= used;
+      });
+      after = Math.max(0, current - meter);
+      setZoneStock((values) => ({ ...values, [key]: nextZones }));
+      setBaseStock((values) => ({ ...values, [key]: after }));
+      setStockHistory((history) => [{
+        id: uid(),
+        key,
+        registered_at: o.outbound_date || todayStr(),
+        created_at: new Date().toISOString(),
+        product: catalogItem.product,
+        maker: catalogItem.maker,
+        color: catalogItem.color,
+        code: catalogItem.code,
+        thickness: catalogItem.thickness,
+        zones: nextZones,
+        meter: after,
+        source: "outbound-completion",
+      }, ...history]);
+    }
+    setOutbound((list) => list.map((item) => item.id === o.id ? {
+      ...item,
+      is_completed: true,
+      completed_at: todayStr(),
+      before_meter: alreadyDeducted ? current + meter : current,
+      after_meter: after,
+      stock_deducted: true,
+      updated_at: todayStr(),
+    } : item));
+    setPendingDetail(null);
+  };
   const startEdit = (o) => { setForm({ ...blankOutbound(), ...o }); setEditId(o.id); setOpen(true); };
   const remove = async (id) => {
     if (await appConfirm("정말 삭제하시겠습니까?", { title: "출고 내역 삭제", type: "danger" })) {
@@ -2722,28 +2796,16 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
       appAlert(`현재 재고 ${fmt(current)} M보다 예약량이 큽니다.`, { title: "출고 처리 불가", type: "warning" });
       return;
     }
-    if (!await appConfirm("예약 항목을 실제 출고로 처리하시겠습니까? 현재 재고가 차감됩니다.", { title: "예약 출고 처리" })) return;
+    if (!await appConfirm("예약 항목을 출고 대기로 전환하시겠습니까?", {
+      title: "출고 대기 전환",
+      submessage: "재고는 출고 완료 처리 시 차감됩니다.",
+    })) return;
 
-    const currentZones = zoneStock[key] ? { A: 0, B: 0, C: 0, ...zoneStock[key] } : { A: current, B: 0, C: 0 };
-    let remain = meter;
-    const nextZones = { ...currentZones };
-    ["A", "B", "C"].forEach((zone) => {
-      const used = Math.min(Number(nextZones[zone]) || 0, remain);
-      nextZones[zone] = (Number(nextZones[zone]) || 0) - used;
-      remain -= used;
-    });
-    const nextTotal = Math.max(0, current - meter);
-    setZoneStock((values) => ({ ...values, [key]: nextZones }));
-    setBaseStock((values) => ({ ...values, [key]: nextTotal }));
-    setStockHistory((history) => [{
-      id: uid(), key, registered_at: todayStr(), zones: nextZones, meter: nextTotal,
-      source: "reservation-outbound", created_at: new Date().toISOString(),
-    }, ...history]);
     setReservations((list) => list.filter((item) => item.id !== reservation.id));
     setOutbound((list) => [{
       id: uid(),
       registration_type: "reservation-converted",
-      outbound_date: todayStr(),
+      outbound_date: reservation.planned_date || todayStr(),
       arrival_date: reservation.planned_date,
       arrival_time: "",
       customer: reservation.customer,
@@ -2755,16 +2817,23 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
       thickness: reservation.thickness,
       site_address: reservation.site_address,
       outbound_meter: meter,
+      manager: reservation.manager || "",
       memo: reservation.memo,
       attachments: [],
       before_meter: current,
-      after_meter: nextTotal,
-      is_completed: true,
-      completed_at: todayStr(),
+      after_meter: Math.max(0, current - meter),
+      stock_deducted: false,
+      is_completed: false,
+      completed_at: null,
       created_at: todayStr(),
       updated_at: todayStr(),
     }, ...list]);
-    appAlert("예약 항목이 출고 처리되었습니다.", { title: "출고 처리 완료", type: "success" });
+    setPendingOpen(true);
+    appAlert("예약 항목이 출고 대기로 전환되었습니다.", {
+      title: "출고 대기 등록 완료",
+      type: "success",
+      submessage: "트럭 아이콘에서 출고 완료 처리할 수 있습니다.",
+    });
   };
 
   const reservationRows = [...reservations].sort((a, b) =>
@@ -2781,6 +2850,23 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
         item.color_name === detailCatalogItem?.color && String(item.thickness) === String(detailCatalogItem?.thickness)))
     .sort((a, b) => String(b.outbound_date).localeCompare(String(a.outbound_date)))
     .slice(0, 5) : [];
+  const detailEditableOutbound = detailOutbound.find((item) => !item.is_completed);
+  const livePendingDetail = pendingDetail
+    ? outbound.find((item) => item.id === pendingDetail.id) || pendingDetail
+    : null;
+  const pendingDetailCatalogItem = livePendingDetail ? registrationCatalog.find((item) =>
+    stockKey(item) === livePendingDetail.coil_number ||
+    (item.product === livePendingDetail.product_type && item.maker === livePendingDetail.manufacturer &&
+      item.color === livePendingDetail.color_name && String(item.thickness) === String(livePendingDetail.thickness))
+  ) : null;
+  const pendingDetailKey = pendingDetailCatalogItem ? stockKey(pendingDetailCatalogItem) : "";
+  const pendingDetailCurrent = pendingDetailKey ? currentForKey(pendingDetailKey) : Number(livePendingDetail?.after_meter) || 0;
+  const pendingDetailMeter = Number(livePendingDetail?.outbound_meter) || 0;
+  const pendingDetailDeducted = livePendingDetail?.stock_deducted === true ||
+    (livePendingDetail?.stock_deducted !== false && livePendingDetail?.registration_type !== "reservation-converted");
+  const pendingDetailAfter = pendingDetailDeducted
+    ? pendingDetailCurrent
+    : Math.max(0, pendingDetailCurrent - pendingDetailMeter);
 
   const incomplete = outbound.filter((o) => !o.is_completed).sort((a, b) => a.outbound_date.localeCompare(b.outbound_date));
   const all = outbound
@@ -2820,25 +2906,37 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
       </button>
 
       {pendingOpen && (
-        <Card className="outbound-pending-panel w-full max-w-3xl overflow-hidden print-card">
-          <div className="divide-y divide-rose-100/60">
+        <Card className="outbound-pending-panel w-full max-w-2xl overflow-hidden border-violet-200/80 print-card">
+          <div className="divide-y divide-violet-100">
             {incomplete.length === 0 && <div className="px-5 py-9 text-center text-sm text-slate-400">미완료 출고 건이 없습니다.</div>}
-            {incomplete.map((o) => (
-              <div key={o.id} className="px-4 sm:px-5 py-3.5 flex items-center gap-3 overflow-hidden bg-white">
-                <div className="w-6 h-6 flex items-center justify-center shrink-0"><PastelTruck size={20} /></div>
-                <div className="flex-1 min-w-0 overflow-hidden">
-                  <div className="flex items-center gap-2 min-w-0 whitespace-nowrap">
-                    <button type="button" onClick={() => setPendingDetail(o)} title={o.customer || "거래처 미입력"}
-                      className="max-w-[65%] truncate text-sm font-bold text-indigo-800 underline underline-offset-2 decoration-indigo-300 hover:text-indigo-600">
-                      {o.customer || "거래처 미입력"}
+            {incomplete.map((o, index) => {
+              const productText = `${o.product_type || "-"} · ${o.manufacturer || "-"} · ${o.color_name || "-"}${o.thickness ? `(${o.thickness}T)` : ""}`;
+              return (
+                <div key={o.id} className={`px-4 py-2.5 overflow-hidden ${index % 2 === 0 ? "bg-violet-50/60" : "bg-white"}`}>
+                  <div className="grid grid-cols-[minmax(0,1fr)_72px_38px] items-center gap-2 min-w-0">
+                    <button type="button" onClick={() => setPendingDetail(o)} className="min-w-0 overflow-hidden text-left">
+                      <div className="flex items-center gap-2 min-w-0 overflow-hidden whitespace-nowrap text-sm">
+                        <span title={o.customer || "거래처 미입력"} className="inline-block max-w-[38%] shrink-0 truncate rounded px-1 font-bold text-indigo-800"
+                          style={{ backgroundColor: "rgba(167, 139, 250, 0.2)" }}>
+                          {o.customer || "거래처 미입력"}
+                        </span>
+                        <span title={productText} className="min-w-0 flex-1 truncate text-slate-700">{productText}</span>
+                      </div>
+                      <div className="mt-1 truncate text-[11px] text-slate-400" title={`${o.outbound_date || "-"} → ${o.arrival_date || "-"} ${o.arrival_time || ""}`}>
+                        {o.outbound_date || "-"} → {o.arrival_date || "-"}{o.arrival_time ? ` ${o.arrival_time}` : ""}
+                      </div>
                     </button>
-                    <span className={`shrink-0 text-[11px] font-medium ${o.outbound_date < todayStr() ? "text-rose-500" : o.outbound_date === todayStr() ? "text-amber-600" : "text-slate-400"}`}>
-                      {outboundDayStatus(o.outbound_date)}
+                    <span className="text-center text-sm font-semibold text-violet-700">
+                      {fmt(o.outbound_meter || 0)} M
                     </span>
+                    <button type="button" onClick={() => approve(o)} title="출고 완료 처리" aria-label="출고 완료 처리"
+                      className="pastel-outline w-9 h-9 rounded-xl inline-flex items-center justify-center">
+                      <PastelTruck size={19} />
+                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       )}
@@ -2848,13 +2946,13 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
         <span className="w-6 h-6 flex items-center justify-center shrink-0">
           <PastelCalendar size={20} />
         </span>
-        <span className="font-semibold text-slate-700">예약현황</span>
+        <span className="font-semibold text-slate-700">예약 현황</span>
         <span className="ml-auto text-sm font-bold text-indigo-600">{reservationRows.length}건</span>
         <span className={`text-lg leading-none text-slate-400 transition-transform ${reservationOpen ? "rotate-90" : ""}`}>&gt;</span>
       </button>
 
       {reservationOpen && (
-        <Card className="outbound-pending-panel w-full max-w-3xl overflow-hidden border-violet-200/80 print-card">
+        <Card className="outbound-pending-panel w-full max-w-2xl overflow-hidden border-violet-200/80 print-card">
           <div className="divide-y divide-violet-100">
             {reservationRows.length === 0 && <div className="px-5 py-9 text-center text-sm text-slate-400">등록된 예약이 없습니다.</div>}
             {reservationRows.map((reservation, index) => {
@@ -2863,8 +2961,8 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
               const available = Math.max(0, current - reserved);
               const productText = `${reservation.product_type} · ${reservation.manufacturer} · ${reservation.color_name}${reservation.thickness ? `(${reservation.thickness}T)` : ""}`;
               return (
-                <div key={reservation.id} className={`px-4 sm:px-5 py-3.5 overflow-hidden ${index % 2 === 0 ? "bg-violet-50/60" : "bg-white"}`}>
-                  <div className="flex items-center gap-3 min-w-0">
+                <div key={reservation.id} className={`px-4 py-2.5 overflow-hidden ${index % 2 === 0 ? "bg-violet-50/60" : "bg-white"}`}>
+                  <div className="grid grid-cols-[minmax(0,1fr)_96px_38px] items-center gap-2 min-w-0">
                     <button type="button" onClick={() => setDetailKey(reservation.coil_key)} className="flex-1 min-w-0 overflow-hidden text-left">
                       <div className="flex items-center gap-2 min-w-0 overflow-hidden whitespace-nowrap text-sm">
                         <span title={reservation.customer} className="inline-block max-w-[38%] shrink-0 truncate rounded px-1 font-bold text-indigo-800"
@@ -2872,15 +2970,16 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
                           {reservation.customer}
                         </span>
                         <span title={productText} className="min-w-0 flex-1 truncate text-slate-700">{productText}</span>
-                        <span className="shrink-0 font-semibold text-violet-700">예약 {fmt(reservation.reserved_meter)} M</span>
                       </div>
                       <div className="mt-1 truncate text-[11px] text-slate-400" title={`사용 예정일 ${reservation.planned_date} / 현재 ${fmt(current)} M · 가용 ${fmt(available)} M`}>
                         사용 예정일 {reservation.planned_date} / 현재 {fmt(current)} M · 가용 {fmt(available)} M
                       </div>
                     </button>
+                    <span className="text-center text-sm font-semibold text-violet-700">예약 {fmt(reservation.reserved_meter)} M</span>
                     <button type="button" onClick={() => processReservation(reservation)}
-                      className="shrink-0 px-3 py-2 rounded-xl border border-indigo-200 bg-white text-xs font-semibold text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50">
-                      출고 처리
+                      title="예약 출고 처리" aria-label="예약 출고 처리"
+                      className="pastel-outline w-9 h-9 rounded-xl inline-flex items-center justify-center">
+                      <PastelTruck size={19} />
                     </button>
                   </div>
                 </div>
@@ -2932,25 +3031,51 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
       </Card>
 
       <Modal open={open} onClose={() => { setOpen(false); setEditId(null); }} title={editId ? "출고 내역 수정" : "출고 등록"} wide="medium">
-        <datalist id="customer-options">{customerList.map((customer) => <option key={customer} value={customer} />)}</datalist>
         <div className="space-y-4">
           {!editId && (
-            <Field label="등록 유형" required>
-              <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-100">
+            <div className="-mx-4 sm:-mx-6 -mt-4 sm:-mt-5 mb-5 border-b border-slate-200 px-4 sm:px-6">
+              <div className="flex items-center gap-8">
                 {[["outbound", "출고 등록"], ["reservation", "예약 등록"]].map(([value, label]) => (
                   <button key={value} type="button" onClick={() => set("registration_type", value)}
-                    className={`h-10 rounded-lg text-sm font-semibold transition ${form.registration_type === value ? "bg-white text-indigo-700 shadow-sm border border-indigo-200" : "text-slate-500 hover:text-slate-700"}`}>
+                    className={`relative h-14 px-1 text-sm sm:text-base font-bold transition ${form.registration_type === value ? "text-indigo-600" : "text-slate-500 hover:text-slate-700"}`}>
                     {label}
+                    {form.registration_type === value && <span className="absolute inset-x-0 bottom-0 h-0.5 bg-indigo-600" />}
                   </button>
                 ))}
               </div>
-            </Field>
+            </div>
           )}
           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] gap-4">
             {form.registration_type === "reservation"
               ? <Field label="예약일" required><input type="date" className={inputCls} value={form.reservation_date} onChange={(e) => set("reservation_date", e.target.value)} /></Field>
               : <Field label="출고일" required><input type="date" className={inputCls} value={form.outbound_date} onChange={(e) => set("outbound_date", e.target.value)} /></Field>}
-            <Field label="거래처" required><input list="customer-options" className={inputCls} value={form.customer} onChange={(e) => set("customer", e.target.value)} placeholder="직접 입력 또는 등록 거래처 선택" /></Field>
+            <div className="relative min-w-0">
+              <Field label="거래처" required>
+                <input className={inputCls} value={form.customer}
+                  onFocus={() => setCustomerMenuOpen(true)}
+                  onBlur={() => setTimeout(() => setCustomerMenuOpen(false), 120)}
+                  onChange={(e) => {
+                    set("customer", e.target.value);
+                    setCustomerMenuOpen(true);
+                  }}
+                  placeholder="직접 입력 또는 등록 거래처 선택" />
+              </Field>
+              {customerMenuOpen && customerMatches.length > 0 && (
+                <div className="absolute z-40 left-0 right-0 top-full mt-1 max-h-48 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                  {customerMatches.map((customer) => (
+                    <button type="button" key={customer}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => {
+                        set("customer", customer);
+                        setCustomerMenuOpen(false);
+                      }}
+                      className="w-full rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700">
+                      {customer}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           {form.registration_type === "outbound" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2991,16 +3116,21 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
             </div>
           </div>
           <div className={`grid grid-cols-1 gap-4 ${form.registration_type === "reservation" ? "md:grid-cols-2" : "md:grid-cols-[minmax(0,0.64fr)_minmax(0,1.36fr)]"}`}>
-            <Field label={form.registration_type === "reservation" ? "예약 예정량" : "출고량"} required={form.registration_type === "reservation"}>
+            <Field label={form.registration_type === "reservation" ? "예약량 M" : "출고량 M"}>
               <div className="relative">
                 <input type="text" inputMode="decimal" className={`${inputCls} pr-9`} value={form.outbound_meter}
                   onChange={(e) => set("outbound_meter", e.target.value.replace(/[^0-9.]/g, ""))}
-                  placeholder={form.registration_type === "reservation" ? "수량 입력" : "선택 입력"} />
+                  placeholder="선택 입력" />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">M</span>
               </div>
+              <p className="mt-1.5 text-[11px] text-slate-400">
+                {form.registration_type === "reservation"
+                  ? "예약량은 선택 입력입니다. 입력하지 않으면 0M으로 등록됩니다."
+                  : "출고량은 선택 입력입니다. 입력하지 않으면 0M으로 등록됩니다."}
+              </p>
             </Field>
             {form.registration_type === "reservation"
-              ? <Field label="사용 예정일" required><input type="date" className={inputCls} value={form.planned_date} onChange={(e) => set("planned_date", e.target.value)} /></Field>
+              ? <Field label="사용 예정일"><input type="date" className={inputCls} value={form.planned_date} onChange={(e) => set("planned_date", e.target.value)} /></Field>
               : <Field label="선택 코일 정보">
                   <div className="h-[42px] px-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center text-sm text-slate-600">
                     {selectedColor ? `${selectedColor.maker} · ${selectedColor.code || "코드없음"} · ${selectedColor.thickness}T` : "코일 색상을 선택하면 자동 표시됩니다."}
@@ -3014,10 +3144,12 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
               </div>
             </Field>
           )}
-          <Field label="현장주소" required><input className={inputCls} value={form.site_address} onChange={(e) => set("site_address", e.target.value)} placeholder="예: 서울 강남구 역삼로 123 ○○현장" /></Field>
-          {form.registration_type === "reservation" && (
-            <Field label="메모"><AutoGrowTextarea className={inputCls} value={form.memo} onChange={(e) => set("memo", e.target.value)} placeholder="예약 관련 메모를 입력하세요" /></Field>
-          )}
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.5fr)_minmax(0,0.5fr)] gap-4">
+            <Field label="현장주소"><input className={inputCls} value={form.site_address} onChange={(e) => set("site_address", e.target.value)} placeholder="예: 서울 강남구 역삼로 123 ○○현장" /></Field>
+            <Field label="담당자"><input className={inputCls} value={form.manager || ""} onChange={(e) => set("manager", e.target.value)} placeholder="담당자 입력" /></Field>
+          </div>
+          <Field label="메모"><AutoGrowTextarea className={inputCls} value={form.memo} onChange={(e) => set("memo", e.target.value)}
+            placeholder={form.registration_type === "reservation" ? "예약 관련 메모를 입력하세요" : "출고 관련 메모를 입력하세요"} /></Field>
           {form.registration_type === "outbound" && <div>
             <Field label="첨부파일 / 이미지">
               <label onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); attachFiles(e.dataTransfer.files); }}
@@ -3059,11 +3191,44 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
         {form.registration_type === "outbound" && Number(form.outbound_meter) > (selectedColor ? selectedAvailable : availOf(form.product_type)) && <p className="text-rose-500 text-sm mt-2">출고량이 예약량을 제외한 가용 재고보다 큽니다.</p>}
         <div className="mobile-safe-actions z-10 mt-5 -mx-1 px-1 pt-2 grid grid-cols-2 sm:flex sm:justify-end gap-2">
           <button onClick={() => { setOpen(false); setEditId(null); }} className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600">취소</button>
-          <button onClick={submit} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">{editId ? "수정 저장" : form.registration_type === "reservation" ? "예약 저장" : "저장"}</button>
+          <button onClick={submit} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">
+            {editId ? "수정 저장" : form.registration_type === "reservation" ? "예약 등록" : "출고 등록"}
+          </button>
         </div>
       </Modal>
 
-      <Modal open={Boolean(detailKey)} onClose={() => setDetailKey("")} title="코일 상세정보" wide="medium">
+      <Modal
+        open={Boolean(detailKey)}
+        onClose={() => setDetailKey("")}
+        title="코일 상세정보"
+        wide="medium"
+        headerActions={detailKey && (
+          <div className="flex items-center gap-1">
+            <button type="button"
+              onClick={() => setDetailRefreshTick((value) => value + 1)}
+              className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
+              title="최신 재고 다시 계산" aria-label="최신 재고 다시 계산">
+              <RotateCcw size={16} />
+            </button>
+            <button type="button"
+              onClick={() => {
+                if (!detailEditableOutbound) {
+                  appAlert("수정 가능한 출고 대기 내역이 없습니다.", {
+                    title: "출고 예정 수정",
+                    type: "info",
+                  });
+                  return;
+                }
+                setDetailKey("");
+                startEdit(detailEditableOutbound);
+              }}
+              className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
+              title="출고 예정 수정" aria-label="출고 예정 수정">
+              <Pencil size={16} />
+            </button>
+          </div>
+        )}
+      >
         <div className="space-y-5">
           <div>
             <div className="flex items-center gap-2">
@@ -3082,7 +3247,8 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
               ["예약 예정", detailReserved, "text-violet-700"],
               ["가용 재고", Math.max(0, detailCurrent - detailReserved), "text-indigo-700"],
             ].map(([label, value, color]) => (
-              <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-2 sm:px-4 py-3 text-center">
+              <div key={label} className="rounded-xl border bg-slate-50 px-2 sm:px-4 py-3 text-center"
+                style={{ borderColor: "#c9b6dc" }}>
                 <div className="text-[11px] sm:text-xs text-slate-500">{label}</div>
                 <div className={`mt-1 text-base sm:text-xl font-extrabold ${color}`}>{fmt(value)} M</div>
               </div>
@@ -3109,23 +3275,110 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen }) {
 
           <div>
             <h4 className="font-semibold text-slate-800 mb-2">최근 출고 내역</h4>
-            <div className="space-y-2">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
               {detailOutbound.map((item) => (
-                <div key={item.id} className="rounded-xl border border-slate-200 px-3 py-3 text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="min-w-0 flex-1 truncate font-medium text-slate-700" title={item.customer}>{item.customer || "거래처 미입력"}</span>
-                    {Number(item.outbound_meter) > 0 && <span className="shrink-0 font-semibold text-indigo-700">{fmt(item.outbound_meter)} M</span>}
-                  </div>
-                  <div className="mt-1 text-xs text-slate-400">{item.outbound_date} · {item.is_completed ? "출고 완료" : "출고 대기"}</div>
+                <div key={item.id}
+                  className="grid grid-cols-[76px_minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-2.5 text-xs sm:text-sm">
+                  <span className="text-slate-400 whitespace-nowrap">{item.outbound_date || "-"}</span>
+                  <span className="min-w-0 truncate text-slate-700" title={item.customer || "거래처 미입력"}>
+                    {item.customer || "거래처 미입력"}
+                  </span>
+                  <span className="shrink-0 font-semibold text-indigo-700 whitespace-nowrap">
+                    {fmt(item.outbound_meter || 0)} M
+                  </span>
+                  <span
+                    title={item.is_completed && item.completed_at ? `완료일 ${item.completed_at}` : "출고 완료 전"}
+                    className={`shrink-0 whitespace-nowrap text-[11px] font-medium ${
+                      item.is_completed
+                        ? "text-emerald-700 underline decoration-emerald-300 underline-offset-4"
+                        : "rounded-full bg-amber-50 px-2 py-1 text-amber-700"
+                    }`}>
+                    {item.is_completed ? "출고 완료" : "출고 대기"}
+                  </span>
                 </div>
               ))}
-              {detailOutbound.length === 0 && <div className="rounded-xl bg-slate-50 px-3 py-5 text-center text-sm text-slate-400">최근 출고 내역이 없습니다.</div>}
+              {detailOutbound.length === 0 && <div className="bg-slate-50 px-3 py-5 text-center text-sm text-slate-400">최근 출고 내역이 없습니다.</div>}
             </div>
           </div>
         </div>
       </Modal>
 
-      <OutboundSummaryModal item={pendingDetail} onClose={() => setPendingDetail(null)} />
+      <Modal
+        open={Boolean(pendingDetail)}
+        onClose={() => setPendingDetail(null)}
+        title="출고 대기 상세정보"
+        wide="medium"
+        headerActions={livePendingDetail && (
+          <div className="flex items-center gap-1">
+            <button type="button"
+              onClick={() => setPendingDetail({ ...livePendingDetail })}
+              className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
+              title="최신 재고 다시 계산" aria-label="최신 재고 다시 계산">
+              <RotateCcw size={16} />
+            </button>
+            <button type="button"
+              onClick={() => {
+                setPendingDetail(null);
+                startEdit(livePendingDetail);
+              }}
+              className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
+              title="출고 예정 수정" aria-label="출고 예정 수정">
+              <Pencil size={16} />
+            </button>
+          </div>
+        )}
+      >
+        <div className="space-y-5">
+          <div className="flex items-center gap-3">
+            <span className="w-9 h-9 rounded-xl border border-slate-200 shrink-0"
+              style={{ background: hexOf(pendingDetailCatalogItem?.color || livePendingDetail?.color_name) }} />
+            <div className="min-w-0">
+              <div className="font-bold text-slate-800 truncate">{livePendingDetail?.color_name || "코일"}</div>
+              <div className="text-xs text-slate-400 truncate">
+                {livePendingDetail?.product_type || "-"} · {livePendingDetail?.manufacturer || "-"} · {livePendingDetail?.color_code || "코드없음"} · {livePendingDetail?.thickness || "-"}T
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            {[
+              ["현재 재고", pendingDetailCurrent, "text-slate-800"],
+              ["출고 예정", pendingDetailMeter, "text-violet-700"],
+              ["출고 후 예상", pendingDetailAfter, "text-indigo-700"],
+            ].map(([label, value, color]) => (
+              <div key={label} className="rounded-xl border bg-slate-50 px-2 sm:px-4 py-3 text-center"
+                style={{ borderColor: "#c9b6dc" }}>
+                <div className="text-[11px] sm:text-xs text-slate-500">{label}</div>
+                <div className={`mt-1 text-base sm:text-xl font-extrabold ${color}`}>{fmt(value)} M</div>
+              </div>
+            ))}
+          </div>
+          <div>
+            <h4 className="font-semibold text-slate-800 mb-2">출고 대기 정보</h4>
+            <div className="rounded-xl border border-violet-100 bg-violet-50/50 px-4 py-4 text-sm space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 w-16 shrink-0">거래처</span>
+                <span className="min-w-0 truncate font-semibold text-indigo-800" title={livePendingDetail?.customer}>{livePendingDetail?.customer || "-"}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 w-16 shrink-0">일정</span>
+                <span>{livePendingDetail?.outbound_date || "-"} → {livePendingDetail?.arrival_date || "-"}{livePendingDetail?.arrival_time ? ` ${livePendingDetail.arrival_time}` : ""}</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-xs text-slate-400 w-16 shrink-0 pt-0.5">현장</span>
+                <span className="min-w-0 break-words">{livePendingDetail?.site_address || "-"}</span>
+              </div>
+              {livePendingDetail?.manager && <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 w-16 shrink-0">담당자</span>
+                <span>{livePendingDetail.manager}</span>
+              </div>}
+              {livePendingDetail?.memo && <div className="flex items-start gap-2 border-t border-violet-100 pt-3">
+                <span className="text-xs text-slate-400 w-16 shrink-0 pt-0.5">메모</span>
+                <span className="min-w-0 break-words text-slate-600">{livePendingDetail.memo}</span>
+              </div>}
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
