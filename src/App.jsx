@@ -170,6 +170,8 @@ const STORE_KEYS = [
   "customColors", "discontinuedColors", "zoneStock", "baseStockDates", "deletedBaseStockKeys",
 ];
 const OBJECT_STORE_KEYS = new Set(["baseStock", "zoneStock", "baseStockDates"]);
+const SETTINGS_SNAPSHOT_PREFIX = "appSnapshot:";
+const SETTINGS_CHUNK_SIZE = 40000;
 const sheetKeyOf = (item) => `${item.product}|${item.maker}|${item.code || ""}|${item.color}|${item.thickness}`;
 const localStorageKey = (key) => `hnmt-coil-${key}`;
 const safeJsonParse = (value, fallback) => {
@@ -189,8 +191,14 @@ const downloadJson = (data, fileName) => {
 };
 const normalizeMasterRows = (customColors = [], deletedBaseStockKeys = [], discontinuedColors = []) => {
   const defaultKeys = new Set(COLOR_MASTER.map(sheetKeyOf));
+  const deletedCustomRows = deletedBaseStockKeys
+    .filter((key) => !defaultKeys.has(key))
+    .map((key) => {
+      const [product = "", maker = "", code = "", color = "", thickness = ""] = key.split("|");
+      return { product, maker, code, color, thickness, hex: hexOf(color), inactive: true };
+    });
   const rows = [...COLOR_MASTER, ...customColors]
-    .filter((item) => !deletedBaseStockKeys.includes(sheetKeyOf(item)) || defaultKeys.has(sheetKeyOf(item)))
+    .concat(deletedCustomRows)
     .map((item) => {
       const key = sheetKeyOf(item);
       return {
@@ -202,20 +210,23 @@ const normalizeMasterRows = (customColors = [], deletedBaseStockKeys = [], disco
         색상명: item.color,
         색상HEX: item.hex || hexOf(item.color),
         품절여부: discontinuedColors.includes(key) ? "Y" : "N",
-        사용여부: "Y",
-        영구여부: defaultKeys.has(key) ? "Y" : "N",
+        사용여부: item.inactive ? "N" : "Y",
       };
     });
   return [...new Map(rows.map((row) => [`${row.제조사}|${row.코드번호}|${row.두께}|${row.색상명}`, row])).values()];
 };
 const snapshotToSheets = (snapshot) => {
   const master = normalizeMasterRows(snapshot.customColors, snapshot.deletedBaseStockKeys, snapshot.discontinuedColors);
-  const masterById = Object.fromEntries(master.map((row) => [row.id, row]));
   const stockKeys = [...new Set([
     ...master.map((row) => row.id),
     ...Object.keys(snapshot.baseStock || {}),
     ...Object.keys(snapshot.zoneStock || {}),
   ])];
+  const snapshotJson = JSON.stringify(snapshot);
+  const snapshotChunks = [];
+  for (let i = 0; i < snapshotJson.length; i += SETTINGS_CHUNK_SIZE) {
+    snapshotChunks.push(snapshotJson.slice(i, i + SETTINGS_CHUNK_SIZE));
+  }
   return {
     색상마스터: master,
     기초재고: stockKeys.map((key) => {
@@ -232,33 +243,6 @@ const snapshotToSheets = (snapshot) => {
         수정일: todayStr(),
       };
     }),
-    입고내역: (snapshot.inbound || []).map((item) => ({
-      ...item,
-      id: item.id || uid(),
-      등록일: item.created_at || todayStr(),
-      입고일: item.inbound_date || "",
-      색상ID: `${item.product_type}|${item.manufacturer}|${item.color_code || ""}|${item.color_name}|${item.thickness}`,
-      제품구분: item.product_type || "",
-      제조사: item.manufacturer || "",
-      색상명: item.color_name || "",
-      코드번호: item.color_code || "",
-      두께: item.thickness || "",
-      매입처: item.purchaser || "",
-      비고: item.memo || "",
-    })),
-    코일목록: (snapshot.coils || []).map((item) => ({
-      ...item,
-      id: item.id || uid(),
-      코일번호: item.coil_number || "",
-      입고일: item.inbound_date || "",
-      제품구분: item.product_type || "",
-      제조사: item.manufacturer || "",
-      색상명: item.color_name || "",
-      두께: item.thickness || "",
-      매입처: item.purchaser || "",
-      현재M: item.current_meter || 0,
-      비고: item.memo || "",
-    })),
     출고내역: (snapshot.outbound || []).map((item) => ({
       ...item,
       id: item.id || uid(),
@@ -303,15 +287,23 @@ const snapshotToSheets = (snapshot) => {
     설정: [
       { key: "schemaVersion", value: "1" },
       { key: "updatedAt", value: new Date().toISOString() },
+      { key: `${SETTINGS_SNAPSHOT_PREFIX}count`, value: snapshotChunks.length },
+      ...snapshotChunks.map((value, index) => ({ key: `${SETTINGS_SNAPSHOT_PREFIX}${index}`, value })),
     ],
   };
 };
 const sheetsToSnapshot = (data, fallback = {}) => {
-  const baseFallback = { ...fallback };
+  const settingsRows = data?.설정 || [];
+  const chunkCount = Number(settingsRows.find((row) => row.key === `${SETTINGS_SNAPSHOT_PREFIX}count`)?.value) || 0;
+  const snapshotJson = Array.from({ length: chunkCount }, (_, index) =>
+    settingsRows.find((row) => row.key === `${SETTINGS_SNAPSHOT_PREFIX}${index}`)?.value || ""
+  ).join("");
+  const storedSnapshot = safeJsonParse(snapshotJson, {});
+  const baseFallback = { ...fallback, ...storedSnapshot };
   const defaultKeys = new Set(COLOR_MASTER.map(sheetKeyOf));
   const masterRows = data?.색상마스터 || [];
   const customColors = masterRows
-    .filter((row) => String(row.영구여부 || "").toUpperCase() !== "Y")
+    .filter((row) => String(row.사용여부 || "Y").toUpperCase() !== "N")
     .map((row) => ({
       product: row.제품구분 || row.product || "",
       maker: row.제조사 || row.maker || "",
@@ -320,6 +312,7 @@ const sheetsToSnapshot = (data, fallback = {}) => {
       color: row.색상명 || row.color || "",
       hex: row.색상HEX || row.hex || "",
     }))
+    .filter((item) => !defaultKeys.has(sheetKeyOf(item)))
     .filter((item) => item.product && item.maker && item.color && item.thickness);
   const discontinuedColors = masterRows
     .filter((row) => String(row.품절여부 || "").toUpperCase() === "Y")
@@ -380,36 +373,8 @@ const sheetsToSnapshot = (data, fallback = {}) => {
     },
     meter: Number(row.meter ?? row.총M) || ((Number(row.변경A) || 0) + (Number(row.변경B) || 0) + (Number(row.변경C) || 0)),
   })).filter((row) => row.key);
-  const inbound = (data?.입고내역 || baseFallback.inbound || []).map((row) => ({
-    ...row,
-    id: row.id || uid(),
-    created_at: row.created_at || row.등록일 || todayStr(),
-    inbound_date: row.inbound_date || row.입고일 || "",
-    product_type: row.product_type || row.제품구분 || "",
-    manufacturer: row.manufacturer || row.제조사 || "",
-    color_name: row.color_name || row.색상명 || "",
-    color_code: row.color_code || row.코드번호 || "",
-    thickness: row.thickness || row.두께 || "",
-    purchaser: row.purchaser || row.매입처 || "",
-    memo: row.memo || row.비고 || "",
-  }));
-  const coils = (data?.코일목록 || baseFallback.coils || []).map((row) => ({
-    ...row,
-    id: row.id || uid(),
-    coil_number: row.coil_number || row.코일번호 || "",
-    inbound_date: row.inbound_date || row.입고일 || "",
-    product_type: row.product_type || row.제품구분 || "",
-    manufacturer: row.manufacturer || row.제조사 || "",
-    color_name: row.color_name || row.색상명 || "",
-    thickness: row.thickness || row.두께 || "",
-    purchaser: row.purchaser || row.매입처 || "",
-    current_meter: Number(row.current_meter ?? row.현재M) || 0,
-    memo: row.memo || row.비고 || "",
-  }));
   return {
     ...baseFallback,
-    coils,
-    inbound,
     customColors,
     discontinuedColors,
     deletedBaseStockKeys,
@@ -741,8 +706,6 @@ export default function CoilInventory() {
     setReservations([]);
     setBaseStock({});
     setStockHistory([]);
-    setCustomColors([]);
-    setDiscontinuedColors([]);
     setZoneStock({});
     setBaseStockDates({});
     localStorage.removeItem("hnmt-coil-inboundTodos");

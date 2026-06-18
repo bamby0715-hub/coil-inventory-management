@@ -1,8 +1,6 @@
 const SHEETS = {
-  "색상마스터": ["id", "제품구분", "제조사", "코드번호", "두께", "색상명", "색상HEX", "품절여부", "사용여부", "영구여부"],
+  "색상마스터": ["id", "제품구분", "제조사", "코드번호", "두께", "색상명", "색상HEX", "품절여부", "사용여부"],
   "기초재고": ["id", "색상ID", "기준일", "A", "B", "C", "총M", "수정일"],
-  "입고내역": ["id", "등록일", "입고일", "색상ID", "제품구분", "제조사", "색상명", "코드번호", "두께", "매입처", "비고"],
-  "코일목록": ["id", "코일번호", "입고일", "제품구분", "제조사", "색상명", "두께", "매입처", "현재M", "비고"],
   "출고내역": ["id", "등록일", "출고일", "거래처", "현장주소", "색상ID", "출고M", "담당자", "메모", "완료여부"],
   "예약내역": ["id", "등록일", "예약일", "도착일", "거래처", "현장주소", "색상ID", "예약M", "담당자", "메모", "완료여부"],
   "변경타임라인": ["id", "변경일시", "구분", "색상ID", "이전A", "이전B", "이전C", "변경A", "변경B", "변경C", "변경자"],
@@ -118,12 +116,27 @@ function ensureColumns_(sheet, rows) {
 }
 
 function resetOperations_() {
-  ["기초재고", "입고내역", "코일목록", "출고내역", "예약내역", "변경타임라인"].forEach((name) => {
+  ["기초재고", "출고내역", "예약내역", "변경타임라인"].forEach((name) => {
     const sheet = ensureSheet_(name, SHEETS[name]);
     if (sheet.getLastRow() > 1) {
       sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
     }
   });
+  clearSettingPrefix_("appSnapshot:");
+}
+
+function clearSettingPrefix_(prefix) {
+  const sheet = ensureSheet_("설정", SHEETS["설정"]);
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return;
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const keyIndex = headers.indexOf("key");
+  if (keyIndex < 0) return;
+  const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  const kept = rows.filter((row) => !String(row[keyIndex] || "").startsWith(prefix));
+  sheet.getRange(2, 1, Math.max(sheet.getMaxRows() - 1, 1), lastCol).clearContent();
+  if (kept.length) sheet.getRange(2, 1, kept.length, lastCol).setValues(kept);
 }
 
 function appendTimelineLog_(type, colorId, before, after, editor) {
