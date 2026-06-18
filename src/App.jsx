@@ -165,6 +165,272 @@ function useStore(key, initialValue) {
   return [value, setValue];
 }
 
+const STORE_KEYS = [
+  "coils", "inbound", "outbound", "reservations", "baseStock", "stockHistory",
+  "customColors", "discontinuedColors", "zoneStock", "baseStockDates", "deletedBaseStockKeys",
+];
+const OBJECT_STORE_KEYS = new Set(["baseStock", "zoneStock", "baseStockDates"]);
+const sheetKeyOf = (item) => `${item.product}|${item.maker}|${item.code || ""}|${item.color}|${item.thickness}`;
+const localStorageKey = (key) => `hnmt-coil-${key}`;
+const safeJsonParse = (value, fallback) => {
+  try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
+};
+const readLocalSnapshot = () => Object.fromEntries(
+  STORE_KEYS.map((key) => [key, safeJsonParse(localStorage.getItem(localStorageKey(key)), OBJECT_STORE_KEYS.has(key) ? {} : [])])
+);
+const downloadJson = (data, fileName) => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+const normalizeMasterRows = (customColors = [], deletedBaseStockKeys = [], discontinuedColors = []) => {
+  const defaultKeys = new Set(COLOR_MASTER.map(sheetKeyOf));
+  const rows = [...COLOR_MASTER, ...customColors]
+    .filter((item) => !deletedBaseStockKeys.includes(sheetKeyOf(item)) || defaultKeys.has(sheetKeyOf(item)))
+    .map((item) => {
+      const key = sheetKeyOf(item);
+      return {
+        id: key,
+        제품구분: item.product,
+        제조사: item.maker,
+        코드번호: item.code || "",
+        두께: item.thickness,
+        색상명: item.color,
+        색상HEX: item.hex || hexOf(item.color),
+        품절여부: discontinuedColors.includes(key) ? "Y" : "N",
+        사용여부: "Y",
+        영구여부: defaultKeys.has(key) ? "Y" : "N",
+      };
+    });
+  return [...new Map(rows.map((row) => [`${row.제조사}|${row.코드번호}|${row.두께}|${row.색상명}`, row])).values()];
+};
+const snapshotToSheets = (snapshot) => {
+  const master = normalizeMasterRows(snapshot.customColors, snapshot.deletedBaseStockKeys, snapshot.discontinuedColors);
+  const masterById = Object.fromEntries(master.map((row) => [row.id, row]));
+  const stockKeys = [...new Set([
+    ...master.map((row) => row.id),
+    ...Object.keys(snapshot.baseStock || {}),
+    ...Object.keys(snapshot.zoneStock || {}),
+  ])];
+  return {
+    색상마스터: master,
+    기초재고: stockKeys.map((key) => {
+      const zones = { A: "", B: "", C: "", ...((snapshot.zoneStock || {})[key] || {}) };
+      const total = ["A", "B", "C"].reduce((sum, zone) => sum + (Number(zones[zone]) || 0), 0);
+      return {
+        id: key,
+        색상ID: key,
+        기준일: (snapshot.baseStockDates || {})[key] || "",
+        A: zones.A || 0,
+        B: zones.B || 0,
+        C: zones.C || 0,
+        총M: total || Number((snapshot.baseStock || {})[key]) || 0,
+        수정일: todayStr(),
+      };
+    }),
+    입고내역: (snapshot.inbound || []).map((item) => ({
+      ...item,
+      id: item.id || uid(),
+      등록일: item.created_at || todayStr(),
+      입고일: item.inbound_date || "",
+      색상ID: `${item.product_type}|${item.manufacturer}|${item.color_code || ""}|${item.color_name}|${item.thickness}`,
+      제품구분: item.product_type || "",
+      제조사: item.manufacturer || "",
+      색상명: item.color_name || "",
+      코드번호: item.color_code || "",
+      두께: item.thickness || "",
+      매입처: item.purchaser || "",
+      비고: item.memo || "",
+    })),
+    코일목록: (snapshot.coils || []).map((item) => ({
+      ...item,
+      id: item.id || uid(),
+      코일번호: item.coil_number || "",
+      입고일: item.inbound_date || "",
+      제품구분: item.product_type || "",
+      제조사: item.manufacturer || "",
+      색상명: item.color_name || "",
+      두께: item.thickness || "",
+      매입처: item.purchaser || "",
+      현재M: item.current_meter || 0,
+      비고: item.memo || "",
+    })),
+    출고내역: (snapshot.outbound || []).map((item) => ({
+      ...item,
+      id: item.id || uid(),
+      등록일: item.created_at || item.registered_at || todayStr(),
+      출고일: item.outbound_date || "",
+      거래처: item.customer || "",
+      현장주소: item.site_address || "",
+      색상ID: item.coil_number || "",
+      출고M: item.outbound_meter || 0,
+      담당자: item.manager || "",
+      메모: item.memo || "",
+      완료여부: item.is_completed ? "Y" : "N",
+    })),
+    예약내역: (snapshot.reservations || []).map((item) => ({
+      ...item,
+      id: item.id || uid(),
+      등록일: item.created_at || todayStr(),
+      예약일: item.reservation_date || "",
+      도착일: item.planned_date || "",
+      거래처: item.customer || "",
+      현장주소: item.site_address || "",
+      색상ID: item.coil_key || "",
+      예약M: item.reserved_meter || 0,
+      담당자: item.manager || "",
+      메모: item.memo || "",
+      완료여부: item.is_completed ? "Y" : "N",
+    })),
+    변경타임라인: (snapshot.stockHistory || []).map((item) => ({
+      ...item,
+      id: item.id || uid(),
+      변경일시: item.created_at || new Date().toISOString(),
+      구분: item.source || "기초재고",
+      색상ID: item.key || "",
+      이전A: item.previousZones?.A || "",
+      이전B: item.previousZones?.B || "",
+      이전C: item.previousZones?.C || "",
+      변경A: item.zones?.A || 0,
+      변경B: item.zones?.B || 0,
+      변경C: item.zones?.C || 0,
+      변경자: item.editor || "",
+    })),
+    설정: [
+      { key: "schemaVersion", value: "1" },
+      { key: "updatedAt", value: new Date().toISOString() },
+    ],
+  };
+};
+const sheetsToSnapshot = (data, fallback = {}) => {
+  const baseFallback = { ...fallback };
+  const defaultKeys = new Set(COLOR_MASTER.map(sheetKeyOf));
+  const masterRows = data?.색상마스터 || [];
+  const customColors = masterRows
+    .filter((row) => String(row.영구여부 || "").toUpperCase() !== "Y")
+    .map((row) => ({
+      product: row.제품구분 || row.product || "",
+      maker: row.제조사 || row.maker || "",
+      code: row.코드번호 || row.code || "",
+      thickness: row.두께 || row.thickness || "",
+      color: row.색상명 || row.color || "",
+      hex: row.색상HEX || row.hex || "",
+    }))
+    .filter((item) => item.product && item.maker && item.color && item.thickness);
+  const discontinuedColors = masterRows
+    .filter((row) => String(row.품절여부 || "").toUpperCase() === "Y")
+    .map((row) => row.id || `${row.제품구분}|${row.제조사}|${row.코드번호 || ""}|${row.색상명}|${row.두께}`)
+    .filter(Boolean);
+  const deletedBaseStockKeys = masterRows
+    .filter((row) => String(row.사용여부 || "Y").toUpperCase() === "N" && !defaultKeys.has(row.id))
+    .map((row) => row.id)
+    .filter(Boolean);
+  const baseStock = {};
+  const zoneStock = {};
+  const baseStockDates = {};
+  (data?.기초재고 || []).forEach((row) => {
+    const key = row.색상ID || row.id;
+    if (!key) return;
+    const zones = { A: Number(row.A) || 0, B: Number(row.B) || 0, C: Number(row.C) || 0 };
+    zoneStock[key] = zones;
+    baseStock[key] = Number(row.총M) || zones.A + zones.B + zones.C;
+    baseStockDates[key] = row.기준일 || "";
+  });
+  const outbound = (data?.출고내역 || []).map((row) => ({
+    ...row,
+    id: row.id || uid(),
+    created_at: row.created_at || row.등록일 || todayStr(),
+    outbound_date: row.outbound_date || row.출고일 || "",
+    customer: row.customer || row.거래처 || "",
+    site_address: row.site_address || row.현장주소 || "",
+    coil_number: row.coil_number || row.색상ID || "",
+    outbound_meter: Number(row.outbound_meter ?? row.출고M) || 0,
+    manager: row.manager || row.담당자 || "",
+    memo: row.memo || row.메모 || "",
+    is_completed: row.is_completed === true || String(row.완료여부 || "").toUpperCase() === "Y",
+  }));
+  const reservations = (data?.예약내역 || []).map((row) => ({
+    ...row,
+    id: row.id || uid(),
+    created_at: row.created_at || row.등록일 || todayStr(),
+    reservation_date: row.reservation_date || row.예약일 || "",
+    planned_date: row.planned_date || row.도착일 || "",
+    customer: row.customer || row.거래처 || "",
+    site_address: row.site_address || row.현장주소 || "",
+    coil_key: row.coil_key || row.색상ID || "",
+    reserved_meter: Number(row.reserved_meter ?? row.예약M) || 0,
+    manager: row.manager || row.담당자 || "",
+    memo: row.memo || row.메모 || "",
+    is_completed: row.is_completed === true || String(row.완료여부 || "").toUpperCase() === "Y",
+  }));
+  const stockHistory = (data?.변경타임라인 || []).map((row) => ({
+    ...row,
+    id: row.id || uid(),
+    created_at: row.created_at || row.변경일시 || new Date().toISOString(),
+    source: row.source || row.구분 || "기초재고",
+    key: row.key || row.색상ID || "",
+    zones: {
+      A: Number(row.변경A) || Number(row.zones?.A) || 0,
+      B: Number(row.변경B) || Number(row.zones?.B) || 0,
+      C: Number(row.변경C) || Number(row.zones?.C) || 0,
+    },
+    meter: Number(row.meter ?? row.총M) || ((Number(row.변경A) || 0) + (Number(row.변경B) || 0) + (Number(row.변경C) || 0)),
+  })).filter((row) => row.key);
+  const inbound = (data?.입고내역 || baseFallback.inbound || []).map((row) => ({
+    ...row,
+    id: row.id || uid(),
+    created_at: row.created_at || row.등록일 || todayStr(),
+    inbound_date: row.inbound_date || row.입고일 || "",
+    product_type: row.product_type || row.제품구분 || "",
+    manufacturer: row.manufacturer || row.제조사 || "",
+    color_name: row.color_name || row.색상명 || "",
+    color_code: row.color_code || row.코드번호 || "",
+    thickness: row.thickness || row.두께 || "",
+    purchaser: row.purchaser || row.매입처 || "",
+    memo: row.memo || row.비고 || "",
+  }));
+  const coils = (data?.코일목록 || baseFallback.coils || []).map((row) => ({
+    ...row,
+    id: row.id || uid(),
+    coil_number: row.coil_number || row.코일번호 || "",
+    inbound_date: row.inbound_date || row.입고일 || "",
+    product_type: row.product_type || row.제품구분 || "",
+    manufacturer: row.manufacturer || row.제조사 || "",
+    color_name: row.color_name || row.색상명 || "",
+    thickness: row.thickness || row.두께 || "",
+    purchaser: row.purchaser || row.매입처 || "",
+    current_meter: Number(row.current_meter ?? row.현재M) || 0,
+    memo: row.memo || row.비고 || "",
+  }));
+  return {
+    ...baseFallback,
+    coils,
+    inbound,
+    customColors,
+    discontinuedColors,
+    deletedBaseStockKeys,
+    baseStock,
+    zoneStock,
+    baseStockDates,
+    outbound,
+    reservations,
+    stockHistory,
+  };
+};
+const callSheetsApi = async (url, action, payload = {}) => {
+  const response = await fetch(url, {
+    method: "POST",
+    body: JSON.stringify({ action, ...payload }),
+  });
+  const result = await response.json();
+  if (!result.ok) throw new Error(result.error || "Google Sheets API 요청에 실패했습니다.");
+  return result;
+};
+
 /* ---------- 초기 샘플 데이터 ---------- */
 function seed() {
   const base = (o) => ({ id: uid(), created_at: o.inbound_date || todayStr(), updated_at: todayStr(), ...o });
@@ -374,6 +640,12 @@ export default function CoilInventory() {
   const [zoneStock, setZoneStock] = useStore("zoneStock", {});
   const [baseStockDates, setBaseStockDates] = useStore("baseStockDates", {});
   const [deletedBaseStockKeys, setDeletedBaseStockKeys] = useStore("deletedBaseStockKeys", []);
+  const [sheetApiUrl, setSheetApiUrl] = useStore("sheetApiUrl", "");
+  const [cloudEnabled, setCloudEnabled] = useStore("cloudEnabled", false);
+  const [cloudOpen, setCloudOpen] = useState(false);
+  const [cloudStatus, setCloudStatus] = useState("");
+  const cloudLoadedRef = useRef(false);
+  const cloudApplyingRef = useRef(false);
   useEffect(() => {
     const masterKeys = new Set(COLOR_MASTER.map((item) =>
       `${item.product}|${item.maker}|${item.code}|${item.color}|${item.thickness}`
@@ -398,6 +670,59 @@ export default function CoilInventory() {
     } else setPwErr("비밀번호가 일치하지 않습니다.");
   };
 
+  const localSnapshot = useMemo(() => ({
+    coils, inbound, outbound, reservations, baseStock, stockHistory, customColors,
+    discontinuedColors, zoneStock, baseStockDates, deletedBaseStockKeys,
+  }), [coils, inbound, outbound, reservations, baseStock, stockHistory, customColors, discontinuedColors, zoneStock, baseStockDates, deletedBaseStockKeys]);
+
+  const applySnapshot = (snapshot) => {
+    cloudApplyingRef.current = true;
+    if (snapshot.coils) setCoils(snapshot.coils);
+    if (snapshot.inbound) setInbound(snapshot.inbound);
+    if (snapshot.outbound) setOutbound(snapshot.outbound);
+    if (snapshot.reservations) setReservations(snapshot.reservations);
+    if (snapshot.baseStock) setBaseStock(snapshot.baseStock);
+    if (snapshot.stockHistory) setStockHistory(snapshot.stockHistory);
+    if (snapshot.customColors) setCustomColors(snapshot.customColors);
+    if (snapshot.discontinuedColors) setDiscontinuedColors(snapshot.discontinuedColors);
+    if (snapshot.zoneStock) setZoneStock(snapshot.zoneStock);
+    if (snapshot.baseStockDates) setBaseStockDates(snapshot.baseStockDates);
+    if (snapshot.deletedBaseStockKeys) setDeletedBaseStockKeys(snapshot.deletedBaseStockKeys);
+    window.setTimeout(() => { cloudApplyingRef.current = false; }, 500);
+  };
+
+  const loadSharedData = async (url = sheetApiUrl) => {
+    if (!url?.trim()) throw new Error("Google Apps Script 웹앱 URL을 먼저 입력해주세요.");
+    setCloudStatus("공용 데이터를 불러오는 중입니다...");
+    const result = await callSheetsApi(url.trim(), "read");
+    applySnapshot(sheetsToSnapshot(result.data, localSnapshot));
+    cloudLoadedRef.current = true;
+    setCloudStatus("공용 데이터 불러오기 완료");
+  };
+
+  const saveSharedData = async (snapshot = localSnapshot, url = sheetApiUrl) => {
+    if (!url?.trim()) throw new Error("Google Apps Script 웹앱 URL을 먼저 입력해주세요.");
+    setCloudStatus("공용 저장소에 저장 중입니다...");
+    await callSheetsApi(url.trim(), "upsertAll", { data: snapshotToSheets(snapshot) });
+    setCloudStatus("공용 저장 완료");
+  };
+
+  useEffect(() => {
+    if (!authed || !cloudEnabled || !sheetApiUrl || cloudLoadedRef.current) return;
+    loadSharedData(sheetApiUrl).catch((error) => {
+      setCloudStatus(error.message);
+      cloudLoadedRef.current = true;
+    });
+  }, [authed, cloudEnabled, sheetApiUrl]);
+
+  useEffect(() => {
+    if (!authed || !cloudEnabled || !sheetApiUrl || !cloudLoadedRef.current || cloudApplyingRef.current) return;
+    const timer = window.setTimeout(() => {
+      saveSharedData(localSnapshot, sheetApiUrl).catch((error) => setCloudStatus(error.message));
+    }, 1400);
+    return () => window.clearTimeout(timer);
+  }, [authed, cloudEnabled, sheetApiUrl, localSnapshot]);
+
   if (!authed) return <Login pw={pw} setPw={setPw} pwErr={pwErr} tryLogin={tryLogin} />;
 
   const ctx = { coils, setCoils, inbound, setInbound, outbound, setOutbound, reservations, setReservations, baseStock, setBaseStock, stockHistory, setStockHistory, customColors, setCustomColors, discontinuedColors, setDiscontinuedColors, zoneStock, setZoneStock, baseStockDates, setBaseStockDates, deletedBaseStockKeys, setDeletedBaseStockKeys };
@@ -420,7 +745,6 @@ export default function CoilInventory() {
     setDiscontinuedColors([]);
     setZoneStock({});
     setBaseStockDates({});
-    setDeletedBaseStockKeys([]);
     localStorage.removeItem("hnmt-coil-inboundTodos");
     setQuickAction(null);
   };
@@ -435,16 +759,42 @@ export default function CoilInventory() {
           <button onClick={() => goto("dashboard")} className="h-11 md:h-13">
             <img src="/coil-inventory-management/assets/hnmt-logo.png" alt="HNMT" className="w-36 md:w-48 h-full object-contain" style={{ filter: "brightness(0) saturate(100%) invert(17%) sepia(26%) saturate(1412%) hue-rotate(190deg) brightness(86%) contrast(91%)" }} />
           </button>
-          <button onClick={() => setDrawer(true)} aria-label="메뉴 열기"
-            className="w-11 h-11 md:w-12 md:h-12 rounded-2xl bg-white/25 border border-white/60 backdrop-blur-xl shadow-lg shadow-indigo-200/30 flex items-center justify-center transition hover:bg-white/45 hover:-translate-y-0.5">
-            <Menu size={22} className="text-indigo-500/80" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setCloudOpen(true)}
+              className={`hidden sm:inline-flex h-10 px-3 rounded-xl border text-xs font-bold items-center justify-center transition ${cloudEnabled ? "border-indigo-200 bg-indigo-50 text-indigo-600" : "border-slate-200 bg-white text-slate-500 hover:text-indigo-600"}`}>
+              공용저장
+            </button>
+            <button onClick={() => setDrawer(true)} aria-label="메뉴 열기"
+              className="w-11 h-11 md:w-12 md:h-12 rounded-2xl bg-white/25 border border-white/60 backdrop-blur-xl shadow-lg shadow-indigo-200/30 flex items-center justify-center transition hover:bg-white/45 hover:-translate-y-0.5">
+              <Menu size={22} className="text-indigo-500/80" />
+            </button>
+          </div>
         </div>
       </header>
 
       {/* 상단에서 아래로 펼쳐지는 드로어 */}
       <Drawer open={drawer} onClose={() => setDrawer(false)} menu={menu} goto={goto} onLogout={() => { setAuthed(false); setPw(""); setDrawer(false); }} />
       {briefingOpen && <TodayBriefing ctx={ctx} onClose={() => setBriefingOpen(false)} />}
+      <CloudStorageModal
+        open={cloudOpen}
+        onClose={() => setCloudOpen(false)}
+        apiUrl={sheetApiUrl}
+        setApiUrl={setSheetApiUrl}
+        enabled={cloudEnabled}
+        setEnabled={(value) => { cloudLoadedRef.current = false; setCloudEnabled(value); }}
+        status={cloudStatus}
+        snapshot={localSnapshot}
+        onBackup={() => downloadJson({ exportedAt: new Date().toISOString(), data: readLocalSnapshot() }, `HNMT_COIL_backup_${todayStr()}.json`)}
+        onLoad={loadSharedData}
+        onMigrate={async (url) => {
+          const snapshot = readLocalSnapshot();
+          downloadJson({ exportedAt: new Date().toISOString(), data: snapshot }, `HNMT_COIL_before_sheets_${todayStr()}.json`);
+          await saveSharedData(snapshot, url || sheetApiUrl);
+          setCloudEnabled(true);
+          cloudLoadedRef.current = true;
+        }}
+        onSaveNow={(url) => saveSharedData(localSnapshot, url || sheetApiUrl)}
+      />
 
       <main className="max-w-[1400px] mx-auto p-4 md:p-8">
         {menu === "dashboard" && <Dashboard ctx={ctx} openQuick={openQuick} openOutboundDetail={openOutboundDetail} resetAllData={resetAllData} />}
@@ -620,11 +970,77 @@ function Drawer({ open, onClose, menu, goto, onLogout }) {
   );
 }
 
+function CloudStorageModal({ open, onClose, apiUrl, setApiUrl, enabled, setEnabled, status, onBackup, onLoad, onMigrate, onSaveNow }) {
+  const [draftUrl, setDraftUrl] = useState(apiUrl || "");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (open) setDraftUrl(apiUrl || "");
+  }, [open, apiUrl]);
+  const run = async (fn) => {
+    try {
+      setBusy(true);
+      await fn();
+    } catch (error) {
+      appAlert(error.message || "공용 저장 작업에 실패했습니다.", { title: "공용 저장 오류", type: "warning" });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal open={open} onClose={onClose} title="Google Sheets 공용 저장" wide="medium">
+      <div className="space-y-5">
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700 leading-relaxed">
+          기존 브라우저 데이터는 삭제하지 않습니다. 먼저 JSON 백업을 받은 뒤, Google Apps Script 웹앱 URL을 연결하면 여러 기기에서 같은 Sheets 데이터를 공유합니다.
+        </div>
+        <Field label="Google Apps Script 웹앱 URL">
+          <input className={inputCls} value={draftUrl} onChange={(e) => setDraftUrl(e.target.value)}
+            placeholder="https://script.google.com/macros/s/.../exec" />
+        </Field>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => { setApiUrl(draftUrl.trim()); setEnabled(Boolean(draftUrl.trim())); }}
+            className="h-10 px-4 rounded-xl border border-indigo-200 bg-indigo-50 text-sm font-bold text-indigo-700">
+            URL 저장
+          </button>
+          <button type="button" onClick={() => setEnabled(!enabled)}
+            disabled={!apiUrl && !draftUrl.trim()}
+            className={`h-10 px-4 rounded-xl border text-sm font-bold disabled:opacity-40 ${enabled ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-500"}`}>
+            {enabled ? "공용저장 사용 중" : "공용저장 꺼짐"}
+          </button>
+          <span className="text-xs text-slate-400">{status || "대기 중"}</span>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <button type="button" onClick={onBackup}
+            className="h-12 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:border-indigo-200">
+            1. 기존 데이터 JSON 백업
+          </button>
+          <button type="button" disabled={busy} onClick={() => run(async () => { const url = draftUrl.trim(); setApiUrl(url); await onMigrate(url); })}
+            className="h-12 rounded-xl border border-indigo-200 bg-indigo-600 text-sm font-bold text-white disabled:opacity-50">
+            2. 로컬 데이터를 Sheets로 이전
+          </button>
+          <button type="button" disabled={busy} onClick={() => run(async () => { setApiUrl(draftUrl.trim()); await onLoad(draftUrl.trim() || apiUrl); })}
+            className="h-12 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 disabled:opacity-50">
+            Sheets에서 불러오기
+          </button>
+          <button type="button" disabled={busy} onClick={() => run(async () => { const url = draftUrl.trim(); setApiUrl(url); await onSaveNow(url); })}
+            className="h-12 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 disabled:opacity-50">
+            현재 화면 데이터 저장
+          </button>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-6 text-slate-500">
+          시트 탭은 색상마스터, 기초재고, 출고내역, 예약내역, 변경타임라인, 설정으로 사용합니다.
+          1행은 컬럼명으로 읽고, 컬럼 순서가 바뀌어도 컬럼명 기준으로 저장합니다.
+          Apps Script 파일은 저장소의 <b>google-apps-script/Code.gs</b>에 추가됩니다.
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 /* =========================================================================
    대시보드
    ========================================================================= */
 function TodayBriefing({ ctx, onClose }) {
-  const { inbound, outbound, baseStock, stockHistory, baseStockDates, customColors, discontinuedColors } = ctx;
+  const { inbound, outbound, reservations, baseStock, stockHistory, baseStockDates, customColors, discontinuedColors } = ctx;
   const [runtimeError, setRuntimeError] = useState(false);
   useEffect(() => {
     const reportError = () => setRuntimeError(true);
@@ -660,17 +1076,17 @@ function TodayBriefing({ ctx, onClose }) {
   const total = stockRows.reduce((sum, item) => sum + item.meter, 0);
   const previousTotal = stockRows.reduce((sum, item) => sum + item.previousMeter, 0);
   const totalChange = total - previousTotal;
-  const steel = stockRows.filter((item) => item.product === "강판").reduce((sum, item) => sum + item.meter, 0);
-  const zinc = stockRows.filter((item) => item.product === "징크").reduce((sum, item) => sum + item.meter, 0);
-  const previousSteel = stockRows.filter((item) => item.product === "강판").reduce((sum, item) => sum + item.previousMeter, 0);
-  const previousZinc = stockRows.filter((item) => item.product === "징크").reduce((sum, item) => sum + item.previousMeter, 0);
+  const productBriefRows = ["강판", "징크", "절곡"].map((product) => ({
+    product,
+    meter: stockRows.filter((item) => item.product === product).reduce((sum, item) => sum + item.meter, 0),
+    previousMeter: stockRows.filter((item) => item.product === product).reduce((sum, item) => sum + item.previousMeter, 0),
+    top: [...stockRows].filter((item) => item.product === product).sort((a, b) => b.meter - a.meter).slice(0, 5),
+  }));
   const pending = outbound.filter((item) => !item.is_completed);
   const todayShip = pending.filter((item) => item.outbound_date === today).length;
   const overdue = pending.filter((item) => item.outbound_date < today && item.arrival_date < today).length;
   const inboundToday = inbound.filter((item) => item.inbound_date === today).length;
-  const completedToday = outbound.filter((item) => item.is_completed && String(item.completed_at || "").startsWith(today)).length;
-  const topColors = [...stockRows].sort((a, b) => b.meter - a.meter).slice(0, 5);
-  const maxMeter = Math.max(...topColors.map((item) => item.meter), 1);
+  const reservationCount = reservations.filter((item) => !item.is_completed).length;
   return (
     <div onClick={onClose} className="fixed inset-0 z-[90] overflow-y-auto bg-black/30 backdrop-blur-sm flex items-center justify-center">
       <div onClick={onClose}
@@ -686,17 +1102,18 @@ function TodayBriefing({ ctx, onClose }) {
             <p className="mt-3 text-base sm:text-lg font-medium text-white/80">
               <span className="font-bold text-[#ff4f91]">입고</span> {inboundToday}건
               <span className="mx-2 text-white/30">·</span>
-              <span className="font-bold text-[#ff4f91]">출고</span> {completedToday}건
-              <span className="mx-2 text-white/30">·</span>
               <span className="font-bold text-[#ff4f91]">대기</span> {pending.length}건
+              <span className="mx-2 text-white/30">·</span>
+              <span className="font-bold text-[#ff4f91]">예약</span> {reservationCount}건
             </p>
           </div>
 
           <div className="grid lg:grid-cols-[0.8fr_1.2fr] gap-4 mt-10">
             <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5">
               <h3 className="font-bold">제품별 재고 비중</h3>
-              {[["강판", steel, previousSteel, "from-rose-300 to-indigo-400"], ["징크", zinc, previousZinc, "from-indigo-300 to-blue-500"]].map(([label, meter, previousMeter, color]) => {
+              {productBriefRows.map(({ product: label, meter, previousMeter }, index) => {
                 const change = meter - previousMeter;
+                const color = index === 0 ? "from-rose-300 to-indigo-400" : index === 1 ? "from-indigo-300 to-blue-500" : "from-sky-200 to-violet-300";
                 return (
                 <div key={label} className="mt-5">
                   <div className="flex justify-between gap-3 text-sm">
@@ -724,7 +1141,7 @@ function TodayBriefing({ ctx, onClose }) {
                       : "전일과 비교해 총 재고 변동이 없습니다."
                   : "전일 비교가 필요한 재고 데이터가 없습니다."}
                 <br />
-                {todayShip > 0 ? `오늘 출고 예정은 ${todayShip}건입니다.` : "오늘 출고 예정이 없습니다."}
+                {todayShip > 0 ? `오늘 출고 대기는 ${todayShip}건입니다.` : "오늘 출고 대기가 없습니다."}
                 <br />
                 {overdue > 0 ? `출고 일정이 지난 보류 건이 ${overdue}건 있습니다.` : "현재 일정이 지난 출고 보류 건은 없습니다."}
               </div>
@@ -735,25 +1152,30 @@ function TodayBriefing({ ctx, onClose }) {
                 <h3 className="font-bold">보유 재고 TOP 5</h3>
                 <span className="text-[11px] text-white/40">실시간 M 기준</span>
               </div>
-              <div className="mt-4 space-y-3">
-                {topColors.map((item, index) => (
-                  <div key={item.key} className="grid grid-cols-[20px_minmax(0,1fr)_70px] gap-2 items-center text-sm">
-                    <span className="font-black text-indigo-300">{index + 1}</span>
-                    <div className="min-w-0">
-                      <div className="flex justify-between gap-2"><span className="font-medium truncate">{item.color} <span className="text-white/40 text-xs">({item.maker}/{item.thickness}T)</span></span></div>
-                      <div className="mt-1.5 h-1.5 rounded-full bg-white/10 overflow-hidden">
-                        <div className="h-full rounded-full bg-gradient-to-r from-rose-300 to-indigo-400" style={{ width: `${item.meter / maxMeter * 100}%` }} />
+              <div className="mt-4 grid md:grid-cols-3 gap-3">
+                {productBriefRows.map((group) => {
+                  const maxMeter = Math.max(...group.top.map((item) => item.meter), 1);
+                  return (
+                    <div key={group.product} className="rounded-xl bg-white/[0.04] p-3">
+                      <div className="mb-2 text-xs font-bold text-white/75">{group.product}</div>
+                      <div className="space-y-2">
+                        {group.top.map((item, index) => (
+                          <div key={item.key} className="grid grid-cols-[16px_minmax(0,1fr)_58px] gap-2 items-center text-xs">
+                            <span className="font-black text-indigo-300">{index + 1}</span>
+                            <div className="min-w-0">
+                              <div className="truncate">{item.color} <span className="text-white/35">({item.maker}/{item.thickness}T)</span></div>
+                              <div className="mt-1 h-1 rounded-full bg-white/10 overflow-hidden">
+                                <div className="h-full rounded-full bg-gradient-to-r from-rose-300 to-indigo-400" style={{ width: `${item.meter / maxMeter * 100}%` }} />
+                              </div>
+                            </div>
+                            <span className="text-right font-bold">{fmt(item.meter)} M</span>
+                          </div>
+                        ))}
+                        {group.top.length === 0 && <div className="py-6 text-center text-xs text-white/35">없음</div>}
                       </div>
                     </div>
-                    <span className="text-right">
-                      <strong className="block">{fmt(item.meter)} M</strong>
-                      <span className={`text-[10px] ${item.change > 0 ? "text-rose-300" : item.change < 0 ? "text-blue-300" : "text-white/35"}`}>
-                        {item.change > 0 ? `▲ ${fmt(item.change)}` : item.change < 0 ? `▼ ${fmt(Math.abs(item.change))}` : "−"}
-                      </span>
-                    </span>
-                  </div>
-                ))}
-                {topColors.length === 0 && <div className="py-8 text-center text-sm text-white/40">등록된 재고가 없습니다.</div>}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -849,10 +1271,11 @@ function ProductStockCard({ stat, open, onToggle }) {
 }
 
 function Dashboard({ ctx, openQuick, openOutboundDetail, resetAllData }) {
-  const { coils, setCoils, outbound, setOutbound, baseStock, customColors, discontinuedColors } = ctx;
+  const { coils, setCoils, outbound, setOutbound, reservations, baseStock, customColors, discontinuedColors } = ctx;
   const [slide, setSlide] = useState(0);
   const [mobileProduct, setMobileProduct] = useState("");
   const [resetOpen, setResetOpen] = useState(false);
+  const [resetPhrase, setResetPhrase] = useState("");
   const t = useRef();
   const slides = [
     { label: "HN Shop", description: "HN메탈릭 공식 쇼핑몰입니다.", image: "/coil-inventory-management/assets/slide-shop.png", link: "https://hnmt.co.kr/" },
@@ -877,7 +1300,7 @@ function Dashboard({ ctx, openQuick, openOutboundDetail, resetAllData }) {
   const currentDate = todayStr();
   const todayShip = incomplete.filter((o) => o.outbound_date === currentDate).length;
   const held = incomplete.filter((o) => o.outbound_date < currentDate && o.arrival_date < currentDate).length;
-  const productStats = ["강판", "징크"].map((product) => {
+  const productStats = ["강판", "징크", "절곡"].map((product) => {
     const rows = stockRows.filter((c) => c.product === product);
     const manufacturers = [...new Set(rows.map((c) => c.maker || "미지정"))].sort((a, b) => a.localeCompare(b, "ko"));
     return {
@@ -912,8 +1335,8 @@ function Dashboard({ ctx, openQuick, openOutboundDetail, resetAllData }) {
   const summaryCards = [
     { label: "총 보유 재고", value: fmt(totalMeter), unit: "M", icon: Layers3 },
     { label: "오늘 출고 예정", value: todayShip, unit: "건", icon: CalendarDays },
-    { label: "출고대기", value: incomplete.length, unit: "건", icon: Clock },
-    { label: "출고 보류", value: held, unit: "건", icon: AlertTriangle },
+    { label: "출고 대기", value: incomplete.length, unit: "건", icon: Clock },
+    { label: "예약 현황", value: reservations.length, unit: "건", icon: CalendarDays },
   ];
 
   return (
@@ -959,14 +1382,20 @@ function Dashboard({ ctx, openQuick, openOutboundDetail, resetAllData }) {
             <AlertTriangle size={28} />
           </div>
           <p className="mt-4 text-base font-bold text-slate-800">전체 초기화 하시겠습니까?</p>
-          <p className="mt-2 text-xs text-slate-400">입고·출고·예약·재고 기록과 직접 추가한 코일 색상이 삭제되며 PDF 기본 색상표만 유지됩니다.</p>
+          <p className="mt-2 text-xs text-slate-400">입고·출고·예약·재고·타임라인 운영 데이터만 초기화됩니다. 색상마스터와 PDF 기본 색상은 유지됩니다.</p>
+          <div className="mt-4 text-left">
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">확인 문구</label>
+            <input value={resetPhrase} onChange={(e) => setResetPhrase(e.target.value)}
+              placeholder="초기화 라고 입력"
+              className={`${inputCls} text-center`} />
+          </div>
           <div className="grid grid-cols-2 gap-2 mt-6">
-            <button onClick={() => setResetOpen(false)}
+            <button onClick={() => { setResetOpen(false); setResetPhrase(""); }}
               className="h-11 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50">
               아니오
             </button>
-            <button onClick={() => { resetAllData(); setResetOpen(false); }}
-              className="h-11 rounded-xl border border-rose-200 bg-rose-50 text-sm font-bold text-rose-600 hover:bg-rose-100">
+            <button disabled={resetPhrase !== "초기화"} onClick={() => { resetAllData(); setResetOpen(false); setResetPhrase(""); }}
+              className="h-11 rounded-xl border border-rose-200 bg-rose-50 text-sm font-bold text-rose-600 hover:bg-rose-100 disabled:opacity-40 disabled:hover:bg-rose-50">
               네
             </button>
           </div>
