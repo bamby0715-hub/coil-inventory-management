@@ -99,7 +99,7 @@ function upsertRows_(name, rows) {
     const id = row[idColumn] || Utilities.getUuid();
     byId[id] = Object.assign({}, byId[id] || {}, row, { [idColumn]: id });
   });
-  const values = Object.values(byId).map((row) => headers.map((header) => row[header] == null ? "" : row[header]));
+  const values = Object.values(byId).map((row) => headers.map((header) => cellValue_(row[header])));
   sheet.getRange(2, 1, Math.max(sheet.getMaxRows() - 1, 1), headers.length).clearContent();
   if (values.length) sheet.getRange(2, 1, values.length, headers.length).setValues(values);
 }
@@ -142,5 +142,12 @@ function appendTimelineLog_(type, colorId, before, after, editor) {
     변경C: after.C || "",
     변경자: editor || "",
   };
-  sheet.appendRow(headers.map((header) => row[header] == null ? "" : row[header]));
+  sheet.appendRow(headers.map((header) => cellValue_(row[header])));
+}
+
+function cellValue_(value) {
+  if (value == null) return "";
+  if (value instanceof Date) return value;
+  if (typeof value === "object") return JSON.stringify(value);
+  return value;
 }
