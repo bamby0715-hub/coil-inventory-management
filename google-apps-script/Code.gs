@@ -6,19 +6,25 @@ const SHEETS = {
   "변경타임라인": ["id", "변경일시", "구분", "색상ID", "이전A", "이전B", "이전C", "변경A", "변경B", "변경C", "변경자"],
   "설정": ["key", "value"],
 };
+const API_TOKEN = ""; // 필요하면 임의의 긴 문자열로 설정하고 웹앱 공용저장 토큰에도 같은 값을 입력하세요.
 
 function doGet() {
   return jsonResponse({ ok: true, message: "HNMT COIL Sheets API" });
 }
 
 function doPost(e) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
   try {
     const body = JSON.parse((e.postData && e.postData.contents) || "{}");
+    if (API_TOKEN && body.token !== API_TOKEN) {
+      return jsonResponse({ ok: false, error: "Unauthorized" });
+    }
     ensureAllSheets_();
     if (body.action === "read") return jsonResponse({ ok: true, data: readAll_() });
     if (body.action === "setup") return jsonResponse({ ok: true, data: readAll_() });
     if (body.action === "upsertAll") {
-      upsertAll_(body.data || {});
+      upsertAll_(body.data || {}, body.expectedUpdatedAt);
       return jsonResponse({ ok: true, data: readAll_() });
     }
     if (body.action === "resetOperations") {
@@ -28,6 +34,8 @@ function doPost(e) {
     return jsonResponse({ ok: false, error: "Unknown action: " + body.action });
   } catch (err) {
     return jsonResponse({ ok: false, error: err.message || String(err) });
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -76,7 +84,13 @@ function readAll_() {
   return data;
 }
 
-function upsertAll_(data) {
+function upsertAll_(data, expectedUpdatedAt) {
+  if (expectedUpdatedAt !== undefined && expectedUpdatedAt !== null) {
+    const currentUpdatedAt = getSetting_("updatedAt");
+    if (String(currentUpdatedAt || "") !== String(expectedUpdatedAt || "")) {
+      throw new Error("CONFLICT: Sheets data changed. Retry save.");
+    }
+  }
   Object.keys(SHEETS).forEach((name) => {
     if (!Array.isArray(data[name])) return;
     upsertRows_(name, data[name]);
@@ -106,6 +120,7 @@ function upsertRows_(name, rows) {
     });
   }
   const values = nextRows.map((row) => headers.map((header) => cellValue_(row[header])));
+  ensureRowCapacity_(sheet, values.length + 1);
   sheet.getRange(2, 1, Math.max(sheet.getMaxRows() - 1, 1), headers.length).clearContent();
   if (values.length) sheet.getRange(2, 1, values.length, headers.length).setValues(values);
 }
@@ -131,6 +146,7 @@ function resetOperations_() {
     }
   });
   clearSettingPrefix_("appSnapshot:");
+  setSetting_("updatedAt", new Date().toISOString());
 }
 
 function clearSettingPrefix_(prefix) {
@@ -145,6 +161,21 @@ function clearSettingPrefix_(prefix) {
   const kept = rows.filter((row) => !String(row[keyIndex] || "").startsWith(prefix));
   sheet.getRange(2, 1, Math.max(sheet.getMaxRows() - 1, 1), lastCol).clearContent();
   if (kept.length) sheet.getRange(2, 1, kept.length, lastCol).setValues(kept);
+}
+
+function ensureRowCapacity_(sheet, neededRows) {
+  const maxRows = sheet.getMaxRows();
+  if (maxRows < neededRows) sheet.insertRowsAfter(maxRows, neededRows - maxRows);
+}
+
+function getSetting_(key) {
+  const rows = readSheet_("설정");
+  const found = rows.find((row) => row.key === key);
+  return found ? found.value : "";
+}
+
+function setSetting_(key, value) {
+  upsertRows_("설정", [{ key: key, value: value }]);
 }
 
 function appendTimelineLog_(type, colorId, before, after, editor) {

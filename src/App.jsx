@@ -386,10 +386,62 @@ const sheetsToSnapshot = (data, fallback = {}) => {
     stockHistory,
   };
 };
-const callSheetsApi = async (url, action, payload = {}) => {
+
+const byRecordId = (item) => item?.id || "";
+const byColorKey = (item) => sheetKeyOf(item || {});
+const mergeRecordList = (latest = [], local = [], base = [], idOf = byRecordId) => {
+  const baseIds = new Set(base.map(idOf).filter(Boolean));
+  const localById = new Map(local.map((item) => [idOf(item), item]).filter(([id]) => id));
+  const latestById = new Map(latest.map((item) => [idOf(item), item]).filter(([id]) => id));
+  const merged = [];
+  latestById.forEach((item, id) => {
+    if (localById.has(id)) merged.push(localById.get(id));
+    else if (!baseIds.has(id)) merged.push(item);
+  });
+  localById.forEach((item, id) => {
+    if (!latestById.has(id)) merged.push(item);
+  });
+  return merged;
+};
+const mergeObjectMap = (latest = {}, local = {}, base = {}) => {
+  const next = { ...latest };
+  Object.keys(base || {}).forEach((key) => {
+    if (!Object.prototype.hasOwnProperty.call(local || {}, key)) delete next[key];
+    else if (JSON.stringify(local[key]) !== JSON.stringify(base[key])) next[key] = local[key];
+  });
+  Object.keys(local || {}).forEach((key) => {
+    if (!Object.prototype.hasOwnProperty.call(base || {}, key)) next[key] = local[key];
+  });
+  return next;
+};
+const mergePrimitiveList = (latest = [], local = [], base = []) => {
+  const baseSet = new Set(base);
+  const localSet = new Set(local);
+  const next = latest.filter((item) => localSet.has(item) || !baseSet.has(item));
+  local.forEach((item) => {
+    if (!next.includes(item)) next.push(item);
+  });
+  return next;
+};
+const mergeSharedSnapshots = (latest = {}, local = {}, base = {}) => ({
+  ...latest,
+  coils: mergeRecordList(latest.coils, local.coils, base.coils),
+  inbound: mergeRecordList(latest.inbound, local.inbound, base.inbound),
+  outbound: mergeRecordList(latest.outbound, local.outbound, base.outbound),
+  reservations: mergeRecordList(latest.reservations, local.reservations, base.reservations),
+  stockHistory: mergeRecordList(latest.stockHistory, local.stockHistory, base.stockHistory),
+  customColors: mergeRecordList(latest.customColors, local.customColors, base.customColors, byColorKey),
+  discontinuedColors: mergePrimitiveList(latest.discontinuedColors, local.discontinuedColors, base.discontinuedColors),
+  deletedBaseStockKeys: mergePrimitiveList(latest.deletedBaseStockKeys, local.deletedBaseStockKeys, base.deletedBaseStockKeys),
+  baseStock: mergeObjectMap(latest.baseStock, local.baseStock, base.baseStock),
+  zoneStock: mergeObjectMap(latest.zoneStock, local.zoneStock, base.zoneStock),
+  baseStockDates: mergeObjectMap(latest.baseStockDates, local.baseStockDates, base.baseStockDates),
+});
+const settingValue = (data, key) => (data?.설정 || []).find((row) => row.key === key)?.value || "";
+const callSheetsApi = async (url, action, payload = {}, token = "") => {
   const response = await fetch(url, {
     method: "POST",
-    body: JSON.stringify({ action, ...payload }),
+    body: JSON.stringify({ action, ...payload, ...(token ? { token } : {}) }),
   });
   const result = await response.json();
   if (!result.ok) throw new Error(result.error || "Google Sheets API 요청에 실패했습니다.");
@@ -606,24 +658,19 @@ export default function CoilInventory() {
   const [baseStockDates, setBaseStockDates] = useStore("baseStockDates", {});
   const [deletedBaseStockKeys, setDeletedBaseStockKeys] = useStore("deletedBaseStockKeys", []);
   const [sheetApiUrl, setSheetApiUrl] = useStore("sheetApiUrl", "");
+  const [sheetApiToken, setSheetApiToken] = useStore("sheetApiToken", "");
   const [cloudEnabled, setCloudEnabled] = useStore("cloudEnabled", false);
   const [cloudOpen, setCloudOpen] = useState(false);
   const [cloudStatus, setCloudStatus] = useState("");
   const cloudLoadedRef = useRef(false);
   const cloudApplyingRef = useRef(false);
+  const cloudBaseSnapshotRef = useRef(null);
   useEffect(() => {
     const masterKeys = new Set(COLOR_MASTER.map((item) =>
       `${item.product}|${item.maker}|${item.code}|${item.color}|${item.thickness}`
     ));
     setDeletedBaseStockKeys((current) => current.filter((key) => !masterKeys.has(key)));
   }, [setDeletedBaseStockKeys]);
-  useEffect(() => {
-    const migrationKey = "hnmt-coil-timeline-reset-v1";
-    if (!localStorage.getItem(migrationKey)) {
-      setStockHistory([]);
-      localStorage.setItem(migrationKey, "done");
-    }
-  }, [setStockHistory]);
 
   const tryLogin = () => {
     if (pw === "0707") {
@@ -656,37 +703,56 @@ export default function CoilInventory() {
     window.setTimeout(() => { cloudApplyingRef.current = false; }, 500);
   };
 
-  const loadSharedData = async (url = sheetApiUrl) => {
+  const loadSharedData = async (url = sheetApiUrl, token = sheetApiToken) => {
     if (!url?.trim()) throw new Error("Google Apps Script 웹앱 URL을 먼저 입력해주세요.");
     setCloudStatus("공용 데이터를 불러오는 중입니다...");
-    const result = await callSheetsApi(url.trim(), "read");
-    applySnapshot(sheetsToSnapshot(result.data, localSnapshot));
+    const result = await callSheetsApi(url.trim(), "read", {}, token);
+    const sharedSnapshot = sheetsToSnapshot(result.data, localSnapshot);
+    cloudBaseSnapshotRef.current = sharedSnapshot;
+    applySnapshot(sharedSnapshot);
     cloudLoadedRef.current = true;
     setCloudStatus("공용 데이터 불러오기 완료");
   };
 
-  const saveSharedData = async (snapshot = localSnapshot, url = sheetApiUrl) => {
+  const saveSharedData = async (snapshot = localSnapshot, url = sheetApiUrl, token = sheetApiToken) => {
     if (!url?.trim()) throw new Error("Google Apps Script 웹앱 URL을 먼저 입력해주세요.");
     setCloudStatus("공용 저장소에 저장 중입니다...");
-    await callSheetsApi(url.trim(), "upsertAll", { data: snapshotToSheets(snapshot) });
-    setCloudStatus("공용 저장 완료");
+    let lastError = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const latest = await callSheetsApi(url.trim(), "read", {}, token);
+        const latestSnapshot = sheetsToSnapshot(latest.data, cloudBaseSnapshotRef.current || snapshot);
+        const mergedSnapshot = mergeSharedSnapshots(latestSnapshot, snapshot, cloudBaseSnapshotRef.current || {});
+        await callSheetsApi(url.trim(), "upsertAll", {
+          data: snapshotToSheets(mergedSnapshot),
+          expectedUpdatedAt: settingValue(latest.data, "updatedAt"),
+        }, token);
+        cloudBaseSnapshotRef.current = mergedSnapshot;
+        setCloudStatus("공용 저장 완료");
+        return;
+      } catch (error) {
+        lastError = error;
+        if (!String(error.message || "").includes("CONFLICT")) break;
+      }
+    }
+    throw lastError || new Error("공용 저장에 실패했습니다.");
   };
 
   useEffect(() => {
     if (!authed || !cloudEnabled || !sheetApiUrl || cloudLoadedRef.current) return;
-    loadSharedData(sheetApiUrl).catch((error) => {
+    loadSharedData(sheetApiUrl, sheetApiToken).catch((error) => {
       setCloudStatus(error.message);
       cloudLoadedRef.current = true;
     });
-  }, [authed, cloudEnabled, sheetApiUrl]);
+  }, [authed, cloudEnabled, sheetApiUrl, sheetApiToken]);
 
   useEffect(() => {
     if (!authed || !cloudEnabled || !sheetApiUrl || !cloudLoadedRef.current || cloudApplyingRef.current) return;
     const timer = window.setTimeout(() => {
-      saveSharedData(localSnapshot, sheetApiUrl).catch((error) => setCloudStatus(error.message));
+      saveSharedData(localSnapshot, sheetApiUrl, sheetApiToken).catch((error) => setCloudStatus(error.message));
     }, 1400);
     return () => window.clearTimeout(timer);
-  }, [authed, cloudEnabled, sheetApiUrl, localSnapshot]);
+  }, [authed, cloudEnabled, sheetApiUrl, sheetApiToken, localSnapshot]);
 
   if (!authed) return <Login pw={pw} setPw={setPw} pwErr={pwErr} tryLogin={tryLogin} />;
 
@@ -699,15 +765,32 @@ export default function CoilInventory() {
     setMenu("outbound");
     setDrawer(false);
   };
-  const resetAllData = () => {
-    setCoils([]);
-    setInbound([]);
-    setOutbound([]);
-    setReservations([]);
-    setBaseStock({});
-    setStockHistory([]);
-    setZoneStock({});
-    setBaseStockDates({});
+  const resetAllData = async () => {
+    const resetSnapshot = {
+      ...localSnapshot,
+      coils: [],
+      inbound: [],
+      outbound: [],
+      reservations: [],
+      baseStock: {},
+      stockHistory: [],
+      zoneStock: {},
+      baseStockDates: {},
+    };
+    downloadJson({ exportedAt: new Date().toISOString(), data: localSnapshot }, `HNMT_COIL_before_reset_${todayStr()}.json`);
+    cloudApplyingRef.current = true;
+    try {
+      if (cloudEnabled && sheetApiUrl) {
+        setCloudStatus("공용 운영 데이터를 초기화하는 중입니다...");
+        await callSheetsApi(sheetApiUrl.trim(), "resetOperations", {}, sheetApiToken);
+        setCloudStatus("공용 운영 데이터 초기화 완료");
+      }
+    } catch (error) {
+      cloudApplyingRef.current = false;
+      throw error;
+    }
+    cloudBaseSnapshotRef.current = resetSnapshot;
+    applySnapshot(resetSnapshot);
     localStorage.removeItem("hnmt-coil-inboundTodos");
     setQuickAction(null);
   };
@@ -743,20 +826,22 @@ export default function CoilInventory() {
         onClose={() => setCloudOpen(false)}
         apiUrl={sheetApiUrl}
         setApiUrl={setSheetApiUrl}
+        apiToken={sheetApiToken}
+        setApiToken={setSheetApiToken}
         enabled={cloudEnabled}
         setEnabled={(value) => { cloudLoadedRef.current = false; setCloudEnabled(value); }}
         status={cloudStatus}
         snapshot={localSnapshot}
         onBackup={() => downloadJson({ exportedAt: new Date().toISOString(), data: readLocalSnapshot() }, `HNMT_COIL_backup_${todayStr()}.json`)}
         onLoad={loadSharedData}
-        onMigrate={async (url) => {
+        onMigrate={async (url, token) => {
           const snapshot = readLocalSnapshot();
           downloadJson({ exportedAt: new Date().toISOString(), data: snapshot }, `HNMT_COIL_before_sheets_${todayStr()}.json`);
-          await saveSharedData(snapshot, url || sheetApiUrl);
+          await saveSharedData(snapshot, url || sheetApiUrl, token ?? sheetApiToken);
           setCloudEnabled(true);
           cloudLoadedRef.current = true;
         }}
-        onSaveNow={(url) => saveSharedData(localSnapshot, url || sheetApiUrl)}
+        onSaveNow={(url, token) => saveSharedData(localSnapshot, url || sheetApiUrl, token ?? sheetApiToken)}
       />
 
       <main className="max-w-[1400px] mx-auto p-4 md:p-8">
@@ -933,12 +1018,16 @@ function Drawer({ open, onClose, menu, goto, onLogout }) {
   );
 }
 
-function CloudStorageModal({ open, onClose, apiUrl, setApiUrl, enabled, setEnabled, status, onBackup, onLoad, onMigrate, onSaveNow }) {
+function CloudStorageModal({ open, onClose, apiUrl, setApiUrl, apiToken, setApiToken, enabled, setEnabled, status, onBackup, onLoad, onMigrate, onSaveNow }) {
   const [draftUrl, setDraftUrl] = useState(apiUrl || "");
+  const [draftToken, setDraftToken] = useState(apiToken || "");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    if (open) setDraftUrl(apiUrl || "");
-  }, [open, apiUrl]);
+    if (open) {
+      setDraftUrl(apiUrl || "");
+      setDraftToken(apiToken || "");
+    }
+  }, [open, apiUrl, apiToken]);
   const run = async (fn) => {
     try {
       setBusy(true);
@@ -959,8 +1048,12 @@ function CloudStorageModal({ open, onClose, apiUrl, setApiUrl, enabled, setEnabl
           <input className={inputCls} value={draftUrl} onChange={(e) => setDraftUrl(e.target.value)}
             placeholder="https://script.google.com/macros/s/.../exec" />
         </Field>
+        <Field label="공용 저장 API 토큰">
+          <input className={inputCls} value={draftToken} onChange={(e) => setDraftToken(e.target.value)}
+            placeholder="Apps Script API_TOKEN을 설정한 경우 입력" />
+        </Field>
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => { setApiUrl(draftUrl.trim()); setEnabled(Boolean(draftUrl.trim())); }}
+          <button type="button" onClick={() => { setApiUrl(draftUrl.trim()); setApiToken(draftToken.trim()); setEnabled(Boolean(draftUrl.trim())); }}
             className="h-10 px-4 rounded-xl border border-indigo-200 bg-indigo-50 text-sm font-bold text-indigo-700">
             URL 저장
           </button>
@@ -976,15 +1069,15 @@ function CloudStorageModal({ open, onClose, apiUrl, setApiUrl, enabled, setEnabl
             className="h-12 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:border-indigo-200">
             1. 기존 데이터 JSON 백업
           </button>
-          <button type="button" disabled={busy} onClick={() => run(async () => { const url = draftUrl.trim(); setApiUrl(url); await onMigrate(url); })}
+          <button type="button" disabled={busy} onClick={() => run(async () => { const url = draftUrl.trim(); const token = draftToken.trim(); setApiUrl(url); setApiToken(token); await onMigrate(url, token); })}
             className="h-12 rounded-xl border border-indigo-200 bg-indigo-600 text-sm font-bold text-white disabled:opacity-50">
             2. 로컬 데이터를 Sheets로 이전
           </button>
-          <button type="button" disabled={busy} onClick={() => run(async () => { setApiUrl(draftUrl.trim()); await onLoad(draftUrl.trim() || apiUrl); })}
+          <button type="button" disabled={busy} onClick={() => run(async () => { const url = draftUrl.trim(); const token = draftToken.trim(); setApiUrl(url); setApiToken(token); await onLoad(url || apiUrl, token); })}
             className="h-12 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 disabled:opacity-50">
             Sheets에서 불러오기
           </button>
-          <button type="button" disabled={busy} onClick={() => run(async () => { const url = draftUrl.trim(); setApiUrl(url); await onSaveNow(url); })}
+          <button type="button" disabled={busy} onClick={() => run(async () => { const url = draftUrl.trim(); const token = draftToken.trim(); setApiUrl(url); setApiToken(token); await onSaveNow(url, token); })}
             className="h-12 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 disabled:opacity-50">
             현재 화면 데이터 저장
           </button>
@@ -1357,7 +1450,15 @@ function Dashboard({ ctx, openQuick, openOutboundDetail, resetAllData }) {
               className="h-11 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50">
               아니오
             </button>
-            <button disabled={resetPhrase !== "초기화"} onClick={() => { resetAllData(); setResetOpen(false); setResetPhrase(""); }}
+            <button disabled={resetPhrase !== "초기화"} onClick={async () => {
+              try {
+                await resetAllData();
+                setResetOpen(false);
+                setResetPhrase("");
+              } catch (error) {
+                appAlert(error.message || "초기화에 실패했습니다.", { title: "초기화 오류", type: "warning" });
+              }
+            }}
               className="h-11 rounded-xl border border-rose-200 bg-rose-50 text-sm font-bold text-rose-600 hover:bg-rose-100 disabled:opacity-40 disabled:hover:bg-rose-50">
               네
             </button>
