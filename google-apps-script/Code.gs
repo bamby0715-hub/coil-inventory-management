@@ -93,11 +93,19 @@ function upsertRows_(name, rows) {
     const id = row[idColumn];
     if (id) byId[id] = row;
   });
-  rows.forEach((row) => {
+  const incomingIds = {};
+  const nextRows = rows.map((row) => {
     const id = row[idColumn] || Utilities.getUuid();
-    byId[id] = Object.assign({}, byId[id] || {}, row, { [idColumn]: id });
+    incomingIds[id] = true;
+    return Object.assign({}, byId[id] || {}, row, { [idColumn]: id });
   });
-  const values = Object.values(byId).map((row) => headers.map((header) => cellValue_(row[header])));
+  if (name === "설정") {
+    existing.forEach((row) => {
+      const key = row[idColumn];
+      if (key && !incomingIds[key] && !String(key).startsWith("appSnapshot:")) nextRows.push(row);
+    });
+  }
+  const values = nextRows.map((row) => headers.map((header) => cellValue_(row[header])));
   sheet.getRange(2, 1, Math.max(sheet.getMaxRows() - 1, 1), headers.length).clearContent();
   if (values.length) sheet.getRange(2, 1, values.length, headers.length).setValues(values);
 }
