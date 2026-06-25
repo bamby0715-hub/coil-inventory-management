@@ -170,8 +170,6 @@ const STORE_KEYS = [
   "customColors", "discontinuedColors", "zoneStock", "baseStockDates", "deletedBaseStockKeys",
 ];
 const OBJECT_STORE_KEYS = new Set(["baseStock", "zoneStock", "baseStockDates"]);
-const SETTINGS_SNAPSHOT_PREFIX = "appSnapshot:";
-const SETTINGS_CHUNK_SIZE = 40000;
 const sheetKeyOf = (item) => `${item.product}|${item.maker}|${item.code || ""}|${item.color}|${item.thickness}`;
 const localStorageKey = (key) => `hnmt-coil-${key}`;
 const safeJsonParse = (value, fallback) => {
@@ -188,203 +186,6 @@ const downloadJson = (data, fileName) => {
   a.download = fileName;
   a.click();
   URL.revokeObjectURL(url);
-};
-const normalizeMasterRows = (customColors = [], deletedBaseStockKeys = [], discontinuedColors = []) => {
-  const defaultKeys = new Set(COLOR_MASTER.map(sheetKeyOf));
-  const deletedCustomRows = deletedBaseStockKeys
-    .filter((key) => !defaultKeys.has(key))
-    .map((key) => {
-      const [product = "", maker = "", code = "", color = "", thickness = ""] = key.split("|");
-      return { product, maker, code, color, thickness, hex: hexOf(color), inactive: true };
-    });
-  const rows = [...COLOR_MASTER, ...customColors]
-    .concat(deletedCustomRows)
-    .map((item) => {
-      const key = sheetKeyOf(item);
-      return {
-        id: key,
-        제품구분: item.product,
-        제조사: item.maker,
-        코드번호: item.code || "",
-        두께: item.thickness,
-        색상명: item.color,
-        색상HEX: item.hex || hexOf(item.color),
-        품절여부: discontinuedColors.includes(key) ? "Y" : "N",
-        사용여부: item.inactive ? "N" : "Y",
-      };
-    });
-  return [...new Map(rows.map((row) => [`${row.제조사}|${row.코드번호}|${row.두께}|${row.색상명}`, row])).values()];
-};
-const snapshotToSheets = (snapshot) => {
-  const master = normalizeMasterRows(snapshot.customColors, snapshot.deletedBaseStockKeys, snapshot.discontinuedColors);
-  const stockKeys = [...new Set([
-    ...master.map((row) => row.id),
-    ...Object.keys(snapshot.baseStock || {}),
-    ...Object.keys(snapshot.zoneStock || {}),
-  ])];
-  const snapshotJson = JSON.stringify(snapshot);
-  const snapshotChunks = [];
-  for (let i = 0; i < snapshotJson.length; i += SETTINGS_CHUNK_SIZE) {
-    snapshotChunks.push(snapshotJson.slice(i, i + SETTINGS_CHUNK_SIZE));
-  }
-  return {
-    색상마스터: master,
-    기초재고: stockKeys.map((key) => {
-      const zones = { A: "", B: "", C: "", ...((snapshot.zoneStock || {})[key] || {}) };
-      const total = ["A", "B", "C"].reduce((sum, zone) => sum + (Number(zones[zone]) || 0), 0);
-      return {
-        id: key,
-        색상ID: key,
-        기준일: (snapshot.baseStockDates || {})[key] || "",
-        A: zones.A || 0,
-        B: zones.B || 0,
-        C: zones.C || 0,
-        총M: total || Number((snapshot.baseStock || {})[key]) || 0,
-        수정일: todayStr(),
-      };
-    }),
-    출고내역: (snapshot.outbound || []).map((item) => ({
-      ...item,
-      id: item.id || uid(),
-      등록일: item.created_at || item.registered_at || todayStr(),
-      출고일: item.outbound_date || "",
-      거래처: item.customer || "",
-      현장주소: item.site_address || "",
-      색상ID: item.coil_number || "",
-      출고M: item.outbound_meter || 0,
-      담당자: item.manager || "",
-      메모: item.memo || "",
-      완료여부: item.is_completed ? "Y" : "N",
-    })),
-    예약내역: (snapshot.reservations || []).map((item) => ({
-      ...item,
-      id: item.id || uid(),
-      등록일: item.created_at || todayStr(),
-      예약일: item.reservation_date || "",
-      도착일: item.planned_date || "",
-      거래처: item.customer || "",
-      현장주소: item.site_address || "",
-      색상ID: item.coil_key || "",
-      예약M: item.reserved_meter || 0,
-      담당자: item.manager || "",
-      메모: item.memo || "",
-      완료여부: item.is_completed ? "Y" : "N",
-    })),
-    변경타임라인: (snapshot.stockHistory || []).map((item) => ({
-      ...item,
-      id: item.id || uid(),
-      변경일시: item.created_at || new Date().toISOString(),
-      구분: item.source || "기초재고",
-      색상ID: item.key || "",
-      이전A: item.previousZones?.A || "",
-      이전B: item.previousZones?.B || "",
-      이전C: item.previousZones?.C || "",
-      변경A: item.zones?.A || 0,
-      변경B: item.zones?.B || 0,
-      변경C: item.zones?.C || 0,
-      변경자: item.editor || "",
-    })),
-    설정: [
-      { key: "schemaVersion", value: "1" },
-      { key: "updatedAt", value: new Date().toISOString() },
-      { key: `${SETTINGS_SNAPSHOT_PREFIX}count`, value: snapshotChunks.length },
-      ...snapshotChunks.map((value, index) => ({ key: `${SETTINGS_SNAPSHOT_PREFIX}${index}`, value })),
-    ],
-  };
-};
-const sheetsToSnapshot = (data, fallback = {}) => {
-  const settingsRows = data?.설정 || [];
-  const chunkCount = Number(settingsRows.find((row) => row.key === `${SETTINGS_SNAPSHOT_PREFIX}count`)?.value) || 0;
-  const snapshotJson = Array.from({ length: chunkCount }, (_, index) =>
-    settingsRows.find((row) => row.key === `${SETTINGS_SNAPSHOT_PREFIX}${index}`)?.value || ""
-  ).join("");
-  const storedSnapshot = safeJsonParse(snapshotJson, {});
-  const baseFallback = { ...fallback, ...storedSnapshot };
-  const defaultKeys = new Set(COLOR_MASTER.map(sheetKeyOf));
-  const masterRows = data?.색상마스터 || [];
-  const customColors = masterRows
-    .filter((row) => String(row.사용여부 || "Y").toUpperCase() !== "N")
-    .map((row) => ({
-      product: row.제품구분 || row.product || "",
-      maker: row.제조사 || row.maker || "",
-      code: row.코드번호 || row.code || "",
-      thickness: row.두께 || row.thickness || "",
-      color: row.색상명 || row.color || "",
-      hex: row.색상HEX || row.hex || "",
-    }))
-    .filter((item) => !defaultKeys.has(sheetKeyOf(item)))
-    .filter((item) => item.product && item.maker && item.color && item.thickness);
-  const discontinuedColors = masterRows
-    .filter((row) => String(row.품절여부 || "").toUpperCase() === "Y")
-    .map((row) => row.id || `${row.제품구분}|${row.제조사}|${row.코드번호 || ""}|${row.색상명}|${row.두께}`)
-    .filter(Boolean);
-  const deletedBaseStockKeys = masterRows
-    .filter((row) => String(row.사용여부 || "Y").toUpperCase() === "N" && !defaultKeys.has(row.id))
-    .map((row) => row.id)
-    .filter(Boolean);
-  const baseStock = {};
-  const zoneStock = {};
-  const baseStockDates = {};
-  (data?.기초재고 || []).forEach((row) => {
-    const key = row.색상ID || row.id;
-    if (!key) return;
-    const zones = { A: Number(row.A) || 0, B: Number(row.B) || 0, C: Number(row.C) || 0 };
-    zoneStock[key] = zones;
-    baseStock[key] = Number(row.총M) || zones.A + zones.B + zones.C;
-    baseStockDates[key] = row.기준일 || "";
-  });
-  const outbound = (data?.출고내역 || []).map((row) => ({
-    ...row,
-    id: row.id || uid(),
-    created_at: row.created_at || row.등록일 || todayStr(),
-    outbound_date: row.outbound_date || row.출고일 || "",
-    customer: row.customer || row.거래처 || "",
-    site_address: row.site_address || row.현장주소 || "",
-    coil_number: row.coil_number || row.색상ID || "",
-    outbound_meter: Number(row.outbound_meter ?? row.출고M) || 0,
-    manager: row.manager || row.담당자 || "",
-    memo: row.memo || row.메모 || "",
-    is_completed: row.is_completed === true || String(row.완료여부 || "").toUpperCase() === "Y",
-  }));
-  const reservations = (data?.예약내역 || []).map((row) => ({
-    ...row,
-    id: row.id || uid(),
-    created_at: row.created_at || row.등록일 || todayStr(),
-    reservation_date: row.reservation_date || row.예약일 || "",
-    planned_date: row.planned_date || row.도착일 || "",
-    customer: row.customer || row.거래처 || "",
-    site_address: row.site_address || row.현장주소 || "",
-    coil_key: row.coil_key || row.색상ID || "",
-    reserved_meter: Number(row.reserved_meter ?? row.예약M) || 0,
-    manager: row.manager || row.담당자 || "",
-    memo: row.memo || row.메모 || "",
-    is_completed: row.is_completed === true || String(row.완료여부 || "").toUpperCase() === "Y",
-  }));
-  const stockHistory = (data?.변경타임라인 || []).map((row) => ({
-    ...row,
-    id: row.id || uid(),
-    created_at: row.created_at || row.변경일시 || new Date().toISOString(),
-    source: row.source || row.구분 || "기초재고",
-    key: row.key || row.색상ID || "",
-    zones: {
-      A: Number(row.변경A) || Number(row.zones?.A) || 0,
-      B: Number(row.변경B) || Number(row.zones?.B) || 0,
-      C: Number(row.변경C) || Number(row.zones?.C) || 0,
-    },
-    meter: Number(row.meter ?? row.총M) || ((Number(row.변경A) || 0) + (Number(row.변경B) || 0) + (Number(row.변경C) || 0)),
-  })).filter((row) => row.key);
-  return {
-    ...baseFallback,
-    customColors,
-    discontinuedColors,
-    deletedBaseStockKeys,
-    baseStock,
-    zoneStock,
-    baseStockDates,
-    outbound,
-    reservations,
-    stockHistory,
-  };
 };
 
 const byRecordId = (item) => item?.id || "";
@@ -437,17 +238,89 @@ const mergeSharedSnapshots = (latest = {}, local = {}, base = {}) => ({
   zoneStock: mergeObjectMap(latest.zoneStock, local.zoneStock, base.zoneStock),
   baseStockDates: mergeObjectMap(latest.baseStockDates, local.baseStockDates, base.baseStockDates),
 });
-const settingValue = (data, key) => (data?.설정 || []).find((row) => row.key === key)?.value || "";
-const callSheetsApi = async (url, action, payload = {}, token = "") => {
-  const response = await fetch(url, {
-    method: "POST",
-    body: JSON.stringify({ action, ...payload, ...(token ? { token } : {}) }),
-  });
-  const result = await response.json();
-  if (!result.ok) throw new Error(result.error || "Google Sheets API 요청에 실패했습니다.");
-  return result;
+const FIREBASE_SDK_VERSION = "10.12.5";
+const FIREBASE_COLLECTION = "hnmtCoilSystem";
+const FIREBASE_DOC_ID = "sharedState";
+const importExternal = (url) => new Function("url", "return import(url)")(url);
+const cleanForFirestore = (value) => JSON.parse(JSON.stringify(value || {}));
+const firebaseClientId = () => {
+  const key = "hnmt-coil-firebase-client-id";
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = uid();
+    localStorage.setItem(key, id);
+  }
+  return id;
 };
-
+const parseFirebaseConfig = (text) => {
+  const raw = String(text || "").trim();
+  if (!raw) throw new Error("Firebase 설정값을 입력해주세요.");
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const objectMatch = raw.match(/\{[\s\S]*\}/);
+    if (!objectMatch) throw new Error("Firebase 설정 객체를 찾을 수 없습니다.");
+    const objectText = objectMatch[0];
+    const config = {};
+    ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId", "measurementId"].forEach((key) => {
+      const match = objectText.match(new RegExp(`${key}\\s*:\\s*["']([^"']+)["']`));
+      if (match) config[key] = match[1];
+    });
+    if (!config.apiKey || !config.projectId || !config.appId) {
+      throw new Error("apiKey, projectId, appId가 포함된 Firebase config를 붙여넣어주세요.");
+    }
+    return config;
+  }
+};
+let firebaseRuntimePromise = null;
+let firebaseRuntimeKey = "";
+const getFirebaseRuntime = async (configText) => {
+  const config = parseFirebaseConfig(configText);
+  const runtimeKey = `${config.projectId}|${config.appId}`;
+  if (firebaseRuntimePromise && firebaseRuntimeKey === runtimeKey) return firebaseRuntimePromise;
+  firebaseRuntimeKey = runtimeKey;
+  firebaseRuntimePromise = (async () => {
+    const appModule = await importExternal(`https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-app.js`);
+    const firestoreModule = await importExternal(`https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-firestore.js`);
+    const app = appModule.getApps().find((item) => item.name === "hnmt-coil") ||
+      appModule.initializeApp(config, "hnmt-coil");
+    const db = firestoreModule.getFirestore(app);
+    const docRef = firestoreModule.doc(db, FIREBASE_COLLECTION, FIREBASE_DOC_ID);
+    const readSnapshot = (docSnap) => docSnap.exists() ? (docSnap.data()?.snapshot || null) : null;
+    return {
+      async getSharedSnapshot() {
+        return readSnapshot(await firestoreModule.getDoc(docRef));
+      },
+      async saveSharedSnapshot(localSnapshot, baseSnapshot) {
+        const clientId = firebaseClientId();
+        return firestoreModule.runTransaction(db, async (transaction) => {
+          const currentDoc = await transaction.get(docRef);
+          const latestSnapshot = readSnapshot(currentDoc) || {};
+          const mergedSnapshot = mergeSharedSnapshots(latestSnapshot, localSnapshot, baseSnapshot || {});
+          transaction.set(docRef, {
+            snapshot: cleanForFirestore(mergedSnapshot),
+            updatedAt: firestoreModule.serverTimestamp(),
+            updatedBy: clientId,
+          }, { merge: true });
+          return mergedSnapshot;
+        });
+      },
+      async overwriteSharedSnapshot(snapshot) {
+        const cleanSnapshot = cleanForFirestore(snapshot);
+        await firestoreModule.setDoc(docRef, {
+          snapshot: cleanSnapshot,
+          updatedAt: firestoreModule.serverTimestamp(),
+          updatedBy: firebaseClientId(),
+        }, { merge: true });
+        return cleanSnapshot;
+      },
+      subscribe(onData, onError) {
+        return firestoreModule.onSnapshot(docRef, (docSnap) => onData(readSnapshot(docSnap)), onError);
+      },
+    };
+  })();
+  return firebaseRuntimePromise;
+};
 /* ---------- 초기 샘플 데이터 ---------- */
 function seed() {
   const base = (o) => ({ id: uid(), created_at: o.inbound_date || todayStr(), updated_at: todayStr(), ...o });
@@ -657,14 +530,14 @@ export default function CoilInventory() {
   const [zoneStock, setZoneStock] = useStore("zoneStock", {});
   const [baseStockDates, setBaseStockDates] = useStore("baseStockDates", {});
   const [deletedBaseStockKeys, setDeletedBaseStockKeys] = useStore("deletedBaseStockKeys", []);
-  const [sheetApiUrl, setSheetApiUrl] = useStore("sheetApiUrl", "");
-  const [sheetApiToken, setSheetApiToken] = useStore("sheetApiToken", "");
-  const [cloudEnabled, setCloudEnabled] = useStore("cloudEnabled", false);
+  const [firebaseConfigText, setFirebaseConfigText] = useStore("firebaseConfigText", "");
+  const [firebaseEnabled, setFirebaseEnabled] = useStore("firebaseEnabled", false);
   const [cloudOpen, setCloudOpen] = useState(false);
   const [cloudStatus, setCloudStatus] = useState("");
   const cloudLoadedRef = useRef(false);
   const cloudApplyingRef = useRef(false);
   const cloudBaseSnapshotRef = useRef(null);
+  const firebaseUnsubscribeRef = useRef(null);
   useEffect(() => {
     const masterKeys = new Set(COLOR_MASTER.map((item) =>
       `${item.product}|${item.maker}|${item.code}|${item.color}|${item.thickness}`
@@ -703,56 +576,76 @@ export default function CoilInventory() {
     window.setTimeout(() => { cloudApplyingRef.current = false; }, 500);
   };
 
-  const loadSharedData = async (url = sheetApiUrl, token = sheetApiToken) => {
-    if (!url?.trim()) throw new Error("Google Apps Script 웹앱 URL을 먼저 입력해주세요.");
-    setCloudStatus("공용 데이터를 불러오는 중입니다...");
-    const result = await callSheetsApi(url.trim(), "read", {}, token);
-    const sharedSnapshot = sheetsToSnapshot(result.data, localSnapshot);
+  const loadSharedData = async (configText = firebaseConfigText) => {
+    setCloudStatus("Firestore 데이터를 불러오는 중입니다...");
+    const runtime = await getFirebaseRuntime(configText);
+    const sharedSnapshot = await runtime.getSharedSnapshot();
+    if (!sharedSnapshot) {
+      cloudBaseSnapshotRef.current = localSnapshot;
+      cloudLoadedRef.current = true;
+      setCloudStatus("Firestore 문서가 비어 있습니다. 먼저 로컬 데이터를 이전해주세요.");
+      return;
+    }
     cloudBaseSnapshotRef.current = sharedSnapshot;
     applySnapshot(sharedSnapshot);
     cloudLoadedRef.current = true;
-    setCloudStatus("공용 데이터 불러오기 완료");
+    setCloudStatus("Firestore 데이터 불러오기 완료");
   };
 
-  const saveSharedData = async (snapshot = localSnapshot, url = sheetApiUrl, token = sheetApiToken) => {
-    if (!url?.trim()) throw new Error("Google Apps Script 웹앱 URL을 먼저 입력해주세요.");
-    setCloudStatus("공용 저장소에 저장 중입니다...");
-    let lastError = null;
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        const latest = await callSheetsApi(url.trim(), "read", {}, token);
-        const latestSnapshot = sheetsToSnapshot(latest.data, cloudBaseSnapshotRef.current || snapshot);
-        const mergedSnapshot = mergeSharedSnapshots(latestSnapshot, snapshot, cloudBaseSnapshotRef.current || {});
-        await callSheetsApi(url.trim(), "upsertAll", {
-          data: snapshotToSheets(mergedSnapshot),
-          expectedUpdatedAt: settingValue(latest.data, "updatedAt"),
-        }, token);
-        cloudBaseSnapshotRef.current = mergedSnapshot;
-        setCloudStatus("공용 저장 완료");
-        return;
-      } catch (error) {
-        lastError = error;
-        if (!String(error.message || "").includes("CONFLICT")) break;
-      }
-    }
-    throw lastError || new Error("공용 저장에 실패했습니다.");
+  const saveSharedData = async (snapshot = localSnapshot, configText = firebaseConfigText) => {
+    setCloudStatus("Firestore에 저장 중입니다...");
+    const runtime = await getFirebaseRuntime(configText);
+    const mergedSnapshot = await runtime.saveSharedSnapshot(snapshot, cloudBaseSnapshotRef.current || {});
+    cloudBaseSnapshotRef.current = mergedSnapshot;
+    setCloudStatus("Firestore 저장 완료");
   };
 
   useEffect(() => {
-    if (!authed || !cloudEnabled || !sheetApiUrl || cloudLoadedRef.current) return;
-    loadSharedData(sheetApiUrl, sheetApiToken).catch((error) => {
+    if (!authed || !firebaseEnabled || !firebaseConfigText) return;
+    let cancelled = false;
+    cloudLoadedRef.current = false;
+    setCloudStatus("Firestore 실시간 연결 중입니다...");
+    getFirebaseRuntime(firebaseConfigText).then((runtime) => {
+      if (cancelled) return;
+      firebaseUnsubscribeRef.current?.();
+      firebaseUnsubscribeRef.current = runtime.subscribe((sharedSnapshot) => {
+        if (!sharedSnapshot) {
+          cloudBaseSnapshotRef.current = readLocalSnapshot();
+          cloudLoadedRef.current = true;
+          setCloudStatus("Firestore 문서가 비어 있습니다. 로컬 이전을 먼저 실행해주세요.");
+          return;
+        }
+        const previousBase = cloudBaseSnapshotRef.current || {};
+        const currentLocal = readLocalSnapshot();
+        const nextSnapshot = cloudLoadedRef.current
+          ? mergeSharedSnapshots(sharedSnapshot, currentLocal, previousBase)
+          : sharedSnapshot;
+        cloudBaseSnapshotRef.current = sharedSnapshot;
+        applySnapshot(nextSnapshot);
+        cloudLoadedRef.current = true;
+        setCloudStatus("Firestore 실시간 연결됨");
+      }, (error) => {
+        setCloudStatus(error.message || "Firestore 실시간 연결 오류");
+        cloudLoadedRef.current = true;
+      });
+    }).catch((error) => {
       setCloudStatus(error.message);
       cloudLoadedRef.current = true;
     });
-  }, [authed, cloudEnabled, sheetApiUrl, sheetApiToken]);
+    return () => {
+      cancelled = true;
+      firebaseUnsubscribeRef.current?.();
+      firebaseUnsubscribeRef.current = null;
+    };
+  }, [authed, firebaseEnabled, firebaseConfigText]);
 
   useEffect(() => {
-    if (!authed || !cloudEnabled || !sheetApiUrl || !cloudLoadedRef.current || cloudApplyingRef.current) return;
+    if (!authed || !firebaseEnabled || !firebaseConfigText || !cloudLoadedRef.current || cloudApplyingRef.current) return;
     const timer = window.setTimeout(() => {
-      saveSharedData(localSnapshot, sheetApiUrl, sheetApiToken).catch((error) => setCloudStatus(error.message));
+      saveSharedData(localSnapshot, firebaseConfigText).catch((error) => setCloudStatus(error.message));
     }, 1400);
     return () => window.clearTimeout(timer);
-  }, [authed, cloudEnabled, sheetApiUrl, sheetApiToken, localSnapshot]);
+  }, [authed, firebaseEnabled, firebaseConfigText, localSnapshot]);
 
   if (!authed) return <Login pw={pw} setPw={setPw} pwErr={pwErr} tryLogin={tryLogin} />;
 
@@ -780,10 +673,11 @@ export default function CoilInventory() {
     downloadJson({ exportedAt: new Date().toISOString(), data: localSnapshot }, `HNMT_COIL_before_reset_${todayStr()}.json`);
     cloudApplyingRef.current = true;
     try {
-      if (cloudEnabled && sheetApiUrl) {
-        setCloudStatus("공용 운영 데이터를 초기화하는 중입니다...");
-        await callSheetsApi(sheetApiUrl.trim(), "resetOperations", {}, sheetApiToken);
-        setCloudStatus("공용 운영 데이터 초기화 완료");
+      if (firebaseEnabled && firebaseConfigText) {
+        setCloudStatus("Firestore 운영 데이터를 초기화하는 중입니다...");
+        const runtime = await getFirebaseRuntime(firebaseConfigText);
+        await runtime.overwriteSharedSnapshot(resetSnapshot);
+        setCloudStatus("Firestore 운영 데이터 초기화 완료");
       }
     } catch (error) {
       cloudApplyingRef.current = false;
@@ -807,7 +701,7 @@ export default function CoilInventory() {
           </button>
           <div className="flex items-center gap-2">
             <button onClick={() => setCloudOpen(true)}
-              className={`hidden sm:inline-flex h-10 px-3 rounded-xl border text-xs font-bold items-center justify-center transition ${cloudEnabled ? "border-indigo-200 bg-indigo-50 text-indigo-600" : "border-slate-200 bg-white text-slate-500 hover:text-indigo-600"}`}>
+              className={`hidden sm:inline-flex h-10 px-3 rounded-xl border text-xs font-bold items-center justify-center transition ${firebaseEnabled ? "border-indigo-200 bg-indigo-50 text-indigo-600" : "border-slate-200 bg-white text-slate-500 hover:text-indigo-600"}`}>
               공용저장
             </button>
             <button onClick={() => setDrawer(true)} aria-label="메뉴 열기"
@@ -824,24 +718,22 @@ export default function CoilInventory() {
       <CloudStorageModal
         open={cloudOpen}
         onClose={() => setCloudOpen(false)}
-        apiUrl={sheetApiUrl}
-        setApiUrl={setSheetApiUrl}
-        apiToken={sheetApiToken}
-        setApiToken={setSheetApiToken}
-        enabled={cloudEnabled}
-        setEnabled={(value) => { cloudLoadedRef.current = false; setCloudEnabled(value); }}
+        configText={firebaseConfigText}
+        setConfigText={setFirebaseConfigText}
+        enabled={firebaseEnabled}
+        setEnabled={(value) => { cloudLoadedRef.current = false; setFirebaseEnabled(value); }}
         status={cloudStatus}
         snapshot={localSnapshot}
         onBackup={() => downloadJson({ exportedAt: new Date().toISOString(), data: readLocalSnapshot() }, `HNMT_COIL_backup_${todayStr()}.json`)}
         onLoad={loadSharedData}
-        onMigrate={async (url, token) => {
+        onMigrate={async (configText) => {
           const snapshot = readLocalSnapshot();
-          downloadJson({ exportedAt: new Date().toISOString(), data: snapshot }, `HNMT_COIL_before_sheets_${todayStr()}.json`);
-          await saveSharedData(snapshot, url || sheetApiUrl, token ?? sheetApiToken);
-          setCloudEnabled(true);
+          downloadJson({ exportedAt: new Date().toISOString(), data: snapshot }, `HNMT_COIL_before_firestore_${todayStr()}.json`);
+          await saveSharedData(snapshot, configText || firebaseConfigText);
+          setFirebaseEnabled(true);
           cloudLoadedRef.current = true;
         }}
-        onSaveNow={(url, token) => saveSharedData(localSnapshot, url || sheetApiUrl, token ?? sheetApiToken)}
+        onSaveNow={(configText) => saveSharedData(localSnapshot, configText || firebaseConfigText)}
       />
 
       <main className="max-w-[1400px] mx-auto p-4 md:p-8">
@@ -1018,16 +910,12 @@ function Drawer({ open, onClose, menu, goto, onLogout }) {
   );
 }
 
-function CloudStorageModal({ open, onClose, apiUrl, setApiUrl, apiToken, setApiToken, enabled, setEnabled, status, onBackup, onLoad, onMigrate, onSaveNow }) {
-  const [draftUrl, setDraftUrl] = useState(apiUrl || "");
-  const [draftToken, setDraftToken] = useState(apiToken || "");
+function CloudStorageModal({ open, onClose, configText, setConfigText, enabled, setEnabled, status, onBackup, onLoad, onMigrate, onSaveNow }) {
+  const [draftConfig, setDraftConfig] = useState(configText || "");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    if (open) {
-      setDraftUrl(apiUrl || "");
-      setDraftToken(apiToken || "");
-    }
-  }, [open, apiUrl, apiToken]);
+    if (open) setDraftConfig(configText || "");
+  }, [open, configText]);
   const run = async (fn) => {
     try {
       setBusy(true);
@@ -1039,28 +927,24 @@ function CloudStorageModal({ open, onClose, apiUrl, setApiUrl, apiToken, setApiT
     }
   };
   return (
-    <Modal open={open} onClose={onClose} title="Google Sheets 공용 저장" wide="medium">
+    <Modal open={open} onClose={onClose} title="Firebase Firestore 공용 저장" wide="medium">
       <div className="space-y-5">
         <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700 leading-relaxed">
-          기존 브라우저 데이터는 삭제하지 않습니다. 먼저 JSON 백업을 받은 뒤, Google Apps Script 웹앱 URL을 연결하면 여러 기기에서 같은 Sheets 데이터를 공유합니다.
+          기존 브라우저 데이터는 삭제하지 않습니다. 먼저 JSON 백업을 받은 뒤, Firebase config를 연결하면 여러 기기에서 같은 Firestore 데이터를 실시간 공유합니다.
         </div>
-        <Field label="Google Apps Script 웹앱 URL">
-          <input className={inputCls} value={draftUrl} onChange={(e) => setDraftUrl(e.target.value)}
-            placeholder="https://script.google.com/macros/s/.../exec" />
-        </Field>
-        <Field label="공용 저장 API 토큰">
-          <input className={inputCls} value={draftToken} onChange={(e) => setDraftToken(e.target.value)}
-            placeholder="Apps Script API_TOKEN을 설정한 경우 입력" />
+        <Field label="Firebase 웹앱 config">
+          <textarea className={`${inputCls} min-h-36 font-mono text-xs`} value={draftConfig} onChange={(e) => setDraftConfig(e.target.value)}
+            placeholder={`const firebaseConfig = {\n  apiKey: \"...\",\n  authDomain: \"...\",\n  projectId: \"...\",\n  storageBucket: \"...\",\n  messagingSenderId: \"...\",\n  appId: \"...\"\n};`} />
         </Field>
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => { setApiUrl(draftUrl.trim()); setApiToken(draftToken.trim()); setEnabled(Boolean(draftUrl.trim())); }}
+          <button type="button" onClick={() => { setConfigText(draftConfig.trim()); setEnabled(Boolean(draftConfig.trim())); }}
             className="h-10 px-4 rounded-xl border border-indigo-200 bg-indigo-50 text-sm font-bold text-indigo-700">
-            URL 저장
+            설정 저장
           </button>
           <button type="button" onClick={() => setEnabled(!enabled)}
-            disabled={!apiUrl && !draftUrl.trim()}
+            disabled={!configText && !draftConfig.trim()}
             className={`h-10 px-4 rounded-xl border text-sm font-bold disabled:opacity-40 ${enabled ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-500"}`}>
-            {enabled ? "공용저장 사용 중" : "공용저장 꺼짐"}
+            {enabled ? "Firestore 사용 중" : "Firestore 꺼짐"}
           </button>
           <span className="text-xs text-slate-400">{status || "대기 중"}</span>
         </div>
@@ -1069,23 +953,23 @@ function CloudStorageModal({ open, onClose, apiUrl, setApiUrl, apiToken, setApiT
             className="h-12 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:border-indigo-200">
             1. 기존 데이터 JSON 백업
           </button>
-          <button type="button" disabled={busy} onClick={() => run(async () => { const url = draftUrl.trim(); const token = draftToken.trim(); setApiUrl(url); setApiToken(token); await onMigrate(url, token); })}
+          <button type="button" disabled={busy} onClick={() => run(async () => { const config = draftConfig.trim(); setConfigText(config); await onMigrate(config); })}
             className="h-12 rounded-xl border border-indigo-200 bg-indigo-600 text-sm font-bold text-white disabled:opacity-50">
-            2. 로컬 데이터를 Sheets로 이전
+            2. 로컬 데이터를 Firestore로 이전
           </button>
-          <button type="button" disabled={busy} onClick={() => run(async () => { const url = draftUrl.trim(); const token = draftToken.trim(); setApiUrl(url); setApiToken(token); await onLoad(url || apiUrl, token); })}
+          <button type="button" disabled={busy} onClick={() => run(async () => { const config = draftConfig.trim(); setConfigText(config); await onLoad(config || configText); })}
             className="h-12 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 disabled:opacity-50">
-            Sheets에서 불러오기
+            Firestore에서 불러오기
           </button>
-          <button type="button" disabled={busy} onClick={() => run(async () => { const url = draftUrl.trim(); const token = draftToken.trim(); setApiUrl(url); setApiToken(token); await onSaveNow(url, token); })}
+          <button type="button" disabled={busy} onClick={() => run(async () => { const config = draftConfig.trim(); setConfigText(config); await onSaveNow(config); })}
             className="h-12 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 disabled:opacity-50">
             현재 화면 데이터 저장
           </button>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-6 text-slate-500">
-          시트 탭은 색상마스터, 기초재고, 출고내역, 예약내역, 변경타임라인, 설정으로 사용합니다.
-          1행은 컬럼명으로 읽고, 컬럼 순서가 바뀌어도 컬럼명 기준으로 저장합니다.
-          Apps Script 파일은 저장소의 <b>google-apps-script/Code.gs</b>에 추가됩니다.
+          Firestore 경로는 <b>hnmtCoilSystem/sharedState</b> 문서를 사용합니다.
+          저장 전 최신 문서를 트랜잭션으로 읽고 병합하므로 여러 기기 입력 충돌 위험을 줄입니다.
+          기존 localStorage는 캐시와 백업 용도로 유지됩니다.
         </div>
       </div>
     </Modal>

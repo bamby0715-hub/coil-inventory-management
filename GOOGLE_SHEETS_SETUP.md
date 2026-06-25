@@ -1,5 +1,7 @@
 # Google Sheets 공용 저장 설정
 
+> 이전 Google Sheets + Apps Script 방식 안내입니다. 현재 공용 저장은 `FIREBASE_SETUP.md`의 Firebase Firestore 방식이 기준입니다.
+
 이 앱은 기본적으로 기존 `localStorage` 데이터를 삭제하지 않습니다. Google Sheets 공용 저장을 사용하려면 아래 순서대로 설정하세요.
 
 ## 1. Google Sheet 만들기
