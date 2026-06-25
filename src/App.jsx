@@ -9,7 +9,7 @@ import * as XLSX from "xlsx";
 
 /* =========================================================================
    HN메탈릭 코일 재고관리 시스템 (v2)
-   · 접속 비밀번호: 0707
+   · 관리자 비밀번호: 0707 / 담당자 비밀번호: 1555
    · M(미터) 중심 관리 / 중량(kg) 미표시
    · 코일번호 자동생성  C-YYYYMMDD-####
    · 출고 홀딩 + 완료승인 정산 (제품구분별 FIFO 차감)
@@ -27,6 +27,11 @@ const COLOR_HEX = {
   "코르텐": "#8a4b2d",
 };
 const hexOf = (n) => COLOR_HEX[n] || "#9aa0a6";
+
+const LOGIN_PASSWORDS = {
+  admin: "0707",
+  staff: "1555",
+};
 
 const COLOR_MASTER = [
   { product: "강판", maker: "동국", code: "SU090", thickness: "0.4", color: "차콜" },
@@ -517,6 +522,7 @@ const NAV = [
 
 export default function CoilInventory() {
   const [authed, setAuthed] = useState(false);
+  const [userRole, setUserRole] = useState("");
   const [pw, setPw] = useState("");
   const [pwErr, setPwErr] = useState("");
   const [menu, setMenu] = useState("dashboard");
@@ -557,8 +563,10 @@ export default function CoilInventory() {
   }, [setDeletedBaseStockKeys]);
 
   const tryLogin = () => {
-    if (pw === "0707") {
+    const nextRole = pw === LOGIN_PASSWORDS.admin ? "admin" : pw === LOGIN_PASSWORDS.staff ? "staff" : "";
+    if (nextRole) {
       setAuthed(true);
+      setUserRole(nextRole);
       setMenu("dashboard");
       setBriefingOpen(true);
       setOutboundPendingOpen(false);
@@ -726,7 +734,7 @@ export default function CoilInventory() {
       </header>
 
       {/* 상단에서 아래로 펼쳐지는 드로어 */}
-      <Drawer open={drawer} onClose={() => setDrawer(false)} menu={menu} goto={goto} onLogout={() => { setAuthed(false); setPw(""); setDrawer(false); }} />
+      <Drawer open={drawer} onClose={() => setDrawer(false)} menu={menu} goto={goto} onLogout={() => { setAuthed(false); setUserRole(""); setPw(""); setDrawer(false); }} />
       {briefingOpen && <TodayBriefing ctx={ctx} onClose={() => setBriefingOpen(false)} />}
       <CloudStorageModal
         open={cloudOpen}
@@ -750,7 +758,7 @@ export default function CoilInventory() {
       />
 
       <main className="max-w-[1400px] mx-auto p-4 md:p-8">
-        {menu === "dashboard" && <Dashboard ctx={ctx} openQuick={openQuick} openOutboundDetail={openOutboundDetail} resetAllData={resetAllData} />}
+        {menu === "dashboard" && <Dashboard ctx={ctx} openQuick={openQuick} openOutboundDetail={openOutboundDetail} resetAllData={resetAllData} isAdmin={userRole === "admin"} />}
         {menu === "inbound" && <Inbound ctx={ctx} quickOpen={quickAction === "inbound"} clearQuick={() => setQuickAction(null)} />}
         {menu === "outbound" && <Outbound ctx={ctx} quickOpen={quickAction === "outbound"} clearQuick={() => setQuickAction(null)}
           pendingOpen={outboundPendingOpen} setPendingOpen={setOutboundPendingOpen}
@@ -1223,7 +1231,7 @@ function ProductStockCard({ stat, open, onToggle }) {
   );
 }
 
-function Dashboard({ ctx, openQuick, openOutboundDetail, resetAllData }) {
+function Dashboard({ ctx, openQuick, openOutboundDetail, resetAllData, isAdmin = false }) {
   const { coils, setCoils, outbound, setOutbound, reservations, baseStock, customColors, discontinuedColors } = ctx;
   const [slide, setSlide] = useState(0);
   const [mobileProduct, setMobileProduct] = useState("");
@@ -1302,10 +1310,12 @@ function Dashboard({ ctx, openQuick, openOutboundDetail, resetAllData }) {
         </div>
         <div className="flex flex-col items-end gap-2">
           <div className="text-[11px] sm:text-sm font-semibold text-slate-500 whitespace-nowrap">{todayLabel()}</div>
-          <button onClick={() => setResetOpen(true)}
-            className="text-xs font-medium text-slate-400 transition-colors hover:text-rose-500">
-            초기화
-          </button>
+          {isAdmin && (
+            <button onClick={() => setResetOpen(true)}
+              className="text-xs font-medium text-slate-400 transition-colors hover:text-rose-500">
+              초기화
+            </button>
+          )}
         </div>
       </div>
 
@@ -1329,7 +1339,7 @@ function Dashboard({ ctx, openQuick, openOutboundDetail, resetAllData }) {
           {slides.map((_, i) => <button key={i} onClick={() => setSlide(i)} className={`h-2 rounded-full transition-all ${i === slide ? "w-6 bg-white" : "w-2 bg-white/50"}`} />)}
         </div>
       </div>
-      <Modal open={resetOpen} onClose={() => setResetOpen(false)} title="전체 초기화" hideClose>
+      <Modal open={isAdmin && resetOpen} onClose={() => setResetOpen(false)} title="전체 초기화" hideClose>
         <div className="text-center py-2">
           <div className="mx-auto w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center">
             <AlertTriangle size={28} />
