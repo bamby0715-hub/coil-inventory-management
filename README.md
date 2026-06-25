@@ -27,6 +27,7 @@ npm run dev
 여러 PC와 모바일에서 같은 데이터를 보려면 Firebase Firestore 설정이 필요합니다.
 
 설정 순서는 [FIREBASE_SETUP.md](./FIREBASE_SETUP.md)를 확인하세요.
+`public/firebase-config.js`에 Firebase config를 넣고 배포하면 직원들은 별도 설정 없이 같은 링크만 접속하면 됩니다.
 
 ## 빌드
 

@@ -243,6 +243,14 @@ const FIREBASE_COLLECTION = "hnmtCoilSystem";
 const FIREBASE_DOC_ID = "sharedState";
 const importExternal = (url) => new Function("url", "return import(url)")(url);
 const cleanForFirestore = (value) => JSON.parse(JSON.stringify(value || {}));
+const getBundledFirebaseConfigText = () => {
+  const windowConfig = typeof window !== "undefined" ? window.HNMT_FIREBASE_CONFIG : null;
+  if (windowConfig && typeof windowConfig === "object" && Object.keys(windowConfig).length) {
+    return JSON.stringify(windowConfig);
+  }
+  const envConfig = import.meta.env?.VITE_FIREBASE_CONFIG;
+  return typeof envConfig === "string" ? envConfig.trim() : "";
+};
 const firebaseClientId = () => {
   const key = "hnmt-coil-firebase-client-id";
   let id = localStorage.getItem(key);
@@ -532,6 +540,9 @@ export default function CoilInventory() {
   const [deletedBaseStockKeys, setDeletedBaseStockKeys] = useStore("deletedBaseStockKeys", []);
   const [firebaseConfigText, setFirebaseConfigText] = useStore("firebaseConfigText", "");
   const [firebaseEnabled, setFirebaseEnabled] = useStore("firebaseEnabled", false);
+  const bundledFirebaseConfigText = useMemo(() => getBundledFirebaseConfigText(), []);
+  const activeFirebaseConfigText = bundledFirebaseConfigText || firebaseConfigText;
+  const activeFirebaseEnabled = Boolean(bundledFirebaseConfigText) || firebaseEnabled;
   const [cloudOpen, setCloudOpen] = useState(false);
   const [cloudStatus, setCloudStatus] = useState("");
   const cloudLoadedRef = useRef(false);
@@ -576,7 +587,7 @@ export default function CoilInventory() {
     window.setTimeout(() => { cloudApplyingRef.current = false; }, 500);
   };
 
-  const loadSharedData = async (configText = firebaseConfigText) => {
+  const loadSharedData = async (configText = activeFirebaseConfigText) => {
     setCloudStatus("Firestore 데이터를 불러오는 중입니다...");
     const runtime = await getFirebaseRuntime(configText);
     const sharedSnapshot = await runtime.getSharedSnapshot();
@@ -592,7 +603,7 @@ export default function CoilInventory() {
     setCloudStatus("Firestore 데이터 불러오기 완료");
   };
 
-  const saveSharedData = async (snapshot = localSnapshot, configText = firebaseConfigText) => {
+  const saveSharedData = async (snapshot = localSnapshot, configText = activeFirebaseConfigText) => {
     setCloudStatus("Firestore에 저장 중입니다...");
     const runtime = await getFirebaseRuntime(configText);
     const mergedSnapshot = await runtime.saveSharedSnapshot(snapshot, cloudBaseSnapshotRef.current || {});
@@ -601,11 +612,11 @@ export default function CoilInventory() {
   };
 
   useEffect(() => {
-    if (!authed || !firebaseEnabled || !firebaseConfigText) return;
+    if (!authed || !activeFirebaseEnabled || !activeFirebaseConfigText) return;
     let cancelled = false;
     cloudLoadedRef.current = false;
     setCloudStatus("Firestore 실시간 연결 중입니다...");
-    getFirebaseRuntime(firebaseConfigText).then((runtime) => {
+    getFirebaseRuntime(activeFirebaseConfigText).then((runtime) => {
       if (cancelled) return;
       firebaseUnsubscribeRef.current?.();
       firebaseUnsubscribeRef.current = runtime.subscribe((sharedSnapshot) => {
@@ -637,15 +648,15 @@ export default function CoilInventory() {
       firebaseUnsubscribeRef.current?.();
       firebaseUnsubscribeRef.current = null;
     };
-  }, [authed, firebaseEnabled, firebaseConfigText]);
+  }, [authed, activeFirebaseEnabled, activeFirebaseConfigText]);
 
   useEffect(() => {
-    if (!authed || !firebaseEnabled || !firebaseConfigText || !cloudLoadedRef.current || cloudApplyingRef.current) return;
+    if (!authed || !activeFirebaseEnabled || !activeFirebaseConfigText || !cloudLoadedRef.current || cloudApplyingRef.current) return;
     const timer = window.setTimeout(() => {
-      saveSharedData(localSnapshot, firebaseConfigText).catch((error) => setCloudStatus(error.message));
+      saveSharedData(localSnapshot, activeFirebaseConfigText).catch((error) => setCloudStatus(error.message));
     }, 1400);
     return () => window.clearTimeout(timer);
-  }, [authed, firebaseEnabled, firebaseConfigText, localSnapshot]);
+  }, [authed, activeFirebaseEnabled, activeFirebaseConfigText, localSnapshot]);
 
   if (!authed) return <Login pw={pw} setPw={setPw} pwErr={pwErr} tryLogin={tryLogin} />;
 
@@ -673,9 +684,9 @@ export default function CoilInventory() {
     downloadJson({ exportedAt: new Date().toISOString(), data: localSnapshot }, `HNMT_COIL_before_reset_${todayStr()}.json`);
     cloudApplyingRef.current = true;
     try {
-      if (firebaseEnabled && firebaseConfigText) {
+      if (activeFirebaseEnabled && activeFirebaseConfigText) {
         setCloudStatus("Firestore 운영 데이터를 초기화하는 중입니다...");
-        const runtime = await getFirebaseRuntime(firebaseConfigText);
+        const runtime = await getFirebaseRuntime(activeFirebaseConfigText);
         await runtime.overwriteSharedSnapshot(resetSnapshot);
         setCloudStatus("Firestore 운영 데이터 초기화 완료");
       }
@@ -700,10 +711,12 @@ export default function CoilInventory() {
             <img src="/coil-inventory-management/assets/hnmt-logo.png" alt="HNMT" className="w-36 md:w-48 h-full object-contain" style={{ filter: "brightness(0) saturate(100%) invert(17%) sepia(26%) saturate(1412%) hue-rotate(190deg) brightness(86%) contrast(91%)" }} />
           </button>
           <div className="flex items-center gap-2">
-            <button onClick={() => setCloudOpen(true)}
-              className={`hidden sm:inline-flex h-10 px-3 rounded-xl border text-xs font-bold items-center justify-center transition ${firebaseEnabled ? "border-indigo-200 bg-indigo-50 text-indigo-600" : "border-slate-200 bg-white text-slate-500 hover:text-indigo-600"}`}>
-              공용저장
-            </button>
+            {!bundledFirebaseConfigText && (
+              <button onClick={() => setCloudOpen(true)}
+                className={`hidden sm:inline-flex h-10 px-3 rounded-xl border text-xs font-bold items-center justify-center transition ${activeFirebaseEnabled ? "border-indigo-200 bg-indigo-50 text-indigo-600" : "border-slate-200 bg-white text-slate-500 hover:text-indigo-600"}`}>
+                공용저장
+              </button>
+            )}
             <button onClick={() => setDrawer(true)} aria-label="메뉴 열기"
               className="w-11 h-11 md:w-12 md:h-12 rounded-2xl bg-white/25 border border-white/60 backdrop-blur-xl shadow-lg shadow-indigo-200/30 flex items-center justify-center transition hover:bg-white/45 hover:-translate-y-0.5">
               <Menu size={22} className="text-indigo-500/80" />
@@ -718,9 +731,9 @@ export default function CoilInventory() {
       <CloudStorageModal
         open={cloudOpen}
         onClose={() => setCloudOpen(false)}
-        configText={firebaseConfigText}
+        configText={activeFirebaseConfigText}
         setConfigText={setFirebaseConfigText}
-        enabled={firebaseEnabled}
+        enabled={activeFirebaseEnabled}
         setEnabled={(value) => { cloudLoadedRef.current = false; setFirebaseEnabled(value); }}
         status={cloudStatus}
         snapshot={localSnapshot}
@@ -729,11 +742,11 @@ export default function CoilInventory() {
         onMigrate={async (configText) => {
           const snapshot = readLocalSnapshot();
           downloadJson({ exportedAt: new Date().toISOString(), data: snapshot }, `HNMT_COIL_before_firestore_${todayStr()}.json`);
-          await saveSharedData(snapshot, configText || firebaseConfigText);
+          await saveSharedData(snapshot, configText || activeFirebaseConfigText);
           setFirebaseEnabled(true);
           cloudLoadedRef.current = true;
         }}
-        onSaveNow={(configText) => saveSharedData(localSnapshot, configText || firebaseConfigText)}
+        onSaveNow={(configText) => saveSharedData(localSnapshot, configText || activeFirebaseConfigText)}
       />
 
       <main className="max-w-[1400px] mx-auto p-4 md:p-8">
