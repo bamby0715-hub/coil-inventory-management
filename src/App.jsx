@@ -574,6 +574,27 @@ export default function CoilInventory() {
     setDeletedBaseStockKeys((current) => current.filter((key) => !masterKeys.has(key)));
   }, [setDeletedBaseStockKeys]);
 
+  // customColors 자동 정리: 필드 앞뒤 공백 제거 + 기본 마스터에 이미 있는 색/내부 중복 제거.
+  // (저장 데이터에 쌓인 차콜 중복 등을 정리하고, 정리 결과는 Firestore에도 반영됨)
+  useEffect(() => {
+    const norm = (v) => String(v ?? "").trim();
+    const keyOfColor = (c) => `${norm(c.product)}|${norm(c.maker)}|${norm(c.code)}|${norm(c.color)}|${norm(c.thickness)}`;
+    const masterKeys = new Set(COLOR_MASTER.map(keyOfColor));
+    const seen = new Set();
+    const cleaned = [];
+    for (const c of customColors) {
+      const trimmed = { ...c, product: norm(c.product), maker: norm(c.maker), code: norm(c.code), color: norm(c.color), thickness: norm(c.thickness) };
+      const key = keyOfColor(trimmed);
+      if (masterKeys.has(key)) continue; // 기본 마스터에 이미 존재 → 중복 제거
+      if (seen.has(key)) continue;        // customColors 내부 중복 → 제거
+      seen.add(key);
+      cleaned.push(trimmed);
+    }
+    const changed = cleaned.length !== customColors.length ||
+      cleaned.some((c, i) => JSON.stringify(c) !== JSON.stringify(customColors[i]));
+    if (changed) setCustomColors(cleaned);
+  }, [customColors, setCustomColors]);
+
   // 첫 접속 시에만 오늘의 브리핑을 1회 표시. (사용자별로 기록 → 이후 로그인엔 안 뜸)
   const wasAuthedRef = useRef(false);
   useEffect(() => {
