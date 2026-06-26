@@ -6,7 +6,22 @@
     <meta name="description" content="HNMT 코일 입출고 및 재고 관리 시스템" />
     <title>HNMT COIL</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="%BASE_URL%firebase-config.js"></script>
+    <!-- Firebase 공용 저장소 설정 (브라우저에 공개되어도 안전한 값) -->
+    <script>
+      window.HNMT_FIREBASE_CONFIG = {
+        apiKey: "AIzaSyB9A8MD4pndOPDh2BmplB-Hi0xDF8fOBqM",
+        authDomain: "h-coil.firebaseapp.com",
+        projectId: "h-coil",
+        storageBucket: "h-coil.firebasestorage.app",
+        messagingSenderId: "44494471464",
+        appId: "1:44494471464:web:260966089dfc550419d01d",
+        measurementId: "G-HWSENJ8JWD"
+      };
+
+      // App Check (외부 무단 접근 차단)용 reCAPTCHA v3 "사이트 키"
+      // ※ 사이트 키는 공개돼도 되는 값입니다. (비밀 키는 절대 여기에 넣지 마세요!)
+      window.HNMT_APPCHECK_SITE_KEY = "6LcTpDUtAAAAAH4fF4E5TU5VgtLzo31xQ1uBY2za";
+    </script>
   </head>
   <body>
     <div id="root"></div>
