@@ -1314,6 +1314,17 @@ function Dashboard({ ctx, openQuick, openOutboundDetail, resetAllData, isAdmin =
     { label: "예약 현황", value: reservations.length, unit: "건", icon: CalendarDays },
   ];
 
+  const handleBackup = () => {
+    const data = {
+      coils: ctx.coils, inbound: ctx.inbound, outbound: ctx.outbound,
+      reservations: ctx.reservations, baseStock: ctx.baseStock, stockHistory: ctx.stockHistory,
+      customColors: ctx.customColors, discontinuedColors: ctx.discontinuedColors,
+      zoneStock: ctx.zoneStock, baseStockDates: ctx.baseStockDates,
+      deletedBaseStockKeys: ctx.deletedBaseStockKeys,
+    };
+    downloadJson({ exportedAt: new Date().toISOString(), data }, `HNMT_COIL_backup_${todayStr()}.json`);
+  };
+
   return (
     <div className="space-y-6">
       <svg width="0" height="0" aria-hidden="true"><defs><linearGradient id="metricIconGradient" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#ef9aaf" /><stop offset=".52" stopColor="#b49ad7" /><stop offset="1" stopColor="#7897cf" /></linearGradient></defs></svg>
@@ -1325,10 +1336,16 @@ function Dashboard({ ctx, openQuick, openOutboundDetail, resetAllData, isAdmin =
         <div className="flex flex-col items-end gap-2">
           <div className="text-[11px] sm:text-sm font-semibold text-slate-500 whitespace-nowrap">{todayLabel()}</div>
           {isAdmin && (
-            <button onClick={() => setResetOpen(true)}
-              className="text-xs font-medium text-slate-400 transition-colors hover:text-rose-500">
-              초기화
-            </button>
+            <div className="flex items-center gap-3">
+              <button onClick={handleBackup}
+                className="text-xs font-medium text-slate-400 transition-colors hover:text-indigo-500">
+                백업
+              </button>
+              <button onClick={() => setResetOpen(true)}
+                className="text-xs font-medium text-slate-400 transition-colors hover:text-rose-500">
+                초기화
+              </button>
+            </div>
           )}
         </div>
       </div>
