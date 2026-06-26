@@ -2571,9 +2571,9 @@ function CoilManagement({ ctx }) {
           {historyTab === "base" ? (
             <div className="flex-1 flex flex-col pt-5">
               <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-                <div className="min-h-10 flex-1 rounded-xl bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-600 flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-blue-500 text-white text-xs inline-flex items-center justify-center">i</span>
-                  수정을 눌러 값을 고친 뒤 다시 누르면 저장됩니다. 변경이 없으면 그대로 닫힙니다.
+                <div className="min-h-10 flex-1 rounded-xl bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-600 flex items-center gap-2 whitespace-nowrap overflow-hidden">
+                  <span className="w-5 h-5 rounded-full bg-blue-500 text-white text-xs inline-flex items-center justify-center shrink-0">i</span>
+                  수정을 눌러 값을 고친 뒤 다시 누르면 저장됩니다.
                 </div>
                 <div className="w-full lg:w-[430px] relative">
                   <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
