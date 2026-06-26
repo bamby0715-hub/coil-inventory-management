@@ -228,6 +228,7 @@ function Shell({ children }) {
 const field = "block w-full text-sm py-2.5 px-3 rounded-2xl border border-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-300/60 bg-white/80 shadow-inner";
 const primaryBtn = "block w-full mt-4 py-2.5 rounded-full text-sm font-bold text-white tracking-[0.12em] shadow-lg shadow-indigo-300/35 transition hover:-translate-y-0.5 disabled:opacity-60";
 const primaryStyle = { background: "linear-gradient(90deg,#efa8b7 0%,#b79bd5 52%,#7795cc 100%)" };
+const secondaryBtn = "block w-full mt-3 py-2.5 rounded-full text-sm font-bold text-slate-600 bg-white/70 border border-white/90 shadow-sm transition hover:bg-white hover:text-indigo-600 hover:-translate-y-0.5";
 
 function mapAuthError(err) {
   const code = err?.code || "";
@@ -287,13 +288,22 @@ function SignupForm({ onSwitch }) {
     setBusy(false);
   };
   if (done) return (
-    <>
-      <h2 className="text-center text-slate-700 font-bold mb-2">가입 신청 완료</h2>
-      <p className="text-center text-slate-600 text-sm leading-relaxed">
-        계정이 <b>승인 대기</b> 상태로 등록되었습니다.<br />최고관리자 승인 후 로그인할 수 있습니다.
+    <div className="text-center">
+      <div className="mx-auto mb-3 w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
+        <svg viewBox="0 0 24 24" className="w-9 h-9 text-emerald-500" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+      </div>
+      <h2 className="text-slate-800 font-bold text-lg mb-1">가입 신청이 접수되었습니다</h2>
+      <p className="text-slate-600 text-sm leading-relaxed">
+        계정이 <b className="text-indigo-600">승인 대기</b> 상태로 등록되었습니다.<br />
+        <b>최고관리자 승인</b> 후 로그인하실 수 있습니다.
       </p>
-      <button className={primaryBtn} style={primaryStyle} onClick={onSwitch}>로그인 화면으로</button>
-    </>
+      <div className="mt-3 rounded-2xl bg-indigo-50/70 border border-indigo-100 px-4 py-3 text-xs text-slate-500 leading-relaxed">
+        승인이 완료되면 등록하신 이메일로 안내드릴 수 있습니다.<br />급한 경우 관리자에게 직접 문의해 주세요.
+      </div>
+      <button className={secondaryBtn} onClick={onSwitch}>로그인 화면으로</button>
+    </div>
   );
   return (
     <>
@@ -306,7 +316,7 @@ function SignupForm({ onSwitch }) {
         {busy ? "가입 중..." : "가입 신청"}
       </button>
       <p className="text-center text-xs text-slate-500 mt-3">가입 후 최고관리자 승인이 필요합니다.</p>
-      <button className="block w-full mt-2 text-xs text-slate-500 hover:text-indigo-600" onClick={onSwitch}>← 로그인으로</button>
+      <button className={secondaryBtn} onClick={onSwitch}>로그인 화면으로</button>
     </>
   );
 }
@@ -338,7 +348,7 @@ function ResetForm({ onSwitch }) {
       <button className={primaryBtn} style={primaryStyle} onClick={submit} disabled={busy}>
         {busy ? "발송 중..." : "재설정 메일 보내기"}
       </button>
-      <button className="block w-full mt-3 text-xs text-slate-500 hover:text-indigo-600" onClick={onSwitch}>← 로그인으로</button>
+      <button className={secondaryBtn} onClick={onSwitch}>로그인 화면으로</button>
     </>
   );
 }
