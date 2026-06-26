@@ -535,8 +535,12 @@ const NAV = [
 ];
 
 export default function CoilInventory() {
-  const [authed, setAuthed] = useState(false);
-  const [userRole, setUserRole] = useState("");
+  const [authed, setAuthed] = useState(() => {
+    try { return sessionStorage.getItem("hnmt-coil-authed") === "1"; } catch { return false; }
+  });
+  const [userRole, setUserRole] = useState(() => {
+    try { return sessionStorage.getItem("hnmt-coil-role") || ""; } catch { return ""; }
+  });
   const [pw, setPw] = useState("");
   const [pwErr, setPwErr] = useState("");
   const [menu, setMenu] = useState("dashboard");
@@ -575,6 +579,19 @@ export default function CoilInventory() {
     ));
     setDeletedBaseStockKeys((current) => current.filter((key) => !masterKeys.has(key)));
   }, [setDeletedBaseStockKeys]);
+
+  // 로그인 상태 유지(새로고침해도 풀리지 않음). 브라우저/탭을 닫으면 자동 로그아웃.
+  useEffect(() => {
+    try {
+      if (authed) {
+        sessionStorage.setItem("hnmt-coil-authed", "1");
+        sessionStorage.setItem("hnmt-coil-role", userRole);
+      } else {
+        sessionStorage.removeItem("hnmt-coil-authed");
+        sessionStorage.removeItem("hnmt-coil-role");
+      }
+    } catch { /* 비공개 모드 등에서 sessionStorage 불가 시 무시 */ }
+  }, [authed, userRole]);
 
   const tryLogin = () => {
     const nextRole = pw === LOGIN_PASSWORDS.admin ? "admin" : pw === LOGIN_PASSWORDS.staff ? "staff" : "";
@@ -842,7 +859,7 @@ function GlobalStyle() {
       input[type="password"]::-ms-clear{ display:none; }
       @media (max-width: 639px) {
         input, select, textarea{ font-size:16px !important; }
-        .mobile-safe-actions{ position:sticky; bottom:0; background:rgba(255,255,255,.96); padding-bottom:max(.5rem,env(safe-area-inset-bottom)); }
+        .mobile-safe-actions{ position:sticky; bottom:0; background:#fff; border-top:1px solid #eef0f3; box-shadow:0 -8px 16px -8px rgba(15,23,42,.12); padding-top:.625rem; padding-bottom:max(.5rem,env(safe-area-inset-bottom)); }
       }
       @media print {
         .no-print{ display:none !important; }
