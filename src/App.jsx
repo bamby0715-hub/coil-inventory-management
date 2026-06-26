@@ -6,10 +6,11 @@ import {
   Factory, MapPin, LogOut, Layers3, CalendarDays, Package, Eye, EyeOff, ClipboardCheck, RotateCcw
 } from "lucide-react";
 import * as XLSX from "xlsx";
+import { useAuth, AuthGate, MasterUserPanel } from "./auth.jsx";
 
 /* =========================================================================
    HN메탈릭 코일 재고관리 시스템 (v2)
-   · 관리자 비밀번호: 0707 / 담당자 비밀번호: 1555
+   · 로그인: Firebase Auth (이메일/비밀번호)
    · M(미터) 중심 관리 / 중량(kg) 미표시
    · 코일번호 자동생성  C-YYYYMMDD-####
    · 출고 홀딩 + 완료승인 정산 (제품구분별 FIFO 차감)
@@ -27,11 +28,6 @@ const COLOR_HEX = {
   "코르텐": "#8a4b2d",
 };
 const hexOf = (n) => COLOR_HEX[n] || "#9aa0a6";
-
-const LOGIN_PASSWORDS = {
-  admin: "0707",
-  staff: "1555",
-};
 
 const COLOR_MASTER = [
   { product: "강판", maker: "동국", code: "SU090", thickness: "0.4", color: "차콜" },
@@ -535,14 +531,12 @@ const NAV = [
 ];
 
 export default function CoilInventory() {
-  const [authed, setAuthed] = useState(() => {
-    try { return sessionStorage.getItem("hnmt-coil-authed") === "1"; } catch { return false; }
-  });
-  const [userRole, setUserRole] = useState(() => {
-    try { return sessionStorage.getItem("hnmt-coil-role") || ""; } catch { return ""; }
-  });
-  const [pw, setPw] = useState("");
-  const [pwErr, setPwErr] = useState("");
+  // Firebase Authentication 기반 로그인. 'active' 상태일 때만 입장.
+  const auth = useAuth();
+  const authed = auth.status === "active";
+  const isAdmin = auth.isAdmin;   // 마스터 또는 관리자
+  const isMaster = auth.isMaster; // 최고관리자
+  const [userMgmtOpen, setUserMgmtOpen] = useState(false);
   const [menu, setMenu] = useState("dashboard");
   const [drawer, setDrawer] = useState(false);
   const [quickAction, setQuickAction] = useState(null);
@@ -580,30 +574,17 @@ export default function CoilInventory() {
     setDeletedBaseStockKeys((current) => current.filter((key) => !masterKeys.has(key)));
   }, [setDeletedBaseStockKeys]);
 
-  // 로그인 상태 유지(새로고침해도 풀리지 않음). 브라우저/탭을 닫으면 자동 로그아웃.
+  // 로그인 성공(입장) 시 오늘의 브리핑 자동 표시. 로그아웃되면 닫음.
+  const wasAuthedRef = useRef(false);
   useEffect(() => {
-    try {
-      if (authed) {
-        sessionStorage.setItem("hnmt-coil-authed", "1");
-        sessionStorage.setItem("hnmt-coil-role", userRole);
-      } else {
-        sessionStorage.removeItem("hnmt-coil-authed");
-        sessionStorage.removeItem("hnmt-coil-role");
-      }
-    } catch { /* 비공개 모드 등에서 sessionStorage 불가 시 무시 */ }
-  }, [authed, userRole]);
-
-  const tryLogin = () => {
-    const nextRole = pw === LOGIN_PASSWORDS.admin ? "admin" : pw === LOGIN_PASSWORDS.staff ? "staff" : "";
-    if (nextRole) {
-      setAuthed(true);
-      setUserRole(nextRole);
+    if (authed && !wasAuthedRef.current) {
       setMenu("dashboard");
       setBriefingOpen(true);
       setOutboundPendingOpen(false);
-      setPwErr("");
-    } else setPwErr("비밀번호가 일치하지 않습니다.");
-  };
+    }
+    if (!authed) setBriefingOpen(false);
+    wasAuthedRef.current = authed;
+  }, [authed]);
 
   const localSnapshot = useMemo(() => ({
     coils, inbound, outbound, reservations, baseStock, stockHistory, customColors,
@@ -697,7 +678,7 @@ export default function CoilInventory() {
     return () => window.clearTimeout(timer);
   }, [authed, activeFirebaseEnabled, activeFirebaseConfigText, localSnapshot]);
 
-  if (!authed) return <Login pw={pw} setPw={setPw} pwErr={pwErr} tryLogin={tryLogin} />;
+  if (!authed) return <AuthGate auth={auth} />;
 
   const ctx = { coils, setCoils, inbound, setInbound, outbound, setOutbound, reservations, setReservations, baseStock, setBaseStock, stockHistory, setStockHistory, customColors, setCustomColors, discontinuedColors, setDiscontinuedColors, zoneStock, setZoneStock, baseStockDates, setBaseStockDates, deletedBaseStockKeys, setDeletedBaseStockKeys };
   const goto = (k) => { setMenu(k); setDrawer(false); };
@@ -750,6 +731,12 @@ export default function CoilInventory() {
             <img src="/coil-inventory-management/assets/hnmt-logo.png" alt="HNMT" className="w-36 md:w-48 h-full object-contain" style={{ filter: "brightness(0) saturate(100%) invert(17%) sepia(26%) saturate(1412%) hue-rotate(190deg) brightness(86%) contrast(91%)" }} />
           </button>
           <div className="flex items-center gap-2">
+            {isMaster && (
+              <button onClick={() => setUserMgmtOpen(true)}
+                className="hidden sm:inline-flex h-10 px-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 text-xs font-bold items-center justify-center transition hover:bg-rose-100">
+                담당자 관리
+              </button>
+            )}
             {!bundledFirebaseConfigText && (
               <button onClick={() => setCloudOpen(true)}
                 className={`hidden sm:inline-flex h-10 px-3 rounded-xl border text-xs font-bold items-center justify-center transition ${activeFirebaseEnabled ? "border-indigo-200 bg-indigo-50 text-indigo-600" : "border-slate-200 bg-white text-slate-500 hover:text-indigo-600"}`}>
@@ -765,7 +752,8 @@ export default function CoilInventory() {
       </header>
 
       {/* 상단에서 아래로 펼쳐지는 드로어 */}
-      <Drawer open={drawer} onClose={() => setDrawer(false)} menu={menu} goto={goto} onLogout={() => { setAuthed(false); setUserRole(""); setPw(""); setDrawer(false); }} />
+      <Drawer open={drawer} onClose={() => setDrawer(false)} menu={menu} goto={goto} onLogout={() => { auth.signOutNow(); setDrawer(false); }} />
+      {isMaster && <MasterUserPanel open={userMgmtOpen} onClose={() => setUserMgmtOpen(false)} myUid={auth.user?.uid} />}
       {briefingOpen && <TodayBriefing ctx={ctx} onClose={() => setBriefingOpen(false)} />}
       <CloudStorageModal
         open={cloudOpen}
@@ -789,7 +777,7 @@ export default function CoilInventory() {
       />
 
       <main className="max-w-[1400px] mx-auto p-4 md:p-8">
-        {menu === "dashboard" && <Dashboard ctx={ctx} openQuick={openQuick} openOutboundDetail={openOutboundDetail} resetAllData={resetAllData} isAdmin={userRole === "admin"} />}
+        {menu === "dashboard" && <Dashboard ctx={ctx} openQuick={openQuick} openOutboundDetail={openOutboundDetail} resetAllData={resetAllData} isAdmin={isAdmin} />}
         {menu === "inbound" && <Inbound ctx={ctx} quickOpen={quickAction === "inbound"} clearQuick={() => setQuickAction(null)} />}
         {menu === "outbound" && <Outbound ctx={ctx} quickOpen={quickAction === "outbound"} clearQuick={() => setQuickAction(null)}
           pendingOpen={outboundPendingOpen} setPendingOpen={setOutboundPendingOpen}
@@ -869,55 +857,6 @@ function GlobalStyle() {
         .print-card{ box-shadow:none !important; border:1px solid #cbd5e1 !important; }
       }
     `}</style>
-  );
-}
-
-/* =========================================================================
-   로그인 (로즈쿼츠 & 세레니티 파스텔 테마)
-   ========================================================================= */
-function Login({ pw, setPw, pwErr, tryLogin }) {
-  const [showPw, setShowPw] = useState(false);
-  const stars = useMemo(() => Array.from({ length: 26 }, () => ({
-    top: Math.random() * 100, left: Math.random() * 100, s: 4 + Math.random() * 7, d: Math.random() * 3,
-  })), []);
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
-      style={{ background: "linear-gradient(135deg,#F7CAC9 0%,#e7c8da 38%,#b9c0e0 70%,#92A8D1 100%)" }}>
-      <GlobalStyle />
-      {stars.map((st, i) => (
-        <span key={i} className="twinkle absolute rounded-full bg-white" style={{ top: `${st.top}%`, left: `${st.left}%`, width: st.s, height: st.s, animationDelay: `${st.d}s` }} />
-      ))}
-      <div className="w-full max-w-sm relative">
-        <div className="text-center mb-5">
-          <div className="glow-lock inline-flex items-center justify-center w-36 h-36 rounded-[2.5rem] bg-white/35 backdrop-blur mb-4 border border-white/60">
-            <img src="/coil-inventory-management/assets/mascot.gif" alt="HN 마스코트" className="w-32 h-32 object-contain" />
-          </div>
-          <p className="text-slate-600/75 text-sm">접속 비밀번호 4자리를 입력하세요</p>
-        </div>
-        <div className="bg-white/75 backdrop-blur-xl rounded-3xl px-6 py-5 shadow-2xl border border-white/60">
-          <div className="relative w-60 sm:w-64 mx-auto">
-            <input autoFocus type={showPw ? "text" : "password"} inputMode="numeric" maxLength={4} value={pw}
-              onChange={(e) => setPw(e.target.value.replace(/\D/g, "").slice(0, 4))}
-              onKeyDown={(e) => e.key === "Enter" && tryLogin()} placeholder="•  •  •  •"
-              aria-label="비밀번호 4자리"
-              className="block w-full text-center tracking-[0.45em] text-xl font-medium text-slate-300 placeholder:text-slate-300 py-2.5 px-11 rounded-2xl border border-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-300/60 bg-white/70 shadow-inner" />
-            {pw.length > 0 && (
-              <button type="button" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? "비밀번호 숨기기" : "비밀번호 보기"}
-                className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center text-slate-300 hover:text-slate-400">
-                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            )}
-          </div>
-          {pwErr && <p className="text-rose-500 text-sm mt-2 text-center">{pwErr}</p>}
-          <button onClick={tryLogin}
-            className="block w-60 sm:w-64 mx-auto mt-4 py-2.5 rounded-full text-sm font-bold text-white tracking-[0.18em] shadow-lg shadow-indigo-300/35 transition hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0"
-            style={{ background: "linear-gradient(90deg,#efa8b7 0%,#b79bd5 52%,#7795cc 100%)" }}>
-            로그인
-          </button>
-        </div>
-        <p className="mt-5 text-center text-[11px] tracking-[0.16em] text-white/75">© 2026 HNMT COIL SYSTEM</p>
-      </div>
-    </div>
   );
 }
 
