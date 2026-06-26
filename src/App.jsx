@@ -2566,7 +2566,7 @@ function CoilManagement({ ctx }) {
               <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                 <div className="min-h-10 flex-1 rounded-xl bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-600 flex items-center gap-2">
                   <span className="w-5 h-5 rounded-full bg-blue-500 text-white text-xs inline-flex items-center justify-center">i</span>
-                  수정을 누른 뒤 항목을 체크하고 저장하세요. 수정을 다시 누르면 취소됩니다.
+                  수정을 누른 뒤 항목을 체크하고 저장하세요. 수정을 다시 누르면 원래대로 돌아갑니다.
                 </div>
                 <div className="w-full lg:w-[430px] relative">
                   <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -2582,8 +2582,8 @@ function CoilManagement({ ctx }) {
                   setSelectedBaseKeys([]);
                   setBaseEditing(true);
                 }}
-                  className={`h-10 px-4 rounded-xl border text-xs font-bold whitespace-nowrap transition ${baseEditing ? "border-slate-300 bg-slate-50 text-slate-600 hover:bg-slate-100" : "border-indigo-200 bg-white text-indigo-600 hover:bg-indigo-50"}`}>
-                  {baseEditing ? "수정 취소" : "수정"}
+                  className={`h-10 px-4 rounded-xl border text-xs font-bold whitespace-nowrap transition ${baseEditing ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-indigo-200 bg-white text-indigo-600 hover:bg-indigo-50"}`}>
+                  수정
                 </button>
                 {baseEditing && (
                   <button type="button" onClick={saveSelectedBaseStocks}
