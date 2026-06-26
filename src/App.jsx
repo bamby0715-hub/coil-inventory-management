@@ -2115,18 +2115,24 @@ function CoilManagement({ ctx }) {
         },
     }));
   };
-  const saveSelectedBaseStocks = async () => {
-    if (selectedBaseKeys.length === 0) {
-      appAlert("수정할 항목을 선택해주세요.", { title: "선택 안내", type: "warning" });
-      return;
-    }
-    if (!await appConfirm(`선택된 ${selectedBaseKeys.length}건의 재고를 수정하시겠습니까?`, {
-      title: "기초재고 수정 확인",
-    })) return;
-
-    const selectedItems = allRows.filter((item) => selectedBaseKeys.includes(item.key));
+  const baseStockBaseline = (key) => ({
+    zones: { A: baseStock[key] || "", B: "", C: "", ...(zoneStock[key] || {}) },
+    date: baseStockDates[key] || todayStr(),
+  });
+  const normZones = (z) => ["A", "B", "C"].map((k) => String((z || {})[k] ?? "").trim()).join("|");
+  // 입력 draft가 저장값과 다른 행들만 추림 (변경 감지)
+  const getChangedBaseKeys = () => allRows
+    .map((row) => row.key)
+    .filter((key) => {
+      const draft = baseDraft[key] || baseStockBaseline(key);
+      const base = baseStockBaseline(key);
+      return normZones(draft.zones) !== normZones(base.zones)
+        || String(draft.date || "") !== String(base.date || "");
+    });
+  const commitBaseStocks = (keys) => {
+    const targetItems = allRows.filter((item) => keys.includes(item.key));
     const now = Date.now();
-    const records = selectedItems.map((item, index) => {
+    const records = targetItems.map((item, index) => {
       const draft = baseDraft[item.key] || {};
       const zones = { A: "", B: "", C: "", ...(draft.zones || {}) };
       const meter = ["A", "B", "C"].reduce((sum, zone) => sum + (Number(zones[zone]) || 0), 0);
@@ -2145,23 +2151,10 @@ function CoilManagement({ ctx }) {
       };
     });
     const recordsByKey = Object.fromEntries(records.map((record) => [record.key, record]));
-
-    setZoneStock((current) => ({
-      ...current,
-      ...Object.fromEntries(records.map((record) => [record.key, record.zones])),
-    }));
-    setBaseStock((current) => ({
-      ...current,
-      ...Object.fromEntries(records.map((record) => [record.key, record.meter])),
-    }));
-    setBaseStockDates((current) => ({
-      ...current,
-      ...Object.fromEntries(records.map((record) => [record.key, record.registered_at])),
-    }));
-    setZoneDraft((current) => ({
-      ...current,
-      ...Object.fromEntries(records.map((record) => [record.key, record.zones])),
-    }));
+    setZoneStock((current) => ({ ...current, ...Object.fromEntries(records.map((r) => [r.key, r.zones])) }));
+    setBaseStock((current) => ({ ...current, ...Object.fromEntries(records.map((r) => [r.key, r.meter])) }));
+    setBaseStockDates((current) => ({ ...current, ...Object.fromEntries(records.map((r) => [r.key, r.registered_at])) }));
+    setZoneDraft((current) => ({ ...current, ...Object.fromEntries(records.map((r) => [r.key, r.zones])) }));
     setStockHistory((current) => [...records].reverse().concat(current));
     setHistoryDraft((current) => [...records].reverse().concat(current));
     setBaseDraft(Object.fromEntries(allRows.map((item) => {
@@ -2176,7 +2169,7 @@ function CoilManagement({ ctx }) {
     })));
     setSelectedBaseKeys([]);
     setBaseEditing(false);
-    appAlert(`선택된 ${records.length}건의 기초재고가 수정되었습니다.`, { title: "기초재고 수정 완료", type: "success" });
+    appAlert(`${records.length}건의 기초재고가 수정되었습니다.`, { title: "기초재고 수정 완료", type: "success" });
   };
   // 수정 모드 취소: 저장하지 않은 입력을 원래 저장값으로 되돌리고 편집을 종료
   const cancelBaseEditing = () => {
@@ -2186,6 +2179,20 @@ function CoilManagement({ ctx }) {
     }])));
     setSelectedBaseKeys([]);
     setBaseEditing(false);
+  };
+  // "수정" 버튼 토글: 진입 / (변경 없으면 그냥 닫기) / (변경 있으면 저장+안내)
+  const toggleBaseEditing = () => {
+    if (!baseEditing) {
+      setSelectedBaseKeys([]);
+      setBaseEditing(true);
+      return;
+    }
+    const changed = getChangedBaseKeys();
+    if (changed.length === 0) {
+      cancelBaseEditing();
+      return;
+    }
+    commitBaseStocks(changed);
   };
   const deleteSelectedBaseStocks = async () => {
     const deletable = selectedBaseKeys.filter((key) => customColors.some((color) => keyOf(color) === key));
@@ -2566,7 +2573,7 @@ function CoilManagement({ ctx }) {
               <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                 <div className="min-h-10 flex-1 rounded-xl bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-600 flex items-center gap-2">
                   <span className="w-5 h-5 rounded-full bg-blue-500 text-white text-xs inline-flex items-center justify-center">i</span>
-                  수정을 누른 뒤 항목을 체크하고 저장하세요. 수정을 다시 누르면 원래대로 돌아갑니다.
+                  수정을 눌러 값을 고친 뒤 다시 누르면 저장됩니다. 변경이 없으면 그대로 닫힙니다.
                 </div>
                 <div className="w-full lg:w-[430px] relative">
                   <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -2574,23 +2581,10 @@ function CoilManagement({ ctx }) {
                     placeholder="구분 · 제조사 · 색상 · 두께 검색"
                     className="w-full h-10 rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs outline-none focus:border-indigo-400" />
                 </div>
-                <button type="button" onClick={() => {
-                  if (baseEditing) {
-                    cancelBaseEditing();
-                    return;
-                  }
-                  setSelectedBaseKeys([]);
-                  setBaseEditing(true);
-                }}
+                <button type="button" onClick={toggleBaseEditing}
                   className={`h-10 px-4 rounded-xl border text-xs font-bold whitespace-nowrap transition ${baseEditing ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-indigo-200 bg-white text-indigo-600 hover:bg-indigo-50"}`}>
                   수정
                 </button>
-                {baseEditing && (
-                  <button type="button" onClick={saveSelectedBaseStocks}
-                    className="h-10 px-4 rounded-xl border border-emerald-200 bg-emerald-500 text-xs font-bold text-white hover:bg-emerald-600 whitespace-nowrap">
-                    저장
-                  </button>
-                )}
                 <button type="button" onClick={deleteSelectedBaseStocks}
                   disabled={!selectedBaseKeys.some((key) => customColors.some((color) => keyOf(color) === key))}
                   title="새로 추가한 코일을 선택하면 삭제할 수 있습니다."
