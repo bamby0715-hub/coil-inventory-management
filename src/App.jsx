@@ -10,7 +10,7 @@ import { useAuth, AuthGate, MasterUserPanel } from "./auth.jsx";
 
 /* =========================================================================
    HN메탈릭 코일 재고관리 시스템 (v2)
-   · 로그인: Firebase Auth (이메일/비밀번호)
+   · 관리자 비밀번호: 0707 / 담당자 비밀번호: 1555
    · M(미터) 중심 관리 / 중량(kg) 미표시
    · 코일번호 자동생성  C-YYYYMMDD-####
    · 출고 홀딩 + 완료승인 정산 (제품구분별 FIFO 차감)
@@ -574,17 +574,23 @@ export default function CoilInventory() {
     setDeletedBaseStockKeys((current) => current.filter((key) => !masterKeys.has(key)));
   }, [setDeletedBaseStockKeys]);
 
-  // 로그인 성공(입장) 시 오늘의 브리핑 자동 표시. 로그아웃되면 닫음.
+  // 첫 접속 시에만 오늘의 브리핑을 1회 표시. (사용자별로 기록 → 이후 로그인엔 안 뜸)
   const wasAuthedRef = useRef(false);
   useEffect(() => {
     if (authed && !wasAuthedRef.current) {
       setMenu("dashboard");
-      setBriefingOpen(true);
       setOutboundPendingOpen(false);
+      const seenKey = `hnmt-briefing-seen-${auth.user?.uid || "anon"}`;
+      let seen = false;
+      try { seen = localStorage.getItem(seenKey) === "1"; } catch { /* 무시 */ }
+      if (!seen) {
+        setBriefingOpen(true);
+        try { localStorage.setItem(seenKey, "1"); } catch { /* 무시 */ }
+      }
     }
     if (!authed) setBriefingOpen(false);
     wasAuthedRef.current = authed;
-  }, [authed]);
+  }, [authed, auth.user]);
 
   const localSnapshot = useMemo(() => ({
     coils, inbound, outbound, reservations, baseStock, stockHistory, customColors,
@@ -1039,14 +1045,14 @@ function TodayBriefing({ ctx, onClose }) {
             </p>
           </div>
 
-          <div className="grid lg:grid-cols-[0.8fr_1.2fr] gap-4 mt-10">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5">
+          <div className="grid lg:grid-cols-[0.7fr_1.3fr] gap-4 mt-10 items-stretch">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 flex flex-col">
               <h3 className="font-bold">제품별 재고 비중</h3>
               {productBriefRows.map(({ product: label, meter, previousMeter }, index) => {
                 const change = meter - previousMeter;
                 const color = index === 0 ? "from-rose-300 to-indigo-400" : index === 1 ? "from-indigo-300 to-blue-500" : "from-sky-200 to-violet-300";
                 return (
-                <div key={label} className="mt-5">
+                <div key={label} className="mt-4">
                   <div className="flex justify-between gap-3 text-sm">
                     <span>{label}</span>
                     <span className="text-right">
@@ -1078,12 +1084,12 @@ function TodayBriefing({ ctx, onClose }) {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 flex flex-col">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold">보유 재고 TOP 5</h3>
                 <span className="text-[11px] text-white/40">실시간 M 기준</span>
               </div>
-              <div className="mt-4 grid md:grid-cols-3 gap-3">
+              <div className="mt-4 grid md:grid-cols-3 gap-3 flex-1">
                 {productBriefRows.map((group) => {
                   const maxMeter = Math.max(...group.top.map((item) => item.meter), 1);
                   return (
