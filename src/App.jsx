@@ -9,7 +9,7 @@ import * as XLSX from "xlsx";
 
 /* =========================================================================
    HN메탈릭 코일 재고관리 시스템 (v2)
-   · 관리자 비밀번호: 0707 / 담당자 비밀번호: 1555
+   · 관리자 비밀번호: 7868102455 / 담당자 비밀번호: 0707
    · M(미터) 중심 관리 / 중량(kg) 미표시
    · 코일번호 자동생성  C-YYYYMMDD-####
    · 출고 홀딩 + 완료승인 정산 (제품구분별 FIFO 차감)
@@ -297,6 +297,20 @@ const getFirebaseRuntime = async (configText) => {
     const firestoreModule = await importExternal(`https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-firestore.js`);
     const app = appModule.getApps().find((item) => item.name === "hnmt-coil") ||
       appModule.initializeApp(config, "hnmt-coil");
+    // App Check (외부 무단 접근 차단) — index.html의 HNMT_APPCHECK_SITE_KEY가 있을 때만 활성화
+    const appCheckSiteKey = (typeof window !== "undefined" && window.HNMT_APPCHECK_SITE_KEY) || "";
+    if (appCheckSiteKey && !app.__appCheckReady) {
+      try {
+        const appCheckModule = await importExternal(`https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-app-check.js`);
+        appCheckModule.initializeAppCheck(app, {
+          provider: new appCheckModule.ReCaptchaV3Provider(appCheckSiteKey),
+          isTokenAutoRefreshEnabled: true,
+        });
+        app.__appCheckReady = true;
+      } catch (appCheckError) {
+        console.warn("App Check 초기화 실패(공유 기능은 계속 동작):", appCheckError);
+      }
+    }
     const db = firestoreModule.getFirestore(app);
     const docRef = firestoreModule.doc(db, FIREBASE_COLLECTION, FIREBASE_DOC_ID);
     const readSnapshot = (docSnap) => docSnap.exists() ? (docSnap.data()?.snapshot || null) : null;
