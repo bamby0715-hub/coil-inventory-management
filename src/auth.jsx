@@ -191,12 +191,26 @@ export function useAuth() {
    기존 Login 화면의 파스텔 테마를 맞춤
    ========================================================================= */
 function Shell({ children }) {
+  const stars = React.useMemo(() => Array.from({ length: 26 }, () => ({
+    top: Math.random() * 100, left: Math.random() * 100, s: 4 + Math.random() * 7, d: Math.random() * 3,
+  })), []);
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
       style={{ background: "linear-gradient(135deg,#F7CAC9 0%,#e7c8da 38%,#b9c0e0 70%,#92A8D1 100%)" }}>
+      {/* 로그인 화면 전용 애니메이션 (GlobalStyle 적용 전 단계라 여기서 직접 정의) */}
+      <style>{`
+        @keyframes hnmtTwinkle { 0%,100%{opacity:.15; transform:scale(.7);} 50%{opacity:.9; transform:scale(1.15);} }
+        @keyframes hnmtGlow { 0%,100%{box-shadow:0 0 0 0 rgba(146,168,209,.55),0 0 22px 4px rgba(247,202,201,.45);} 50%{box-shadow:0 0 0 10px rgba(146,168,209,0),0 0 34px 10px rgba(247,202,201,.65);} }
+        .hnmt-twinkle{ animation:hnmtTwinkle 3s ease-in-out infinite; }
+        .hnmt-glow{ animation:hnmtGlow 2.6s ease-in-out infinite; }
+      `}</style>
+      {stars.map((st, i) => (
+        <span key={i} className="hnmt-twinkle absolute rounded-full bg-white"
+          style={{ top: `${st.top}%`, left: `${st.left}%`, width: st.s, height: st.s, animationDelay: `${st.d}s` }} />
+      ))}
       <div className="w-full max-w-sm relative">
         <div className="text-center mb-5">
-          <div className="inline-flex items-center justify-center w-28 h-28 rounded-[2rem] bg-white/35 backdrop-blur mb-3 border border-white/60">
+          <div className="hnmt-glow inline-flex items-center justify-center w-28 h-28 rounded-[2rem] bg-white/35 backdrop-blur mb-3 border border-white/60">
             <img src="/coil-inventory-management/assets/mascot.gif" alt="HN 마스코트" className="w-24 h-24 object-contain"
               onError={(e) => { e.currentTarget.style.display = "none"; }} />
           </div>
