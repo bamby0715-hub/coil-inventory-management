@@ -1404,7 +1404,7 @@ function Dashboard({ ctx, openQuick, openOutboundDetail, resetAllData, isAdmin =
         })}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 items-start">
+      <div className="grid grid-cols-1 gap-3 md:gap-4 items-start">
         {productStats.map((stat) => (
           <ProductStockCard key={stat.product} stat={stat} open={mobileProduct === stat.product}
             onToggle={() => setMobileProduct((current) => current === stat.product ? "" : stat.product)} />
@@ -2157,6 +2157,15 @@ function CoilManagement({ ctx }) {
     setBaseEditing(false);
     appAlert(`선택된 ${records.length}건의 기초재고가 수정되었습니다.`, { title: "기초재고 수정 완료", type: "success" });
   };
+  // 수정 모드 취소: 저장하지 않은 입력을 원래 저장값으로 되돌리고 편집을 종료
+  const cancelBaseEditing = () => {
+    setBaseDraft(Object.fromEntries(allRows.map((item) => [item.key, {
+      zones: { A: baseStock[item.key] || "", B: "", C: "", ...(zoneStock[item.key] || {}) },
+      date: baseStockDates[item.key] || todayStr(),
+    }])));
+    setSelectedBaseKeys([]);
+    setBaseEditing(false);
+  };
   const deleteSelectedBaseStocks = async () => {
     const deletable = selectedBaseKeys.filter((key) => customColors.some((color) => keyOf(color) === key));
     if (deletable.length === 0) {
@@ -2536,7 +2545,7 @@ function CoilManagement({ ctx }) {
               <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                 <div className="min-h-10 flex-1 rounded-xl bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-600 flex items-center gap-2">
                   <span className="w-5 h-5 rounded-full bg-blue-500 text-white text-xs inline-flex items-center justify-center">i</span>
-                  작업에서 항목을 체크한 뒤 수정 버튼을 눌러주세요.
+                  수정을 누른 뒤 항목을 체크하고 저장하세요. 수정을 다시 누르면 취소됩니다.
                 </div>
                 <div className="w-full lg:w-[430px] relative">
                   <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -2546,15 +2555,21 @@ function CoilManagement({ ctx }) {
                 </div>
                 <button type="button" onClick={() => {
                   if (baseEditing) {
-                    saveSelectedBaseStocks();
+                    cancelBaseEditing();
                     return;
                   }
                   setSelectedBaseKeys([]);
                   setBaseEditing(true);
                 }}
-                  className="h-10 px-4 rounded-xl border border-indigo-200 bg-white text-xs font-bold text-indigo-600 hover:bg-indigo-50 whitespace-nowrap">
-                  수정
+                  className={`h-10 px-4 rounded-xl border text-xs font-bold whitespace-nowrap transition ${baseEditing ? "border-slate-300 bg-slate-50 text-slate-600 hover:bg-slate-100" : "border-indigo-200 bg-white text-indigo-600 hover:bg-indigo-50"}`}>
+                  {baseEditing ? "수정 취소" : "수정"}
                 </button>
+                {baseEditing && (
+                  <button type="button" onClick={saveSelectedBaseStocks}
+                    className="h-10 px-4 rounded-xl border border-emerald-200 bg-emerald-500 text-xs font-bold text-white hover:bg-emerald-600 whitespace-nowrap">
+                    저장
+                  </button>
+                )}
                 <button type="button" onClick={deleteSelectedBaseStocks}
                   disabled={!selectedBaseKeys.some((key) => customColors.some((color) => keyOf(color) === key))}
                   title="새로 추가한 코일을 선택하면 삭제할 수 있습니다."
