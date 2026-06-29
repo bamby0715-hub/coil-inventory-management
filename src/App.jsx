@@ -3267,6 +3267,12 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
     });
   };
 
+  const removeReservation = async (reservation) => {
+    if (await appConfirm(`'${reservation.customer || ""}' 예약을 삭제(취소)하시겠습니까?`, { title: "예약 삭제", type: "danger" })) {
+      setReservations((list) => list.filter((item) => item.id !== reservation.id));
+    }
+  };
+
   const reservationRows = [...reservations].sort((a, b) =>
     String(a.planned_date).localeCompare(String(b.planned_date)) ||
     String(a.created_at).localeCompare(String(b.created_at))
@@ -3393,7 +3399,7 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
               const productText = `${reservation.product_type} · ${reservation.manufacturer} · ${reservation.color_name}${reservation.thickness ? `(${reservation.thickness}T)` : ""}`;
               return (
                 <div key={reservation.id} className={`px-4 py-2.5 overflow-hidden ${index % 2 === 0 ? "bg-violet-50/60" : "bg-white"}`}>
-                  <div className="grid grid-cols-[minmax(0,1fr)_96px_38px] items-center gap-2 min-w-0">
+                  <div className="grid grid-cols-[minmax(0,1fr)_96px_38px_38px] items-center gap-2 min-w-0">
                     <button type="button" onClick={() => setDetailKey(reservation.coil_key)} className="flex-1 min-w-0 overflow-hidden text-left">
                       <div className="flex items-center gap-2 min-w-0 overflow-hidden whitespace-nowrap text-sm">
                         <span title={reservation.customer} className="inline-block max-w-[38%] shrink-0 truncate rounded px-1 font-bold text-indigo-800"
@@ -3411,6 +3417,11 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
                       title="예약 출고 처리" aria-label="예약 출고 처리"
                       className="pastel-outline w-9 h-9 rounded-xl inline-flex items-center justify-center">
                       <PastelTruck size={19} />
+                    </button>
+                    <button type="button" onClick={() => removeReservation(reservation)}
+                      title="예약 삭제" aria-label="예약 삭제"
+                      className="w-9 h-9 rounded-xl inline-flex items-center justify-center border border-rose-200 text-rose-500 hover:bg-rose-50">
+                      <Trash2 size={17} />
                     </button>
                   </div>
                 </div>
