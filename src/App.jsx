@@ -53,8 +53,6 @@ const COLOR_MASTER = [
   { product: "징크", maker: "동국", code: "N6250", thickness: "0.5", color: "다크그레이" },
   { product: "징크", maker: "동국", code: "PZ102", thickness: "0.45", color: "라이트그레이" },
   { product: "징크", maker: "동국", code: "PZ102", thickness: "0.5", color: "라이트그레이" },
-  { product: "징크", maker: "동국", code: "SU090", thickness: "0.45", color: "차콜" },
-  { product: "징크", maker: "동국", code: "SU090", thickness: "0.5", color: "차콜" },
   { product: "징크", maker: "동국", code: "SU100", thickness: "0.45", color: "칼그레이" },
   { product: "징크", maker: "동국", code: "SU100", thickness: "0.5", color: "칼그레이" },
   { product: "징크", maker: "동국", code: "PZ104", thickness: "0.45", color: "메탈그레이" },
@@ -386,7 +384,7 @@ function StatusBadge({ status }) {
   };
   return <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${map[status] || map.정상}`}>{status}</span>;
 }
-function Modal({ open, onClose, title, children, wide, plainHeader = false, hideClose = false, headerActions }) {
+function Modal({ open, onClose, title, children, wide, plainHeader = false, hideClose = false, headerActions, footer }) {
   if (!open) return null;
   const widthClass = wide === "inventory" ? "max-w-[1240px]" : wide === "medium" ? "max-w-3xl" : wide ? "max-w-5xl" : "max-w-xl";
   return (
@@ -399,7 +397,12 @@ function Modal({ open, onClose, title, children, wide, plainHeader = false, hide
             {!hideClose && <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><X size={20} /></button>}
           </div>
         </div>
-        <div className="min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 sm:py-5">{children}</div>
+        <div className="min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-4 sm:px-6 py-4 sm:py-5">{children}</div>
+        {footer && (
+          <div className="shrink-0 bg-white border-t border-slate-100 px-4 sm:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1823,7 +1826,13 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
         )}
       </Modal>
 
-      <Modal open={open} onClose={() => setOpen(false)} title={editId ? "입고 수정" : "입고 등록"} wide="medium">
+      <Modal open={open} onClose={() => setOpen(false)} title={editId ? "입고 수정" : "입고 등록"} wide="medium"
+        footer={
+          <div className="grid grid-cols-2 sm:flex sm:justify-end gap-2">
+            <button onClick={() => setOpen(false)} className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600">취소</button>
+            <button onClick={submit} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">{editId ? "저장" : "등록"}</button>
+          </div>
+        }>
         <div className="space-y-4 min-h-[430px] sm:min-h-[480px]">
           <div className="grid sm:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] gap-3">
             <Field label="입고일" required><input type="date" className={`${inputCls} text-center`} value={form.inbound_date} onChange={(e) => set("inbound_date", e.target.value)} /></Field>
@@ -1894,10 +1903,6 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
               </div>
             ))}
           </div>}
-        </div>
-        <div className="mobile-safe-actions z-10 mt-5 -mx-1 px-1 pt-2 grid grid-cols-2 sm:flex sm:justify-end gap-2">
-          <button onClick={() => setOpen(false)} className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600">취소</button>
-          <button onClick={submit} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">{editId ? "저장" : "등록"}</button>
         </div>
       </Modal>
 
@@ -3453,7 +3458,15 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
         </div>
       </Card>
 
-      <Modal open={open} onClose={() => { setOpen(false); setEditId(null); }} title={editId ? "출고 내역 수정" : "출고 등록"} wide="medium">
+      <Modal open={open} onClose={() => { setOpen(false); setEditId(null); }} title={editId ? "출고 내역 수정" : "출고 등록"} wide="medium"
+        footer={
+          <div className="grid grid-cols-2 sm:flex sm:justify-end gap-2">
+            <button onClick={() => { setOpen(false); setEditId(null); }} className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600">취소</button>
+            <button onClick={submit} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">
+              {editId ? "수정 저장" : form.registration_type === "reservation" ? "예약 등록" : "출고 등록"}
+            </button>
+          </div>
+        }>
         <div className="space-y-4">
           {!editId && (
             <div className="-mx-4 sm:-mx-6 -mt-4 sm:-mt-5 mb-5 border-b border-slate-200 px-4 sm:px-6">
@@ -3612,12 +3625,6 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
         </div>
         {form.registration_type === "reservation" && Number(form.outbound_meter) > selectedAvailable && <p className="text-rose-500 text-sm mt-2">예약 예정량이 가용 재고보다 큽니다.</p>}
         {form.registration_type === "outbound" && Number(form.outbound_meter) > (selectedColor ? selectedAvailable : availOf(form.product_type)) && <p className="text-rose-500 text-sm mt-2">출고량이 예약량을 제외한 가용 재고보다 큽니다.</p>}
-        <div className="mobile-safe-actions z-10 mt-5 -mx-1 px-1 pt-2 grid grid-cols-2 sm:flex sm:justify-end gap-2">
-          <button onClick={() => { setOpen(false); setEditId(null); }} className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600">취소</button>
-          <button onClick={submit} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">
-            {editId ? "수정 저장" : form.registration_type === "reservation" ? "예약 등록" : "출고 등록"}
-          </button>
-        </div>
       </Modal>
 
       <Modal
