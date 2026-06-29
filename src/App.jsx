@@ -3281,6 +3281,12 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
   const detailCatalogItem = detailKey ? registrationCatalog.find((item) => stockKey(item) === detailKey) : null;
   const detailCurrent = detailKey ? currentForKey(detailKey) : 0;
   const detailReserved = detailKey ? reservedForKey(detailKey) : 0;
+  const detailPending = detailKey ? outbound
+    .filter((item) => !item.is_completed && (item.coil_number === detailKey ||
+      (item.product_type === detailCatalogItem?.product && item.manufacturer === detailCatalogItem?.maker &&
+        item.color_name === detailCatalogItem?.color && String(item.thickness) === String(detailCatalogItem?.thickness))))
+    .reduce((sum, item) => sum + (Number(item.outbound_meter) || 0), 0) : 0;
+  const detailAvailable = Math.max(0, detailCurrent - detailPending - detailReserved);
   const detailOutbound = detailKey ? outbound
     .filter((item) => item.coil_number === detailKey ||
       (item.product_type === detailCatalogItem?.product && item.manufacturer === detailCatalogItem?.maker &&
@@ -3304,6 +3310,8 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
   const pendingDetailAfter = pendingDetailDeducted
     ? pendingDetailCurrent
     : Math.max(0, pendingDetailCurrent - pendingDetailMeter);
+  const pendingDetailReserved = pendingDetailKey ? reservedForKey(pendingDetailKey) : 0;
+  const pendingDetailAvailable = Math.max(0, pendingDetailCurrent - pendingDetailMeter - pendingDetailReserved);
 
   const incomplete = outbound.filter((o) => !o.is_completed).sort((a, b) => a.outbound_date.localeCompare(b.outbound_date));
   const all = outbound
@@ -3685,18 +3693,32 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
-            {[
-              ["현재 재고", detailCurrent, "text-slate-800"],
-              ["예약 예정", detailReserved, "text-violet-700"],
-              ["가용 재고", Math.max(0, detailCurrent - detailReserved), "text-indigo-700"],
-            ].map(([label, value, color]) => (
-              <div key={label} className="rounded-xl border bg-slate-50 px-2 sm:px-4 py-3 text-center"
-                style={{ borderColor: "#c9b6dc" }}>
-                <div className="text-[11px] sm:text-xs text-slate-500">{label}</div>
-                <div className={`mt-1 text-base sm:text-xl font-extrabold ${color}`}>{fmt(value)} M</div>
-              </div>
-            ))}
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+              {[
+                ["현재 재고", detailCurrent, "text-slate-800", "코일 실재고", false],
+                ["출고 예정", detailPending, "text-amber-600", "곧 나감", true],
+                ["예약", detailReserved, "text-violet-700", "잡아둠", true],
+                ["출고 가능", detailAvailable, "text-emerald-600", "실제 여유분", false],
+              ].map(([label, value, color, sub, minus]) => (
+                <div key={label} className="rounded-lg border bg-white px-2 sm:px-3 py-3 text-center"
+                  style={{ borderColor: "#92A8D1" }}>
+                  <div className="text-[11px] sm:text-xs text-slate-500">{label}</div>
+                  <div className={`mt-1 text-base sm:text-xl font-extrabold ${color}`}>{minus && value ? "−" : ""}{fmt(value)} M</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{sub}</div>
+                </div>
+              ))}
+            </div>
+            <div className="rounded-lg border bg-white px-3 py-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm"
+              style={{ borderColor: "#F7CAC9" }}>
+              <span className="text-slate-700">현재 {fmt(detailCurrent)}</span>
+              <span className="text-slate-400">−</span>
+              <span className="text-amber-600">출고예정 {fmt(detailPending)}</span>
+              <span className="text-slate-400">−</span>
+              <span className="text-violet-700">예약 {fmt(detailReserved)}</span>
+              <span className="text-slate-400">=</span>
+              <span className="text-emerald-600 font-bold">출고 가능 {fmt(detailAvailable)} M</span>
+            </div>
           </div>
 
           <div>
@@ -3783,18 +3805,32 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
-            {[
-              ["현재 재고", pendingDetailCurrent, "text-slate-800"],
-              ["출고 예정", pendingDetailMeter, "text-violet-700"],
-              ["출고 후 예상", pendingDetailAfter, "text-indigo-700"],
-            ].map(([label, value, color]) => (
-              <div key={label} className="rounded-xl border bg-slate-50 px-2 sm:px-4 py-3 text-center"
-                style={{ borderColor: "#c9b6dc" }}>
-                <div className="text-[11px] sm:text-xs text-slate-500">{label}</div>
-                <div className={`mt-1 text-base sm:text-xl font-extrabold ${color}`}>{fmt(value)} M</div>
-              </div>
-            ))}
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+              {[
+                ["현재 재고", pendingDetailCurrent, "text-slate-800", "코일 실재고", false],
+                ["출고 예정", pendingDetailMeter, "text-amber-600", "이 건, 곧 나감", true],
+                ["예약", pendingDetailReserved, "text-violet-700", "잡아둠", true],
+                ["출고 가능", pendingDetailAvailable, "text-emerald-600", "실제 여유분", false],
+              ].map(([label, value, color, sub, minus]) => (
+                <div key={label} className="rounded-lg border bg-white px-2 sm:px-3 py-3 text-center"
+                  style={{ borderColor: "#92A8D1" }}>
+                  <div className="text-[11px] sm:text-xs text-slate-500">{label}</div>
+                  <div className={`mt-1 text-base sm:text-xl font-extrabold ${color}`}>{minus && value ? "−" : ""}{fmt(value)} M</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{sub}</div>
+                </div>
+              ))}
+            </div>
+            <div className="rounded-lg border bg-white px-3 py-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm"
+              style={{ borderColor: "#F7CAC9" }}>
+              <span className="text-slate-700">현재 {fmt(pendingDetailCurrent)}</span>
+              <span className="text-slate-400">−</span>
+              <span className="text-amber-600">출고예정 {fmt(pendingDetailMeter)}</span>
+              <span className="text-slate-400">−</span>
+              <span className="text-violet-700">예약 {fmt(pendingDetailReserved)}</span>
+              <span className="text-slate-400">=</span>
+              <span className="text-emerald-600 font-bold">출고 가능 {fmt(pendingDetailAvailable)} M</span>
+            </div>
           </div>
           <div>
             <h4 className="font-semibold text-slate-800 mb-2">출고 대기 정보</h4>
