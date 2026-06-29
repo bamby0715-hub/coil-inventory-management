@@ -9,6 +9,9 @@ import * as XLSX from "xlsx";
 import { useAuth, AuthGate, MasterUserPanel } from "./auth.jsx";
 import { VendorManagement } from "./vendors.jsx";
 import { ItemManagement } from "./items.jsx";
+import { useInboundStore } from "./inbound.jsx";
+import { useOutboundStore } from "./outbound.jsx";
+import { useReservationsStore } from "./reservations.jsx";
 
 /* =========================================================================
    HN메탈릭 코일 재고관리 시스템 (v2)
@@ -228,9 +231,6 @@ const mergePrimitiveList = (latest = [], local = [], base = []) => {
 const mergeSharedSnapshots = (latest = {}, local = {}, base = {}) => ({
   ...latest,
   coils: mergeRecordList(latest.coils, local.coils, base.coils),
-  inbound: mergeRecordList(latest.inbound, local.inbound, base.inbound),
-  outbound: mergeRecordList(latest.outbound, local.outbound, base.outbound),
-  reservations: mergeRecordList(latest.reservations, local.reservations, base.reservations),
   stockHistory: mergeRecordList(latest.stockHistory, local.stockHistory, base.stockHistory),
   customColors: mergeRecordList(latest.customColors, local.customColors, base.customColors, byColorKey),
   discontinuedColors: mergePrimitiveList(latest.discontinuedColors, local.discontinuedColors, base.discontinuedColors),
@@ -553,9 +553,9 @@ export default function CoilInventory() {
 
   const initial = useMemo(seed, []);
   const [coils, setCoils] = useStore("coils", initial.coils);
-  const [inbound, setInbound] = useStore("inbound", initial.inbound);
-  const [outbound, setOutbound] = useStore("outbound", initial.outbound);
-  const [reservations, setReservations] = useStore("reservations", []);
+  const [inbound, setInbound] = useInboundStore();
+  const [outbound, setOutbound] = useOutboundStore();
+  const [reservations, setReservations] = useReservationsStore();
   const [baseStock, setBaseStock] = useStore("baseStock", {});
   const [stockHistory, setStockHistory] = useStore("stockHistory", []);
   const [customColors, setCustomColors] = useStore("customColors", []);
@@ -621,16 +621,13 @@ export default function CoilInventory() {
   }, [authed, auth.user]);
 
   const localSnapshot = useMemo(() => ({
-    coils, inbound, outbound, reservations, baseStock, stockHistory, customColors,
+    coils, baseStock, stockHistory, customColors,
     discontinuedColors, zoneStock, baseStockDates, deletedBaseStockKeys,
-  }), [coils, inbound, outbound, reservations, baseStock, stockHistory, customColors, discontinuedColors, zoneStock, baseStockDates, deletedBaseStockKeys]);
+  }), [coils, baseStock, stockHistory, customColors, discontinuedColors, zoneStock, baseStockDates, deletedBaseStockKeys]);
 
   const applySnapshot = (snapshot) => {
     cloudApplyingRef.current = true;
     if (snapshot.coils) setCoils(snapshot.coils);
-    if (snapshot.inbound) setInbound(snapshot.inbound);
-    if (snapshot.outbound) setOutbound(snapshot.outbound);
-    if (snapshot.reservations) setReservations(snapshot.reservations);
     if (snapshot.baseStock) setBaseStock(snapshot.baseStock);
     if (snapshot.stockHistory) setStockHistory(snapshot.stockHistory);
     if (snapshot.customColors) setCustomColors(snapshot.customColors);
