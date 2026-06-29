@@ -3652,7 +3652,7 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
       <Modal
         open={Boolean(detailKey)}
         onClose={() => setDetailKey("")}
-        title="코일 상세정보"
+        title="재고 상세정보"
         wide="medium"
         headerActions={detailKey && (
           <div className="flex items-center gap-1">
@@ -3709,61 +3709,73 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
                 </div>
               ))}
             </div>
-            <div className="rounded-lg border bg-white px-3 py-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm"
-              style={{ borderColor: "#F7CAC9" }}>
-              <span className="text-slate-700">현재 {fmt(detailCurrent)}</span>
-              <span className="text-slate-400">−</span>
-              <span className="text-amber-600">출고예정 {fmt(detailPending)}</span>
-              <span className="text-slate-400">−</span>
-              <span className="text-violet-700">예약 {fmt(detailReserved)}</span>
-              <span className="text-slate-400">=</span>
-              <span className="text-emerald-600 font-bold">출고 가능 {fmt(detailAvailable)} M</span>
-            </div>
           </div>
 
           <div>
-            <h4 className="font-semibold text-slate-800 mb-2">예약 내역</h4>
+            <div className="mb-2.5 flex items-center gap-2">
+              <CalendarDays size={15} className="text-violet-500" />
+              <h4 className="font-semibold text-slate-800">예약 내역</h4>
+              {detailReservations.length > 0 && (
+                <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-bold text-violet-700">{detailReservations.length}</span>
+              )}
+            </div>
             <div className="space-y-2">
               {detailReservations.map((item) => (
-                <div key={item.id} className="rounded-xl border border-violet-100 bg-violet-50/50 px-3 py-3 text-sm">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span title={item.customer} className="min-w-0 flex-1 truncate font-semibold text-indigo-800">{item.customer}</span>
-                    <span className="shrink-0 font-bold text-violet-700">{fmt(item.reserved_meter)} M</span>
+                <div key={item.id} className="rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50/70 to-white px-3.5 py-3 text-sm shadow-sm">
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    <span title={item.customer} className="min-w-0 truncate font-bold text-indigo-900">{item.customer}</span>
+                    <span className="shrink-0 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-bold text-violet-700">{fmt(item.reserved_meter)} M</span>
                   </div>
-                  <div className="mt-1 text-xs text-slate-500">사용 예정일 {item.planned_date}</div>
-                  <div className="mt-1 truncate text-xs text-slate-500" title={item.site_address}>현장 {item.site_address}</div>
-                  {item.memo && <div className="mt-1 text-xs text-slate-500">메모 {item.memo}</div>}
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                    <span className="inline-flex items-center gap-1">
+                      <CalendarDays size={12} className="text-violet-300" />{item.planned_date || "-"}
+                    </span>
+                    {item.site_address && (
+                      <span className="inline-flex min-w-0 items-center gap-1" title={item.site_address}>
+                        <MapPin size={12} className="shrink-0 text-violet-300" />
+                        <span className="truncate">{item.site_address}</span>
+                      </span>
+                    )}
+                  </div>
+                  {item.memo && <div className="mt-2 rounded-lg bg-violet-50/70 px-2.5 py-1.5 text-xs text-slate-500">{item.memo}</div>}
                 </div>
               ))}
-              {detailReservations.length === 0 && <div className="rounded-xl bg-slate-50 px-3 py-5 text-center text-sm text-slate-400">예약 내역이 없습니다.</div>}
+              {detailReservations.length === 0 && <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-6 text-center text-sm text-slate-400">예약 내역이 없습니다.</div>}
             </div>
           </div>
 
           <div>
-            <h4 className="font-semibold text-slate-800 mb-2">최근 출고 내역</h4>
+            <div className="mb-2.5 flex items-center gap-2">
+              <Truck size={15} className="text-indigo-500" />
+              <h4 className="font-semibold text-slate-800">최근 출고 내역</h4>
+              {detailOutbound.length > 0 && (
+                <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-700">{detailOutbound.length}</span>
+              )}
+            </div>
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
               {detailOutbound.map((item) => (
                 <div key={item.id}
-                  className="grid grid-cols-[76px_minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-2.5 text-xs sm:text-sm">
-                  <span className="text-slate-400 whitespace-nowrap">{item.outbound_date || "-"}</span>
-                  <span className="min-w-0 truncate text-slate-700" title={item.customer || "거래처 미입력"}>
+                  className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition hover:bg-slate-50/70">
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${item.is_completed ? "bg-emerald-400" : "bg-amber-400"}`} />
+                  <span className="w-[68px] shrink-0 whitespace-nowrap text-xs text-slate-400">{item.outbound_date || "-"}</span>
+                  <span className="min-w-0 flex-1 truncate text-slate-700" title={item.customer || "거래처 미입력"}>
                     {item.customer || "거래처 미입력"}
                   </span>
-                  <span className="shrink-0 font-semibold text-indigo-700 whitespace-nowrap">
+                  <span className="shrink-0 whitespace-nowrap rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-bold text-indigo-700">
                     {fmt(item.outbound_meter || 0)} M
                   </span>
                   <span
                     title={item.is_completed && item.completed_at ? `완료일 ${item.completed_at}` : "출고 완료 전"}
-                    className={`shrink-0 whitespace-nowrap text-[11px] font-medium ${
+                    className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                       item.is_completed
-                        ? "text-emerald-700 underline decoration-emerald-300 underline-offset-4"
-                        : "rounded-full bg-amber-50 px-2 py-1 text-amber-700"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-amber-50 text-amber-700"
                     }`}>
-                    {item.is_completed ? "출고 완료" : "출고 대기"}
+                    {item.is_completed ? "완료" : "대기"}
                   </span>
                 </div>
               ))}
-              {detailOutbound.length === 0 && <div className="bg-slate-50 px-3 py-5 text-center text-sm text-slate-400">최근 출고 내역이 없습니다.</div>}
+              {detailOutbound.length === 0 && <div className="bg-slate-50/60 px-3 py-6 text-center text-sm text-slate-400">최근 출고 내역이 없습니다.</div>}
             </div>
           </div>
         </div>
@@ -3821,40 +3833,39 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
                 </div>
               ))}
             </div>
-            <div className="rounded-lg border bg-white px-3 py-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm"
-              style={{ borderColor: "#F7CAC9" }}>
-              <span className="text-slate-700">현재 {fmt(pendingDetailCurrent)}</span>
-              <span className="text-slate-400">−</span>
-              <span className="text-amber-600">출고예정 {fmt(pendingDetailMeter)}</span>
-              <span className="text-slate-400">−</span>
-              <span className="text-violet-700">예약 {fmt(pendingDetailReserved)}</span>
-              <span className="text-slate-400">=</span>
-              <span className="text-emerald-600 font-bold">출고 가능 {fmt(pendingDetailAvailable)} M</span>
-            </div>
           </div>
           <div>
-            <h4 className="font-semibold text-slate-800 mb-2">출고 대기 정보</h4>
-            <div className="rounded-xl border border-violet-100 bg-violet-50/50 px-4 py-4 text-sm space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400 w-16 shrink-0">거래처</span>
+            <div className="mb-2.5 flex items-center gap-2">
+              <Truck size={15} className="text-violet-500" />
+              <h4 className="font-semibold text-slate-800">출고 대기 정보</h4>
+            </div>
+            <div className="rounded-xl border border-violet-100 bg-violet-50/40 divide-y divide-violet-100/80 text-sm">
+              <div className="flex items-center gap-2.5 px-3.5 py-2.5">
+                <Building2 size={14} className="shrink-0 text-violet-400" />
                 <span className="min-w-0 truncate font-semibold text-indigo-800" title={livePendingDetail?.customer}>{livePendingDetail?.customer || "-"}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400 w-16 shrink-0">일정</span>
-                <span>{livePendingDetail?.outbound_date || "-"} → {livePendingDetail?.arrival_date || "-"}{livePendingDetail?.arrival_time ? ` ${livePendingDetail.arrival_time}` : ""}</span>
+              <div className="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600">
+                <CalendarDays size={14} className="shrink-0 text-violet-400" />
+                <span className="min-w-0 truncate">{livePendingDetail?.outbound_date || "-"} → {livePendingDetail?.arrival_date || "-"}{livePendingDetail?.arrival_time ? ` ${livePendingDetail.arrival_time}` : ""}</span>
               </div>
-              <div className="flex items-start gap-2">
-                <span className="text-xs text-slate-400 w-16 shrink-0 pt-0.5">현장</span>
-                <span className="min-w-0 break-words">{livePendingDetail?.site_address || "-"}</span>
-              </div>
-              {livePendingDetail?.manager && <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400 w-16 shrink-0">담당자</span>
-                <span>{livePendingDetail.manager}</span>
-              </div>}
-              {livePendingDetail?.memo && <div className="flex items-start gap-2 border-t border-violet-100 pt-3">
-                <span className="text-xs text-slate-400 w-16 shrink-0 pt-0.5">메모</span>
-                <span className="min-w-0 break-words text-slate-600">{livePendingDetail.memo}</span>
-              </div>}
+              {livePendingDetail?.site_address && (
+                <div className="flex items-start gap-2.5 px-3.5 py-2.5 text-slate-600">
+                  <MapPin size={14} className="mt-0.5 shrink-0 text-violet-400" />
+                  <span className="min-w-0 break-words">{livePendingDetail.site_address}</span>
+                </div>
+              )}
+              {livePendingDetail?.manager && (
+                <div className="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600">
+                  <ClipboardCheck size={14} className="shrink-0 text-violet-400" />
+                  <span className="min-w-0 truncate">{livePendingDetail.manager}</span>
+                </div>
+              )}
+              {livePendingDetail?.memo && (
+                <div className="flex items-start gap-2.5 px-3.5 py-2.5 text-slate-500">
+                  <Pencil size={14} className="mt-0.5 shrink-0 text-violet-400" />
+                  <span className="min-w-0 break-words">{livePendingDetail.memo}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
