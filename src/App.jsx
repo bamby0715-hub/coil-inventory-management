@@ -8,6 +8,7 @@ import {
 import * as XLSX from "xlsx";
 import { useAuth, AuthGate, MasterUserPanel } from "./auth.jsx";
 import { VendorManagement } from "./vendors.jsx";
+import { ItemManagement } from "./items.jsx";
 
 /* =========================================================================
    HN메탈릭 코일 재고관리 시스템 (v2)
@@ -533,6 +534,7 @@ const NAV = [
   { key: "coil", label: "코일관리", icon: Layers3, group: "현황", desc: "코일 재고 등록" },
   { key: "inventory", label: "재고현황", icon: Boxes, group: "현황", desc: "M 기준 재고" },
   { key: "vendor", label: "거래처관리", icon: Building2, group: "거래", desc: "거래처·기초미수금" },
+  { key: "item", label: "품목관리", icon: Package, group: "거래", desc: "품목·가격·품절" },
 ];
 
 export default function CoilInventory() {
@@ -817,6 +819,7 @@ export default function CoilInventory() {
         {menu === "coil" && <CoilManagement ctx={ctx} />}
         {menu === "inventory" && <Inventory ctx={ctx} />}
         {menu === "vendor" && <VendorManagement isMaster={isMaster} myUid={auth.user?.uid || ""} myName={auth.profile?.name || ""} />}
+        {menu === "item" && <ItemManagement isMaster={isMaster} myUid={auth.user?.uid || ""} myName={auth.profile?.name || ""} />}
       </main>
     </div>
   );
