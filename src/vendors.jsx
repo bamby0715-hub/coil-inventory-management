@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import * as XLSX from "xlsx";
+import { FileSpreadsheet, ChevronDown, ChevronRight, Plus } from "lucide-react";
 
 /* =========================================================================
    거래처관리 (vendors) — 별도 컬렉션, 모든 담당자 공유
@@ -105,7 +106,7 @@ export async function deleteVendor(code) {
 }
 
 // 엑셀 일괄 업로드 — 이미 있는(거래처명+사업자번호) 건은 건너뜀
-export async function bulkCreateVendors(rows, existing) {
+export async function bulkCreateVendors(rows, existing, owner = {}) {
   const norm = (v) => String(v ?? "").trim();
   const key = (name, biz) => `${norm(name)}|${norm(biz)}`;
   const existingKeys = new Set(existing.map((v) => key(v.name, v.bizNo)));
@@ -115,7 +116,7 @@ export async function bulkCreateVendors(rows, existing) {
     const k = key(r.name, r.bizNo);
     if (existingKeys.has(k)) { skipped++; continue; }
     existingKeys.add(k);
-    await createVendor(r);
+    await createVendor({ ...r, ...owner });
     added++;
   }
   return { added, skipped };
@@ -124,10 +125,10 @@ export async function bulkCreateVendors(rows, existing) {
 /* =========================================================================
    엑셀 양식 / 업로드 파싱 / 다운로드
    ========================================================================= */
-const EXCEL_HEADERS = ["거래처명", "구분", "사업자유형", "담당자", "연락처", "기초일", "기초미수금", "사업자번호", "대표자", "업태", "종목", "주소", "기타"];
+const EXCEL_HEADERS = ["거래처명", "구분", "담당자", "연락처", "기초일", "기초미수금", "사업자번호", "대표자", "업태", "종목", "주소", "기타"];
 
 export function downloadTemplate() {
-  const ws = XLSX.utils.aoa_to_sheet([EXCEL_HEADERS, ["예시상사", "공장", "사업장", "홍길동", "010-0000-0000", todayStr(), 0, "000-00-00000", "홍길동", "도소매", "철강", "서울시 ...", ""]]);
+  const ws = XLSX.utils.aoa_to_sheet([EXCEL_HEADERS, ["예시상사", "공장", "홍길동", "010-0000-0000", todayStr(), 0, "000-00-00000", "홍길동", "도소매", "철강", "서울시 ...", ""]]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "거래처양식");
   XLSX.writeFile(wb, "거래처_업로드양식.xlsx");
@@ -141,7 +142,6 @@ export async function parseVendorExcel(file) {
   return json.map((row) => ({
     name: String(row["거래처명"] ?? "").trim(),
     category: String(row["구분"] ?? "").trim(),
-    bizType: String(row["사업자유형"] ?? "").trim() || "사업장",
     manager: String(row["담당자"] ?? "").trim(),
     phone: String(row["연락처"] ?? "").trim(),
     baseDate: String(row["기초일"] ?? "").trim() || todayStr(),
@@ -157,7 +157,7 @@ export async function parseVendorExcel(file) {
 
 export function downloadVendors(vendors, fileName = "거래처목록.xlsx") {
   const rows = vendors.map((v) => ({
-    코드: v.code, 거래처명: v.name, 구분: v.category, 사업자유형: v.bizType,
+    코드: v.code, 거래처명: v.name, 구분: v.category,
     담당자: v.manager, 연락처: v.phone, 기초일: v.baseDate, 기초미수금: v.baseReceivable,
     사업자번호: v.bizNo, 대표자: v.ceo, 업태: v.upTae, 종목: v.jongMok, 주소: v.address, 기타: v.memo,
   }));
@@ -196,14 +196,14 @@ function VModal({ open, onClose, title, children, footer, wide }) {
 }
 
 const emptyForm = (cats) => ({
-  name: "", category: (cats && cats[0]) || "", bizType: "사업장",
+  name: "", category: (cats && cats[0]) || "",
   manager: "", phone: "", baseDate: todayStr(), baseReceivable: 0,
   bizNo: "", ceo: "", upTae: "", jongMok: "", address: "", memo: "",
 });
 
 const wonFmt = (n) => (Number(n) || 0).toLocaleString("ko-KR");
 
-export function VendorManagement({ isMaster }) {
+export function VendorManagement({ isMaster, myUid = "", myName = "" }) {
   const [vendors, setVendors] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [loading, setLoading] = useState(true);
@@ -222,6 +222,9 @@ export function VendorManagement({ isMaster }) {
 
   const [catOpen, setCatOpen] = useState(false);
   const [newCat, setNewCat] = useState("");
+  const [excelOpen, setExcelOpen] = useState(false);
+  const [inlineCat, setInlineCat] = useState("");
+  const [addingCat, setAddingCat] = useState(false);
   const [confirmState, setConfirmState] = useState(null); // {message, onYes}
   const [uploadMsg, setUploadMsg] = useState("");
   const fileRef = useRef();
@@ -252,7 +255,7 @@ export function VendorManagement({ isMaster }) {
   const doSave = async () => {
     setBusy(true); setFormErr("");
     const payload = {
-      name: form.name.trim(), category: form.category, bizType: form.bizType,
+      name: form.name.trim(), category: form.category,
       manager: form.manager.trim(), phone: form.phone.trim(),
       baseDate: form.baseDate || todayStr(), baseReceivable: Number(form.baseReceivable) || 0,
       bizNo: form.bizNo.trim(), ceo: form.ceo.trim(), upTae: form.upTae.trim(),
@@ -260,7 +263,7 @@ export function VendorManagement({ isMaster }) {
     };
     try {
       if (editCode) await updateVendor(editCode, payload);
-      else await createVendor(payload);
+      else await createVendor({ ...payload, ownerUid: myUid, ownerName: myName });
       setFormOpen(false);
     } catch (e) { setFormErr(e?.message || "저장 실패"); }
     setBusy(false);
@@ -297,7 +300,7 @@ export function VendorManagement({ isMaster }) {
     setUploadMsg("업로드 중...");
     try {
       const rows = await parseVendorExcel(file);
-      const { added, skipped } = await bulkCreateVendors(rows, vendors);
+      const { added, skipped } = await bulkCreateVendors(rows, vendors, { ownerUid: myUid, ownerName: myName });
       setUploadMsg(`${added}건 추가${skipped ? `, ${skipped}건 중복 제외` : ""} 완료`);
     } catch (e) { setUploadMsg("업로드 실패: " + (e?.message || "")); }
     if (fileRef.current) fileRef.current.value = "";
@@ -314,22 +317,42 @@ export function VendorManagement({ isMaster }) {
     await setCategories([...categories, c]);
     setNewCat("");
   };
+  // 거래처 등록창 안에서 구분 추가 → 추가 후 그 구분을 바로 선택
+  const addInlineCategory = async () => {
+    const c = inlineCat.trim();
+    if (!c) return;
+    if (!categories.includes(c)) await setCategories([...categories, c]);
+    set("category", c);
+    setInlineCat("");
+    setAddingCat(false);
+  };
   const removeCategory = async (c) => { await setCategories(categories.filter((x) => x !== c)); };
 
   const btn = "h-10 px-3 rounded-xl border text-xs font-bold inline-flex items-center justify-center transition whitespace-nowrap";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-w-6xl mx-auto w-full">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-black text-slate-800">거래처관리</h1>
           <p className="text-sm text-slate-500 mt-0.5">거래처를 등록하고 구분·담당자·기초미수금을 관리합니다.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={() => setCatOpen(true)} className={`${btn} border-slate-200 bg-white text-slate-600 hover:bg-slate-50`}>구분 설정</button>
-          <button onClick={downloadTemplate} className={`${btn} border-slate-200 bg-white text-slate-600 hover:bg-slate-50`}>엑셀 양식</button>
-          <button onClick={() => fileRef.current?.click()} className={`${btn} border-slate-200 bg-white text-slate-600 hover:bg-slate-50`}>엑셀 업로드</button>
-          <button onClick={downloadFiltered} className={`${btn} border-slate-200 bg-white text-slate-600 hover:bg-slate-50`}>엑셀 다운로드</button>
+          <div className="relative">
+            <button onClick={() => setExcelOpen((o) => !o)} className={`${btn} border-slate-200 bg-white text-slate-600 hover:bg-slate-50 gap-1.5`}>
+              <FileSpreadsheet size={15} /> 엑셀 <ChevronDown size={14} />
+            </button>
+            {excelOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setExcelOpen(false)} />
+                <div className="absolute right-0 mt-1 z-20 w-40 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                  <button onClick={() => { setExcelOpen(false); downloadTemplate(); }} className="block w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50">엑셀 양식</button>
+                  <button onClick={() => { setExcelOpen(false); fileRef.current?.click(); }} className="block w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 border-t border-slate-100">엑셀 업로드</button>
+                  <button onClick={() => { setExcelOpen(false); downloadFiltered(); }} className="block w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 border-t border-slate-100">엑셀 다운로드</button>
+                </div>
+              </>
+            )}
+          </div>
           <button onClick={openCreate} className={`${btn} border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700`}>+ 거래처 등록</button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => onUpload(e.target.files?.[0])} />
         </div>
@@ -338,8 +361,8 @@ export function VendorManagement({ isMaster }) {
       {uploadMsg && <div className="text-sm rounded-xl bg-indigo-50 text-indigo-700 px-4 py-2.5">{uploadMsg}</div>}
       {topErr && <div className="text-sm rounded-xl bg-rose-50 text-rose-600 px-4 py-2.5">{topErr}</div>}
 
-      <div className="flex flex-col lg:flex-row gap-2">
-        <div className="relative flex-1">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-0">
+        <div className="relative flex-1 lg:mr-1.5">
           <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="코드 · 거래처명 · 담당자 · 연락처 · 사업자번호 검색"
             className="w-full h-10 rounded-xl border border-slate-200 bg-white pl-3 pr-3 text-sm outline-none focus:border-indigo-400" />
         </div>
@@ -347,7 +370,7 @@ export function VendorManagement({ isMaster }) {
           <option value="전체">구분 전체</option>
           {categories.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
-        <select value={managerFilter} onChange={(e) => setManagerFilter(e.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm">
+        <select value={managerFilter} onChange={(e) => setManagerFilter(e.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm lg:ml-6">
           <option value="전체">담당자 전체</option>
           {managers.map((m) => <option key={m} value={m}>{m}</option>)}
         </select>
@@ -382,8 +405,14 @@ export function VendorManagement({ isMaster }) {
                 <td className="px-3 py-2.5 text-slate-500">{v.baseDate}</td>
                 <td className="px-3 py-2.5 text-right text-slate-700">{wonFmt(v.baseReceivable)}원</td>
                 <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                  <button onClick={() => openEdit(v)} className="text-xs px-2 py-1 rounded-lg border border-slate-200 hover:bg-white mr-1">수정</button>
-                  <button onClick={() => removeVendor(v)} className="text-xs px-2 py-1 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50">삭제</button>
+                  {(isMaster || (v.ownerUid && v.ownerUid === myUid)) ? (
+                    <>
+                      <button onClick={() => openEdit(v)} className="text-xs px-2 py-1 rounded-lg border border-slate-200 hover:bg-white mr-1">수정</button>
+                      <button onClick={() => removeVendor(v)} className="text-xs px-2 py-1 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50">삭제</button>
+                    </>
+                  ) : (
+                    <span className="text-xs text-slate-300">{v.ownerName ? `${v.ownerName} 담당` : "—"}</span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -402,26 +431,31 @@ export function VendorManagement({ isMaster }) {
         }>
         <div className="space-y-4">
           <div className="grid sm:grid-cols-2 gap-3">
-            <Field label="거래처명" required><input className={inputCls} value={form.name} onChange={(e) => set("name", e.target.value)} /></Field>
             <Field label="구분" required>
-              <select className={inputCls} value={form.category} onChange={(e) => set("category", e.target.value)}>
-                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <div className="flex gap-1.5">
+                <select className={inputCls} value={form.category} onChange={(e) => set("category", e.target.value)}>
+                  {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <button type="button" onClick={() => setAddingCat((o) => !o)} title="구분 추가"
+                  className="shrink-0 w-10 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center"><Plus size={16} /></button>
+              </div>
+              {addingCat && (
+                <div className="flex gap-1.5 mt-1.5">
+                  <input className={inputCls} value={inlineCat} onChange={(e) => setInlineCat(e.target.value)} placeholder="새 구분 이름"
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addInlineCategory(); } }} />
+                  <button type="button" onClick={addInlineCategory} className="shrink-0 px-3 rounded-xl bg-indigo-600 text-white text-sm font-medium">추가</button>
+                </div>
+              )}
             </Field>
+            <Field label="거래처명" required><input className={inputCls} value={form.name} onChange={(e) => set("name", e.target.value)} /></Field>
             <Field label="담당자" required><input className={inputCls} value={form.manager} onChange={(e) => set("manager", e.target.value)} /></Field>
             <Field label="연락처" required><input className={inputCls} value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="010-0000-0000" /></Field>
-            <Field label="사업자유형">
-              <select className={inputCls} value={form.bizType} onChange={(e) => set("bizType", e.target.value)}>
-                <option value="사업장">사업장</option>
-                <option value="일반">일반</option>
-              </select>
-            </Field>
             <Field label="기초일"><input type="date" className={inputCls} value={form.baseDate} onChange={(e) => set("baseDate", e.target.value)} /></Field>
             <Field label="기초미수금"><input type="text" inputMode="numeric" className={inputCls} value={form.baseReceivable} onChange={(e) => set("baseReceivable", e.target.value.replace(/[^0-9.-]/g, ""))} /></Field>
           </div>
 
-          <button type="button" onClick={() => setDetailOpen((o) => !o)} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
-            {detailOpen ? "▾ 상세 정보 닫기" : "▸ 상세 정보 입력 (사업자번호 · 대표자 · 업태 · 종목 · 주소 외)"}
+          <button type="button" onClick={() => setDetailOpen((o) => !o)} className="inline-flex items-center gap-1 text-sm font-semibold text-slate-600 hover:text-indigo-600">
+            <ChevronRight size={16} className={`transition-transform ${detailOpen ? "rotate-90" : ""}`} /> 상세 정보
           </button>
 
           {detailOpen && (
