@@ -284,6 +284,7 @@ export function ItemManagement({ isMaster, myUid = "", myName = "" }) {
   const [soDate, setSoDate] = useState(todayStr());
   const [soReason, setSoReason] = useState("");
   const [logItem, setLogItem] = useState(null); // 이력 볼 item
+  const [logTab, setLogTab] = useState("전체");
   const fileRef = useRef();
 
   useEffect(() => {
@@ -446,37 +447,51 @@ export function ItemManagement({ isMaster, myUid = "", myName = "" }) {
                   <span className="text-xs text-slate-400">{map[cat].length}건</span>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs sm:text-sm min-w-[980px]">
+                  <table className="w-full table-fixed text-xs sm:text-sm min-w-[1000px]">
+                    <colgroup>
+                      <col className="w-[80px]" />
+                      <col className="w-[260px]" />
+                      <col className="w-[150px]" />
+                      <col className="w-[56px]" />
+                      <col className="w-[84px]" />
+                      <col className="w-[84px]" />
+                      <col className="w-[84px]" />
+                      <col className="w-[70px]" />
+                      <col className="w-[70px]" />
+                      <col className="w-[84px]" />
+                      <col className="w-[64px]" />
+                      <col className="w-[120px]" />
+                    </colgroup>
                     <thead>
                       <tr className="bg-slate-50 text-slate-500">
-                        <th className="text-left px-3 py-2.5 font-semibold">제품ID</th>
+                        <th className="text-center px-3 py-2.5 font-semibold">제품ID</th>
                         <th className="text-left px-3 py-2.5 font-semibold">품목명</th>
                         <th className="text-left px-3 py-2.5 font-semibold">규격</th>
-                        <th className="text-center px-3 py-2.5 font-semibold">단위</th>
+                        <th className="text-center px-2 py-2.5 font-semibold">단위</th>
                         <th className="text-right px-3 py-2.5 font-semibold">매입가</th>
                         <th className="text-right px-3 py-2.5 font-semibold">공장가</th>
                         <th className="text-right px-3 py-2.5 font-semibold">온라인</th>
-                        <th className="text-right px-3 py-2.5 font-semibold">쿠팡</th>
-                        <th className="text-right px-3 py-2.5 font-semibold">네이버</th>
+                        <th className="text-right px-2 py-2.5 font-semibold">쿠팡</th>
+                        <th className="text-right px-2 py-2.5 font-semibold">네이버</th>
                         <th className="text-right px-3 py-2.5 font-semibold">기초재고</th>
-                        <th className="text-center px-3 py-2.5 font-semibold">품절</th>
-                        <th className="text-right px-3 py-2.5 font-semibold">작업</th>
+                        <th className="text-center px-2 py-2.5 font-semibold">품절</th>
+                        <th className="text-center px-3 py-2.5 font-semibold">작업</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {map[cat].map((it) => (
                         <tr key={it.id} className={`hover:bg-slate-50/60 ${it.soldOut ? "bg-rose-50/40" : ""}`}>
-                          <td className="px-3 py-2.5 font-mono text-slate-500">{it.id}</td>
-                          <td className="px-3 py-2.5 font-semibold text-slate-700">{it.name}{it.soldOut && <span className="ml-1 text-[10px] text-rose-500">품절</span>}</td>
-                          <td className="px-3 py-2.5 text-slate-500">{it.spec}</td>
-                          <td className="px-3 py-2.5 text-center text-slate-500">{it.unit}</td>
+                          <td className="px-3 py-2.5 text-center font-mono text-slate-500">{it.id}</td>
+                          <td className="px-3 py-2.5 font-semibold text-slate-700 truncate" title={it.name}>{it.name}{it.soldOut && <span className="ml-1 text-[10px] text-rose-500">품절</span>}</td>
+                          <td className="px-3 py-2.5 text-slate-500 truncate" title={it.spec}>{it.spec}</td>
+                          <td className="px-2 py-2.5 text-center text-slate-500">{it.unit}</td>
                           <td className="px-3 py-2.5 text-right text-slate-500">{wonFmt(it.buyPrice)}</td>
                           <td className="px-3 py-2.5 text-right text-slate-700">{wonFmt(it.factoryPrice)}</td>
                           <td className="px-3 py-2.5 text-right text-slate-700">{wonFmt(it.onlinePrice)}</td>
-                          <td className="px-3 py-2.5 text-right text-slate-700">{wonFmt(it.coupangPrice)}</td>
-                          <td className="px-3 py-2.5 text-right text-slate-700">{wonFmt(it.naverPrice)}</td>
+                          <td className="px-2 py-2.5 text-right text-slate-700">{wonFmt(it.coupangPrice)}</td>
+                          <td className="px-2 py-2.5 text-right text-slate-700">{wonFmt(it.naverPrice)}</td>
                           <td className="px-3 py-2.5 text-right text-slate-600">{wonFmt(it.baseQty)}</td>
-                          <td className="px-3 py-2.5">
+                          <td className="px-2 py-2.5">
                             <div className="flex items-center justify-center gap-1.5">
                               {canEdit(it) ? <Toggle on={Boolean(it.soldOut)} onClick={() => onToggleSoldOut(it)} title={it.soldOut ? "판매재개" : "품절 처리"} />
                                 : <span className={`text-xs ${it.soldOut ? "text-rose-500" : "text-slate-300"}`}>{it.soldOut ? "품절" : "정상"}</span>}
@@ -485,7 +500,7 @@ export function ItemManagement({ isMaster, myUid = "", myName = "" }) {
                               )}
                             </div>
                           </td>
-                          <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                          <td className="px-3 py-2.5 text-center whitespace-nowrap">
                             {canEdit(it) ? (
                               <>
                                 <button onClick={() => openEdit(it)} className="text-xs px-2 py-1 rounded-lg border border-slate-200 hover:bg-white mr-1">수정</button>
@@ -563,31 +578,45 @@ export function ItemManagement({ isMaster, myUid = "", myName = "" }) {
         </div>
       </VModal>
 
-      {/* 변경 이력(타임라인) 모달 */}
-      <VModal open={Boolean(logItem)} onClose={() => setLogItem(null)} title={`변경 이력 — ${logItem?.name || ""}`}
-        footer={<div className="flex justify-end"><button onClick={() => setLogItem(null)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600">닫기</button></div>}>
-        <div className="space-y-3">
-          {((logItem?.history || logItem?.soldOutLog || []).length === 0) ? <p className="text-sm text-slate-400">이력이 없습니다.</p> : (
-            <ol className="relative border-l-2 border-slate-100 pl-4 space-y-4">
-              {(logItem?.history || logItem?.soldOutLog || []).map((l, i) => {
-                const isPrice = l.type === "가격변경";
-                const dot = l.type === "품절" ? "bg-rose-500" : l.type === "판매재개" ? "bg-emerald-500" : "bg-indigo-500";
-                return (
-                  <li key={i} className="relative">
-                    <span className={`absolute -left-[1.35rem] top-1 w-3 h-3 rounded-full ${dot}`} />
-                    <div className="text-sm font-semibold text-slate-700">
-                      {isPrice ? `${l.field} 변경` : l.type} · {l.date}
-                    </div>
-                    {isPrice ? (
-                      <div className="text-sm text-slate-500 mt-0.5">{wonFmt(l.from)} → <span className="font-semibold text-slate-700">{wonFmt(l.to)}</span></div>
-                    ) : (l.reason && <div className="text-sm text-slate-500 mt-0.5">사유: {l.reason}</div>)}
-                    {l.by && <div className="text-xs text-slate-400 mt-0.5">처리: {l.by}</div>}
-                  </li>
-                );
-              })}
-            </ol>
-          )}
-        </div>
+      {/* 변경 이력(타임라인) 모달 — 탭 구분 */}
+      <VModal open={Boolean(logItem)} onClose={() => { setLogItem(null); setLogTab("전체"); }} title={`변경 이력 — ${logItem?.name || ""}`}
+        footer={<div className="flex justify-end"><button onClick={() => { setLogItem(null); setLogTab("전체"); }} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600">닫기</button></div>}>
+        {(() => {
+          const all = logItem?.history || logItem?.soldOutLog || [];
+          const tabs = ["전체", "가격변경", "품절"];
+          const list = all.filter((l) => logTab === "전체" ? true : logTab === "가격변경" ? l.type === "가격변경" : (l.type === "품절" || l.type === "판매재개"));
+          return (
+            <div>
+              <div className="flex gap-1 border-b border-slate-100 mb-4">
+                {tabs.map((t) => (
+                  <button key={t} onClick={() => setLogTab(t)}
+                    className={`relative px-3 py-2 text-sm font-bold transition ${logTab === t ? "text-indigo-600" : "text-slate-400 hover:text-slate-600"}`}>
+                    {t}
+                    {logTab === t && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-indigo-600" />}
+                  </button>
+                ))}
+              </div>
+              {list.length === 0 ? <p className="text-sm text-slate-400 py-4 text-center">이력이 없습니다.</p> : (
+                <ol className="relative border-l-2 border-slate-100 pl-4 space-y-4">
+                  {list.map((l, i) => {
+                    const isPrice = l.type === "가격변경";
+                    const dot = l.type === "품절" ? "bg-rose-500" : l.type === "판매재개" ? "bg-emerald-500" : "bg-indigo-500";
+                    return (
+                      <li key={i} className="relative">
+                        <span className={`absolute -left-[1.35rem] top-1 w-3 h-3 rounded-full ${dot}`} />
+                        <div className="text-sm font-semibold text-slate-700">{isPrice ? `${l.field} 변경` : l.type} · {l.date}</div>
+                        {isPrice ? (
+                          <div className="text-sm text-slate-500 mt-0.5">{wonFmt(l.from)} → <span className="font-semibold text-slate-700">{wonFmt(l.to)}</span></div>
+                        ) : (l.reason && <div className="text-sm text-slate-500 mt-0.5">사유: {l.reason}</div>)}
+                        {l.by && <div className="text-xs text-slate-400 mt-0.5">처리: {l.by}</div>}
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </div>
+          );
+        })()}
       </VModal>
 
       {/* 확인 다이얼로그 */}
