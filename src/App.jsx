@@ -3,14 +3,14 @@ import {
   LayoutDashboard, PackagePlus, Truck, Boxes, BarChart3, Palette,
   Search, Download, Plus, ChevronDown, ChevronRight, Check,
   Trash2, Pencil, X, AlertTriangle, Clock, Menu, ArrowRight,
-  Factory, MapPin, LogOut, Layers3, CalendarDays, Package, Eye, EyeOff, ClipboardCheck, RotateCcw
+  Factory, MapPin, LogOut, Layers3, CalendarDays, Package, Eye, EyeOff, ClipboardCheck, RotateCcw, Building2
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useAuth, AuthGate, MasterUserPanel } from "./auth.jsx";
+import { VendorManagement } from "./vendors.jsx";
 
 /* =========================================================================
    HN메탈릭 코일 재고관리 시스템 (v2)
-   · 관리자 비밀번호: 0707 / 담당자 비밀번호: 1555
    · M(미터) 중심 관리 / 중량(kg) 미표시
    · 코일번호 자동생성  C-YYYYMMDD-####
    · 출고 홀딩 + 완료승인 정산 (제품구분별 FIFO 차감)
@@ -531,6 +531,7 @@ const NAV = [
   { key: "outbound", label: "출고관리", icon: Truck, group: "입출고", desc: "출고 등록·승인" },
   { key: "coil", label: "코일관리", icon: Layers3, group: "현황", desc: "코일 재고 등록" },
   { key: "inventory", label: "재고현황", icon: Boxes, group: "현황", desc: "M 기준 재고" },
+  { key: "vendor", label: "거래처관리", icon: Building2, group: "거래", desc: "거래처·기초미수금" },
 ];
 
 export default function CoilInventory() {
@@ -814,6 +815,7 @@ export default function CoilInventory() {
           initialDetailId={outboundDetailId} clearInitialDetail={() => setOutboundDetailId("")} />}
         {menu === "coil" && <CoilManagement ctx={ctx} />}
         {menu === "inventory" && <Inventory ctx={ctx} />}
+        {menu === "vendor" && <VendorManagement isMaster={isMaster} />}
       </main>
     </div>
   );
