@@ -9,6 +9,7 @@ import * as XLSX from "xlsx";
 import { useAuth, AuthGate, MasterUserPanel } from "./auth.jsx";
 import { VendorManagement } from "./vendors.jsx";
 import { ItemManagement } from "./items.jsx";
+import { StatementManagement } from "./statements.jsx";
 import { useInboundStore } from "./inbound.jsx";
 import { useOutboundStore } from "./outbound.jsx";
 import { useReservationsStore } from "./reservations.jsx";
@@ -535,6 +536,7 @@ const NAV = [
   { key: "inventory", label: "재고현황", icon: Boxes, group: "현황", desc: "M 기준 재고" },
   { key: "vendor", label: "거래처관리", icon: Building2, group: "거래", desc: "거래처·기초미수금" },
   { key: "item", label: "품목관리", icon: Package, group: "거래", desc: "품목·가격·품절" },
+  { key: "statement", label: "거래명세표", icon: ClipboardCheck, group: "거래", desc: "명세표 작성·인쇄" },
 ];
 
 export default function CoilInventory() {
@@ -817,6 +819,7 @@ export default function CoilInventory() {
         {menu === "inventory" && <Inventory ctx={ctx} />}
         {menu === "vendor" && <VendorManagement isMaster={isMaster} myUid={auth.user?.uid || ""} myName={auth.profile?.name || ""} />}
         {menu === "item" && <ItemManagement isMaster={isMaster} myUid={auth.user?.uid || ""} myName={auth.profile?.name || ""} />}
+        {menu === "statement" && <StatementManagement isMaster={isMaster} myUid={auth.user?.uid || ""} myName={auth.profile?.name || ""} />}
       </main>
     </div>
   );
@@ -3312,6 +3315,13 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
     : Math.max(0, pendingDetailCurrent - pendingDetailMeter);
   const pendingDetailReserved = pendingDetailKey ? reservedForKey(pendingDetailKey) : 0;
   const pendingDetailAvailable = Math.max(0, pendingDetailCurrent - pendingDetailMeter - pendingDetailReserved);
+  const pendingDetailOutbound = livePendingDetail ? outbound
+    .filter((item) => item.id !== livePendingDetail.id && (
+      (pendingDetailKey && item.coil_number === pendingDetailKey) ||
+      (item.product_type === livePendingDetail.product_type && item.manufacturer === livePendingDetail.manufacturer &&
+        item.color_name === livePendingDetail.color_name && String(item.thickness) === String(livePendingDetail.thickness))))
+    .sort((a, b) => String(b.outbound_date).localeCompare(String(a.outbound_date)))
+    .slice(0, 5) : [];
 
   const incomplete = outbound.filter((o) => !o.is_completed).sort((a, b) => a.outbound_date.localeCompare(b.outbound_date));
   const all = outbound
@@ -3836,36 +3846,34 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
           </div>
           <div>
             <div className="mb-2.5 flex items-center gap-2">
-              <Truck size={15} className="text-violet-500" />
-              <h4 className="font-semibold text-slate-800">출고 대기 정보</h4>
+              <Truck size={15} className="text-indigo-500" />
+              <h4 className="font-semibold text-slate-800">최근 출고 내역</h4>
+              {pendingDetailOutbound.length > 0 && (
+                <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-700">{pendingDetailOutbound.length}</span>
+              )}
             </div>
-            <div className="rounded-xl border border-violet-100 bg-violet-50/40 divide-y divide-violet-100/80 text-sm">
-              <div className="flex items-center gap-2.5 px-3.5 py-2.5">
-                <Building2 size={14} className="shrink-0 text-violet-400" />
-                <span className="min-w-0 truncate font-semibold text-indigo-800" title={livePendingDetail?.customer}>{livePendingDetail?.customer || "-"}</span>
-              </div>
-              <div className="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600">
-                <CalendarDays size={14} className="shrink-0 text-violet-400" />
-                <span className="min-w-0 truncate">{livePendingDetail?.outbound_date || "-"} → {livePendingDetail?.arrival_date || "-"}{livePendingDetail?.arrival_time ? ` ${livePendingDetail.arrival_time}` : ""}</span>
-              </div>
-              {livePendingDetail?.site_address && (
-                <div className="flex items-start gap-2.5 px-3.5 py-2.5 text-slate-600">
-                  <MapPin size={14} className="mt-0.5 shrink-0 text-violet-400" />
-                  <span className="min-w-0 break-words">{livePendingDetail.site_address}</span>
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
+              {pendingDetailOutbound.map((item) => (
+                <div key={item.id}
+                  className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition hover:bg-slate-50/70">
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${item.is_completed ? "bg-emerald-400" : "bg-amber-400"}`} />
+                  <span className="w-[68px] shrink-0 whitespace-nowrap text-xs text-slate-400">{item.outbound_date || "-"}</span>
+                  <span className="min-w-0 flex-1 truncate text-slate-700" title={item.customer || "거래처 미입력"}>
+                    {item.customer || "거래처 미입력"}
+                  </span>
+                  <span className="shrink-0 whitespace-nowrap rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-bold text-indigo-700">
+                    {fmt(item.outbound_meter || 0)} M
+                  </span>
+                  <span
+                    title={item.is_completed && item.completed_at ? `완료일 ${item.completed_at}` : "출고 완료 전"}
+                    className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                      item.is_completed ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                    }`}>
+                    {item.is_completed ? "완료" : "대기"}
+                  </span>
                 </div>
-              )}
-              {livePendingDetail?.manager && (
-                <div className="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600">
-                  <ClipboardCheck size={14} className="shrink-0 text-violet-400" />
-                  <span className="min-w-0 truncate">{livePendingDetail.manager}</span>
-                </div>
-              )}
-              {livePendingDetail?.memo && (
-                <div className="flex items-start gap-2.5 px-3.5 py-2.5 text-slate-500">
-                  <Pencil size={14} className="mt-0.5 shrink-0 text-violet-400" />
-                  <span className="min-w-0 break-words">{livePendingDetail.memo}</span>
-                </div>
-              )}
+              ))}
+              {pendingDetailOutbound.length === 0 && <div className="bg-slate-50/60 px-3 py-6 text-center text-sm text-slate-400">이 코일의 다른 출고 내역이 없습니다.</div>}
             </div>
           </div>
         </div>
