@@ -11,6 +11,7 @@ import { VendorManagement } from "./vendors.jsx";
 
 /* =========================================================================
    HN메탈릭 코일 재고관리 시스템 (v2)
+   · 관리자 비밀번호: 0707 / 담당자 비밀번호: 1555
    · M(미터) 중심 관리 / 중량(kg) 미표시
    · 코일번호 자동생성  C-YYYYMMDD-####
    · 출고 홀딩 + 완료승인 정산 (제품구분별 FIFO 차감)
@@ -815,7 +816,7 @@ export default function CoilInventory() {
           initialDetailId={outboundDetailId} clearInitialDetail={() => setOutboundDetailId("")} />}
         {menu === "coil" && <CoilManagement ctx={ctx} />}
         {menu === "inventory" && <Inventory ctx={ctx} />}
-        {menu === "vendor" && <VendorManagement isMaster={isMaster} />}
+        {menu === "vendor" && <VendorManagement isMaster={isMaster} myUid={auth.user?.uid || ""} myName={auth.profile?.name || ""} />}
       </main>
     </div>
   );
