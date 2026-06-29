@@ -303,7 +303,8 @@ export function ItemManagement({ isMaster, myUid = "", myName = "" }) {
   }, [items, search, catFilter]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const canEdit = (it) => isMaster || (it.ownerUid && it.ownerUid === myUid);
+  // 품목 수정·품절 = 승인된 모든 담당자 가능 / 품목 삭제 = 마스터만 가능
+  const canDelete = isMaster;
 
   const openCreate = () => { setEditId(null); setEditOrig(null); setForm(emptyItem(meta.categories)); setFormErr(""); setFormOpen(true); };
   const openEdit = (it) => { setEditId(it.id); setEditOrig(it); setForm({ ...emptyItem(meta.categories), ...it }); setFormErr(""); setFormOpen(true); };
@@ -338,10 +339,13 @@ export function ItemManagement({ isMaster, myUid = "", myName = "" }) {
     setBusy(false);
   };
 
-  const removeItem = (it) => setConfirmState({
-    message: `'${it.name}' (${it.id}) 품목을 삭제하시겠습니까?`,
-    onYes: async () => { setConfirmState(null); try { await deleteItem(it.id); } catch (e) { setTopErr(e?.message || "삭제 실패"); } },
-  });
+  const removeItem = (it) => {
+    if (!isMaster) { setTopErr("품목 삭제는 마스터만 가능합니다."); return; }
+    setConfirmState({
+      message: `'${it.name}' (${it.id}) 품목을 삭제하시겠습니까?`,
+      onYes: async () => { setConfirmState(null); try { await deleteItem(it.id); } catch (e) { setTopErr(e?.message || "삭제 실패"); } },
+    });
+  };
 
   const onToggleSoldOut = (it) => {
     if (it.soldOut) {
@@ -493,20 +497,17 @@ export function ItemManagement({ isMaster, myUid = "", myName = "" }) {
                           <td className="px-3 py-2.5 text-right text-slate-600">{wonFmt(it.baseQty)}</td>
                           <td className="px-2 py-2.5">
                             <div className="flex items-center justify-center gap-1.5">
-                              {canEdit(it) ? <Toggle on={Boolean(it.soldOut)} onClick={() => onToggleSoldOut(it)} title={it.soldOut ? "판매재개" : "품절 처리"} />
-                                : <span className={`text-xs ${it.soldOut ? "text-rose-500" : "text-slate-300"}`}>{it.soldOut ? "품절" : "정상"}</span>}
+                              <Toggle on={Boolean(it.soldOut)} onClick={() => onToggleSoldOut(it)} title={it.soldOut ? "판매재개" : "품절 처리"} />
                               {((it.history || it.soldOutLog || []).length > 0) && (
                                 <button onClick={() => setLogItem(it)} title="변경 이력" className="text-slate-400 hover:text-indigo-600"><History size={14} /></button>
                               )}
                             </div>
                           </td>
                           <td className="px-3 py-2.5 text-center whitespace-nowrap">
-                            {canEdit(it) ? (
-                              <>
-                                <button onClick={() => openEdit(it)} className="text-xs px-2 py-1 rounded-lg border border-slate-200 hover:bg-white mr-1">수정</button>
-                                <button onClick={() => removeItem(it)} className="text-xs px-2 py-1 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50">삭제</button>
-                              </>
-                            ) : <span className="text-xs text-slate-300">{it.ownerName ? `${it.ownerName} 담당` : "—"}</span>}
+                            <button onClick={() => openEdit(it)} className="text-xs px-2 py-1 rounded-lg border border-slate-200 hover:bg-white mr-1">수정</button>
+                            {canDelete && (
+                              <button onClick={() => removeItem(it)} className="text-xs px-2 py-1 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50">삭제</button>
+                            )}
                           </td>
                         </tr>
                       ))}
