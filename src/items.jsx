@@ -118,11 +118,11 @@ export async function deleteItem(id) {
   await fsModule.deleteDoc(itemDoc(fsModule, db, id));
 }
 
-// 품절/판매재개 — 상태 변경 + 이력(soldOutLog)에 기록
+// 품절/판매재개 — 상태 변경 + 이력(history)에 기록
 export async function setSoldOut(item, { soldOut, date, reason, by }) {
   const { db, fsModule } = await getDataRuntime();
-  const log = Array.isArray(item.soldOutLog) ? item.soldOutLog.slice() : [];
-  log.unshift({
+  const history = Array.isArray(item.history) ? item.history.slice() : (Array.isArray(item.soldOutLog) ? item.soldOutLog.slice() : []);
+  history.unshift({
     type: soldOut ? "품절" : "판매재개",
     date: date || todayStr(),
     reason: reason || "",
@@ -133,22 +133,33 @@ export async function setSoldOut(item, { soldOut, date, reason, by }) {
     soldOut: Boolean(soldOut),
     soldOutDate: soldOut ? (date || todayStr()) : "",
     soldOutReason: soldOut ? (reason || "") : "",
-    soldOutLog: log,
+    history,
     updatedAt: fsModule.serverTimestamp(),
   });
 }
 
-// 엑셀 업로드 — 파일의 제품ID 그대로 사용, 이미 있는 ID는 건너뜀
+// 가격 등 수정 시 변경 이력을 history 앞에 추가하여 저장
+export async function updateItemWithHistory(id, data, changeEntries, prevHistory) {
+  const { db, fsModule } = await getDataRuntime();
+  const history = [...(changeEntries || []), ...(Array.isArray(prevHistory) ? prevHistory : [])];
+  await fsModule.updateDoc(itemDoc(fsModule, db, id), { ...data, history, updatedAt: fsModule.serverTimestamp() });
+}
+
+// 엑셀 업로드 — 파일의 제품ID 그대로 사용, 이미 있는 ID/누락은 사유와 함께 건너뜀
 export async function bulkCreateItems(rows, existing, owner = {}) {
   const { db, fsModule } = await getDataRuntime();
   const existingIds = new Set(existing.map((i) => i.id));
-  let added = 0, skipped = 0;
+  const seen = new Set();
+  let added = 0;
+  const skipped = [];
   for (const r of rows) {
     const id = String(r.id || "").trim();
-    if (!id || existingIds.has(id)) { skipped++; continue; }
-    existingIds.add(id);
+    if (!id) { skipped.push({ id: "(빈칸)", name: r.name || "", reason: "제품ID 없음" }); continue; }
+    if (existingIds.has(id)) { skipped.push({ id, name: r.name || "", reason: "이미 등록됨" }); continue; }
+    if (seen.has(id)) { skipped.push({ id, name: r.name || "", reason: "파일 내 ID 중복" }); continue; }
+    seen.add(id); existingIds.add(id);
     await fsModule.setDoc(itemDoc(fsModule, db, id), {
-      ...r, id, ...owner, soldOut: false, updatedAt: fsModule.serverTimestamp(),
+      ...r, id, ...owner, soldOut: false, history: [], updatedAt: fsModule.serverTimestamp(),
     });
     added++;
   }
@@ -261,9 +272,11 @@ export function ItemManagement({ isMaster, myUid = "", myName = "" }) {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [editOrig, setEditOrig] = useState(null);
   const [form, setForm] = useState(emptyItem(DEFAULT_CATEGORIES));
   const [formErr, setFormErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [skippedList, setSkippedList] = useState([]);
 
   const [excelOpen, setExcelOpen] = useState(false);
   const [confirmState, setConfirmState] = useState(null);
@@ -291,8 +304,8 @@ export function ItemManagement({ isMaster, myUid = "", myName = "" }) {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const canEdit = (it) => isMaster || (it.ownerUid && it.ownerUid === myUid);
 
-  const openCreate = () => { setEditId(null); setForm(emptyItem(meta.categories)); setFormErr(""); setFormOpen(true); };
-  const openEdit = (it) => { setEditId(it.id); setForm({ ...emptyItem(meta.categories), ...it }); setFormErr(""); setFormOpen(true); };
+  const openCreate = () => { setEditId(null); setEditOrig(null); setForm(emptyItem(meta.categories)); setFormErr(""); setFormOpen(true); };
+  const openEdit = (it) => { setEditId(it.id); setEditOrig(it); setForm({ ...emptyItem(meta.categories), ...it }); setFormErr(""); setFormOpen(true); };
 
   const trySave = async () => {
     setFormErr("");
@@ -307,8 +320,18 @@ export function ItemManagement({ isMaster, myUid = "", myName = "" }) {
       baseDate: form.baseDate || todayStr(), baseQty: Number(form.baseQty) || 0,
     };
     try {
-      if (editId) await updateItem(editId, payload);
-      else await createItem({ ...payload, ownerUid: myUid, ownerName: myName, soldOut: false }, meta.prefixes, items);
+      if (editId) {
+        // 가격 변경 이력 생성
+        const priceFields = [["매입가", "buyPrice"], ["공장가", "factoryPrice"], ["온라인가", "onlinePrice"], ["쿠팡", "coupangPrice"], ["네이버", "naverPrice"]];
+        const now = new Date().toISOString();
+        const changes = priceFields
+          .filter(([, key]) => (Number(editOrig?.[key]) || 0) !== (Number(payload[key]) || 0))
+          .map(([label, key]) => ({ type: "가격변경", field: label, from: Number(editOrig?.[key]) || 0, to: Number(payload[key]) || 0, by: myName, date: todayStr(), at: now }));
+        const prevHistory = editOrig?.history || editOrig?.soldOutLog || [];
+        await updateItemWithHistory(editId, payload, changes, prevHistory);
+      } else {
+        await createItem({ ...payload, ownerUid: myUid, ownerName: myName, soldOut: false, history: [] }, meta.prefixes, items);
+      }
       setFormOpen(false);
     } catch (e) { setFormErr(e?.message || "저장 실패"); }
     setBusy(false);
@@ -338,11 +361,12 @@ export function ItemManagement({ isMaster, myUid = "", myName = "" }) {
 
   const onUpload = async (file) => {
     if (!file) return;
-    setUploadMsg("업로드 중...");
+    setUploadMsg("업로드 중..."); setSkippedList([]);
     try {
       const rows = await parseItemExcel(file);
       const { added, skipped } = await bulkCreateItems(rows, items, { ownerUid: myUid, ownerName: myName });
-      setUploadMsg(`${added}건 추가${skipped ? `, ${skipped}건 중복/누락 제외` : ""} 완료`);
+      setUploadMsg(`${added}건 추가${skipped.length ? `, ${skipped.length}건 제외` : ""} 완료`);
+      setSkippedList(skipped);
     } catch (e) { setUploadMsg("업로드 실패: " + (e?.message || "")); }
     if (fileRef.current) fileRef.current.value = "";
   };
@@ -353,7 +377,7 @@ export function ItemManagement({ isMaster, myUid = "", myName = "" }) {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-black text-slate-800">품목관리</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-800">품목관리</h1>
           <p className="text-sm text-slate-500 mt-0.5">품목·가격·기초재고를 관리하고 품절을 처리합니다. (색상은 거래명세표 단계)</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -378,6 +402,19 @@ export function ItemManagement({ isMaster, myUid = "", myName = "" }) {
       </div>
 
       {uploadMsg && <div className="text-sm rounded-xl bg-indigo-50 text-indigo-700 px-4 py-2.5">{uploadMsg}</div>}
+      {skippedList.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
+          <div className="flex items-center justify-between mb-1">
+            <span className="font-bold text-amber-700">제외된 {skippedList.length}건 (등록 안 됨)</span>
+            <button onClick={() => setSkippedList([])} className="text-xs text-amber-600 hover:text-amber-800">닫기</button>
+          </div>
+          <ul className="space-y-0.5 text-amber-800/90 max-h-44 overflow-auto">
+            {skippedList.map((s, i) => (
+              <li key={i}>· <span className="font-mono">{s.id}</span>{s.name ? ` (${s.name})` : ""} — {s.reason}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {topErr && <div className="text-sm rounded-xl bg-rose-50 text-rose-600 px-4 py-2.5">{topErr}</div>}
 
       <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-0">
@@ -391,65 +428,81 @@ export function ItemManagement({ isMaster, myUid = "", myName = "" }) {
         </select>
       </div>
 
-      <div className="overflow-auto rounded-2xl border border-slate-200">
-        <table className="w-full text-xs sm:text-sm min-w-[1040px]">
-          <thead>
-            <tr className="bg-slate-50 text-slate-500">
-              <th className="text-left px-3 py-2.5 font-semibold">제품ID</th>
-              <th className="text-left px-3 py-2.5 font-semibold">대분류</th>
-              <th className="text-left px-3 py-2.5 font-semibold">품목명</th>
-              <th className="text-left px-3 py-2.5 font-semibold">규격</th>
-              <th className="text-center px-3 py-2.5 font-semibold">단위</th>
-              <th className="text-right px-3 py-2.5 font-semibold">매입가</th>
-              <th className="text-right px-3 py-2.5 font-semibold">공장가</th>
-              <th className="text-right px-3 py-2.5 font-semibold">온라인</th>
-              <th className="text-right px-3 py-2.5 font-semibold">쿠팡</th>
-              <th className="text-right px-3 py-2.5 font-semibold">네이버</th>
-              <th className="text-right px-3 py-2.5 font-semibold">기초재고</th>
-              <th className="text-center px-3 py-2.5 font-semibold">품절</th>
-              <th className="text-right px-3 py-2.5 font-semibold">작업</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={13} className="text-center text-slate-400 py-10">불러오는 중...</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={13} className="text-center text-slate-400 py-10">등록된 품목이 없습니다. 엑셀 업로드 또는 품목 등록으로 추가하세요.</td></tr>
-            ) : filtered.map((it) => (
-              <tr key={it.id} className={`border-t border-slate-100 hover:bg-slate-50/60 ${it.soldOut ? "bg-rose-50/40" : ""}`}>
-                <td className="px-3 py-2.5 font-mono text-slate-500">{it.id}</td>
-                <td className="px-3 py-2.5"><span className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">{it.category}</span></td>
-                <td className="px-3 py-2.5 font-semibold text-slate-700">{it.name}{it.soldOut && <span className="ml-1 text-[10px] text-rose-500">품절</span>}</td>
-                <td className="px-3 py-2.5 text-slate-500">{it.spec}</td>
-                <td className="px-3 py-2.5 text-center text-slate-500">{it.unit}</td>
-                <td className="px-3 py-2.5 text-right text-slate-500">{wonFmt(it.buyPrice)}</td>
-                <td className="px-3 py-2.5 text-right text-slate-700">{wonFmt(it.factoryPrice)}</td>
-                <td className="px-3 py-2.5 text-right text-slate-700">{wonFmt(it.onlinePrice)}</td>
-                <td className="px-3 py-2.5 text-right text-slate-700">{wonFmt(it.coupangPrice)}</td>
-                <td className="px-3 py-2.5 text-right text-slate-700">{wonFmt(it.naverPrice)}</td>
-                <td className="px-3 py-2.5 text-right text-slate-600">{wonFmt(it.baseQty)}</td>
-                <td className="px-3 py-2.5">
-                  <div className="flex items-center justify-center gap-1.5">
-                    {canEdit(it) ? <Toggle on={Boolean(it.soldOut)} onClick={() => onToggleSoldOut(it)} title={it.soldOut ? "판매재개" : "품절 처리"} />
-                      : <span className={`text-xs ${it.soldOut ? "text-rose-500" : "text-slate-300"}`}>{it.soldOut ? "품절" : "정상"}</span>}
-                    {(it.soldOutLog || []).length > 0 && (
-                      <button onClick={() => setLogItem(it)} title="품절 이력" className="text-slate-400 hover:text-indigo-600"><History size={14} /></button>
-                    )}
-                  </div>
-                </td>
-                <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                  {canEdit(it) ? (
-                    <>
-                      <button onClick={() => openEdit(it)} className="text-xs px-2 py-1 rounded-lg border border-slate-200 hover:bg-white mr-1">수정</button>
-                      <button onClick={() => removeItem(it)} className="text-xs px-2 py-1 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50">삭제</button>
-                    </>
-                  ) : <span className="text-xs text-slate-300">{it.ownerName ? `${it.ownerName} 담당` : "—"}</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {loading ? (
+        <div className="rounded-2xl border border-slate-200 text-center text-slate-400 py-12">불러오는 중...</div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-2xl border border-slate-200 text-center text-slate-400 py-12">등록된 품목이 없습니다. 엑셀 업로드 또는 품목 등록으로 추가하세요.</div>
+      ) : (
+        <div className="space-y-4">
+          {(() => {
+            const order = meta.categories;
+            const map = {};
+            filtered.forEach((it) => { (map[it.category] = map[it.category] || []).push(it); });
+            const cats = [...order.filter((c) => map[c]), ...Object.keys(map).filter((c) => !order.includes(c))];
+            return cats.map((cat) => (
+              <div key={cat} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+                  <h4 className="font-bold text-slate-800">{cat}</h4>
+                  <span className="text-xs text-slate-400">{map[cat].length}건</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs sm:text-sm min-w-[980px]">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-500">
+                        <th className="text-left px-3 py-2.5 font-semibold">제품ID</th>
+                        <th className="text-left px-3 py-2.5 font-semibold">품목명</th>
+                        <th className="text-left px-3 py-2.5 font-semibold">규격</th>
+                        <th className="text-center px-3 py-2.5 font-semibold">단위</th>
+                        <th className="text-right px-3 py-2.5 font-semibold">매입가</th>
+                        <th className="text-right px-3 py-2.5 font-semibold">공장가</th>
+                        <th className="text-right px-3 py-2.5 font-semibold">온라인</th>
+                        <th className="text-right px-3 py-2.5 font-semibold">쿠팡</th>
+                        <th className="text-right px-3 py-2.5 font-semibold">네이버</th>
+                        <th className="text-right px-3 py-2.5 font-semibold">기초재고</th>
+                        <th className="text-center px-3 py-2.5 font-semibold">품절</th>
+                        <th className="text-right px-3 py-2.5 font-semibold">작업</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {map[cat].map((it) => (
+                        <tr key={it.id} className={`hover:bg-slate-50/60 ${it.soldOut ? "bg-rose-50/40" : ""}`}>
+                          <td className="px-3 py-2.5 font-mono text-slate-500">{it.id}</td>
+                          <td className="px-3 py-2.5 font-semibold text-slate-700">{it.name}{it.soldOut && <span className="ml-1 text-[10px] text-rose-500">품절</span>}</td>
+                          <td className="px-3 py-2.5 text-slate-500">{it.spec}</td>
+                          <td className="px-3 py-2.5 text-center text-slate-500">{it.unit}</td>
+                          <td className="px-3 py-2.5 text-right text-slate-500">{wonFmt(it.buyPrice)}</td>
+                          <td className="px-3 py-2.5 text-right text-slate-700">{wonFmt(it.factoryPrice)}</td>
+                          <td className="px-3 py-2.5 text-right text-slate-700">{wonFmt(it.onlinePrice)}</td>
+                          <td className="px-3 py-2.5 text-right text-slate-700">{wonFmt(it.coupangPrice)}</td>
+                          <td className="px-3 py-2.5 text-right text-slate-700">{wonFmt(it.naverPrice)}</td>
+                          <td className="px-3 py-2.5 text-right text-slate-600">{wonFmt(it.baseQty)}</td>
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center justify-center gap-1.5">
+                              {canEdit(it) ? <Toggle on={Boolean(it.soldOut)} onClick={() => onToggleSoldOut(it)} title={it.soldOut ? "판매재개" : "품절 처리"} />
+                                : <span className={`text-xs ${it.soldOut ? "text-rose-500" : "text-slate-300"}`}>{it.soldOut ? "품절" : "정상"}</span>}
+                              {((it.history || it.soldOutLog || []).length > 0) && (
+                                <button onClick={() => setLogItem(it)} title="변경 이력" className="text-slate-400 hover:text-indigo-600"><History size={14} /></button>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                            {canEdit(it) ? (
+                              <>
+                                <button onClick={() => openEdit(it)} className="text-xs px-2 py-1 rounded-lg border border-slate-200 hover:bg-white mr-1">수정</button>
+                                <button onClick={() => removeItem(it)} className="text-xs px-2 py-1 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50">삭제</button>
+                              </>
+                            ) : <span className="text-xs text-slate-300">{it.ownerName ? `${it.ownerName} 담당` : "—"}</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ));
+          })()}
+        </div>
+      )}
 
       {/* 등록/수정 모달 */}
       <VModal open={formOpen} onClose={() => setFormOpen(false)} wide
@@ -510,20 +563,28 @@ export function ItemManagement({ isMaster, myUid = "", myName = "" }) {
         </div>
       </VModal>
 
-      {/* 품절 이력(타임라인) 모달 */}
-      <VModal open={Boolean(logItem)} onClose={() => setLogItem(null)} title={`품절 이력 — ${logItem?.name || ""}`}
+      {/* 변경 이력(타임라인) 모달 */}
+      <VModal open={Boolean(logItem)} onClose={() => setLogItem(null)} title={`변경 이력 — ${logItem?.name || ""}`}
         footer={<div className="flex justify-end"><button onClick={() => setLogItem(null)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600">닫기</button></div>}>
         <div className="space-y-3">
-          {(logItem?.soldOutLog || []).length === 0 ? <p className="text-sm text-slate-400">이력이 없습니다.</p> : (
+          {((logItem?.history || logItem?.soldOutLog || []).length === 0) ? <p className="text-sm text-slate-400">이력이 없습니다.</p> : (
             <ol className="relative border-l-2 border-slate-100 pl-4 space-y-4">
-              {(logItem?.soldOutLog || []).map((l, i) => (
-                <li key={i} className="relative">
-                  <span className={`absolute -left-[1.35rem] top-1 w-3 h-3 rounded-full ${l.type === "품절" ? "bg-rose-500" : "bg-emerald-500"}`} />
-                  <div className="text-sm font-semibold text-slate-700">{l.type} · {l.date}</div>
-                  {l.reason && <div className="text-sm text-slate-500 mt-0.5">사유: {l.reason}</div>}
-                  {l.by && <div className="text-xs text-slate-400 mt-0.5">처리: {l.by}</div>}
-                </li>
-              ))}
+              {(logItem?.history || logItem?.soldOutLog || []).map((l, i) => {
+                const isPrice = l.type === "가격변경";
+                const dot = l.type === "품절" ? "bg-rose-500" : l.type === "판매재개" ? "bg-emerald-500" : "bg-indigo-500";
+                return (
+                  <li key={i} className="relative">
+                    <span className={`absolute -left-[1.35rem] top-1 w-3 h-3 rounded-full ${dot}`} />
+                    <div className="text-sm font-semibold text-slate-700">
+                      {isPrice ? `${l.field} 변경` : l.type} · {l.date}
+                    </div>
+                    {isPrice ? (
+                      <div className="text-sm text-slate-500 mt-0.5">{wonFmt(l.from)} → <span className="font-semibold text-slate-700">{wonFmt(l.to)}</span></div>
+                    ) : (l.reason && <div className="text-sm text-slate-500 mt-0.5">사유: {l.reason}</div>)}
+                    {l.by && <div className="text-xs text-slate-400 mt-0.5">처리: {l.by}</div>}
+                  </li>
+                );
+              })}
             </ol>
           )}
         </div>
