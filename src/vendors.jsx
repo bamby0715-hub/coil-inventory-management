@@ -331,7 +331,7 @@ export function VendorManagement({ isMaster, myUid = "", myName = "" }) {
   const btn = "h-10 px-3 rounded-xl border text-xs font-bold inline-flex items-center justify-center transition whitespace-nowrap";
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto w-full">
+    <div className="space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-black text-slate-800">거래처관리</h1>
@@ -432,26 +432,17 @@ export function VendorManagement({ isMaster, myUid = "", myName = "" }) {
         <div className="space-y-4">
           <div className="grid sm:grid-cols-2 gap-3">
             <Field label="구분" required>
-              <div className="flex gap-1.5">
-                <select className={inputCls} value={form.category} onChange={(e) => set("category", e.target.value)}>
-                  {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <button type="button" onClick={() => setAddingCat((o) => !o)} title="구분 추가"
-                  className="shrink-0 w-10 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center"><Plus size={16} /></button>
-              </div>
-              {addingCat && (
-                <div className="flex gap-1.5 mt-1.5">
-                  <input className={inputCls} value={inlineCat} onChange={(e) => setInlineCat(e.target.value)} placeholder="새 구분 이름"
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addInlineCategory(); } }} />
-                  <button type="button" onClick={addInlineCategory} className="shrink-0 px-3 rounded-xl bg-indigo-600 text-white text-sm font-medium">추가</button>
-                </div>
-              )}
+              <select className={inputCls} value={form.category} onChange={(e) => set("category", e.target.value)}>
+                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
             </Field>
             <Field label="거래처명" required><input className={inputCls} value={form.name} onChange={(e) => set("name", e.target.value)} /></Field>
             <Field label="담당자" required><input className={inputCls} value={form.manager} onChange={(e) => set("manager", e.target.value)} /></Field>
             <Field label="연락처" required><input className={inputCls} value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="010-0000-0000" /></Field>
             <Field label="기초일"><input type="date" className={inputCls} value={form.baseDate} onChange={(e) => set("baseDate", e.target.value)} /></Field>
-            <Field label="기초미수금"><input type="text" inputMode="numeric" className={inputCls} value={form.baseReceivable} onChange={(e) => set("baseReceivable", e.target.value.replace(/[^0-9.-]/g, ""))} /></Field>
+            <Field label="기초미수금"><input type="text" inputMode="numeric" className={inputCls}
+              value={form.baseReceivable === "" || form.baseReceivable === null || form.baseReceivable === undefined ? "" : (Number(String(form.baseReceivable).replace(/[^0-9-]/g, "")) || 0).toLocaleString("ko-KR")}
+              onChange={(e) => set("baseReceivable", e.target.value.replace(/[^0-9-]/g, ""))} /></Field>
           </div>
 
           <button type="button" onClick={() => setDetailOpen((o) => !o)} className="inline-flex items-center gap-1 text-sm font-semibold text-slate-600 hover:text-indigo-600">
