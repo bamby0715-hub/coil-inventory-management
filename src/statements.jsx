@@ -3,6 +3,9 @@ import {
   Plus, Trash2, Pencil, X, Printer, Calculator, FileText, Search,
   ChevronDown, Check, Building2, Download,
 } from "lucide-react";
+import { subscribeItems, isCoilCategory, DEFAULT_CATEGORIES, COMMON_UNITS } from "./items.jsx";
+import { subscribeVendors } from "./vendors.jsx";
+import * as XLSX from "xlsx";
 
 /* =========================================================================
    거래명세표 (statements) — HNMT Coil System
@@ -25,10 +28,14 @@ const SUPPLIER = {
   연락처: "",
 };
 
-/* ---------------- enum (0부 §2,3,4-3) ---------------- */
-export const 대분류목록 = ["강판", "징크", "절곡", "메탈사이딩", "강판물받이", "징크물받이", "피스", "볼트", "기타", "외부"];
+/* ---------------- enum (품목 스키마 + 0부 §4-3) ---------------- */
+export const 대분류목록 = DEFAULT_CATEGORIES; // items.jsx 단일 출처
 export const 부가세구분목록 = ["별도", "포함", "없음"];
-const 코일대분류 = new Set(["강판", "징크", "절곡"]); // 색상구분=코일
+
+// 거래처 구분(category) → 품목 가격 필드 (items.jsx: 업체방문=공장가 기준)
+const PRICE_FIELD_BY_CATEGORY = { "공장": "factoryPrice", "업체방문": "factoryPrice", "온라인": "onlinePrice", "쿠팡": "coupangPrice", "네이버": "naverPrice" };
+const PRICE_TYPES = [["factoryPrice", "공장가"], ["onlinePrice", "온라인가"], ["coupangPrice", "쿠팡"], ["naverPrice", "네이버"], ["buyPrice", "매입가"]];
+const priceLabel = (field) => (PRICE_TYPES.find(([k]) => k === field) || [, "공장가"])[1];
 
 /* ===================== 계산 엔진 (검증 완료) ===================== */
 export const floorWon = (n) => Math.floor(Number(n) || 0);
@@ -144,35 +151,41 @@ function useStatementsStore() {
 /* ---------------- ADAPTER: 거래처·품목 자동 불러오기 (옵션) ----------------
    실제 vendors/items 컬렉션·필드명 확인되면 아래만 교체하면 자동완성 활성화.
    현재는 빈 목록(수동 입력으로 동작). ---------------------------------- */
+// 거래처 이름 필드 키가 무엇이든 잡아내도록 후보 키를 넓게 검사
+const VENDOR_NAME_KEYS = ["거래처명", "name", "vendor_name", "vendorName", "상호", "회사명", "company", "title", "거래처"];
+const vendorNameOf = (v) => {
+  for (const k of VENDOR_NAME_KEYS) { if (v && typeof v[k] === "string" && v[k].trim()) return v[k].trim(); }
+  return "";
+};
 function useVendors() {
   const [v, setV] = useState([]);
-  useEffect(() => {
-    let unsub = () => {};
-    getDataRuntime().then(({ db, fsModule }) => {
-      unsub = fsModule.onSnapshot(fsModule.collection(db, "vendors"),
-        (snap) => setV(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-        () => {});
-    }).catch(() => {});
-    return () => unsub();
-  }, []);
+  useEffect(() => subscribeVendors((list) => setV(list), () => {}), []);
   return v;
+}
+function useItems() {
+  const [items, setItems] = useState([]);
+  useEffect(() => subscribeItems((list) => setItems(list), (e) => console.error("품목 구독 실패:", e?.message || e)), []);
+  return items;
 }
 
 /* ===================== UI ===================== */
 const blankLine = () => ({
   uid: Math.random().toString(36).slice(2),
-  category: "강판", name: "", spec: "", color: "", thickness: "",
+  item_id: "", category: (DEFAULT_CATEGORIES && DEFAULT_CATEGORIES[0]) || "강판",
+  name: "", spec: "", color: "", thickness: "",
   unit: "M", length: "", qty: "", sum_qty: "", unit_price: "", memo: "",
 });
 
 const blankHeader = () => ({
-  doc_no: "", date: todayStr(), vendor_name: "", site_address: "",
-  vat_type: "별도", freight: "", paid: "", memo: "", status: "작성중",
+  doc_no: "", date: todayStr(), vendor_name: "", vendor_code: "", site_address: "",
+  vat_type: "별도", price_field: "factoryPrice", freight: "", paid: "", memo: "", status: "작성중",
+  v_bizno: "", v_ceo: "", v_address: "",
 });
 
 export function StatementManagement({ isMaster = false, myUid = "", myName = "" }) {
   const statements = useStatementsStore();
   const vendors = useVendors();
+  const items = useItems();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const [header, setHeader] = useState(blankHeader());
@@ -182,7 +195,7 @@ export function StatementManagement({ isMaster = false, myUid = "", myName = "" 
   const [query, setQuery] = useState("");
 
   const vendorNames = useMemo(() =>
-    [...new Set(vendors.map((v) => v.거래처명 || v.name || v.vendor_name).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko")),
+    [...new Set(vendors.map(vendorNameOf).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko")),
     [vendors]);
   const siteSuggest = useMemo(() =>
     [...new Set(statements.map((s) => s.site_address).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko")),
@@ -222,6 +235,44 @@ export function StatementManagement({ isMaster = false, myUid = "", myName = "" 
     if (String(next.unit || "").toUpperCase() !== "M") next.sum_qty = Number(next.qty) || 0;
     return next;
   }));
+  const priceOf = (item) => Number(item[header.price_field]) || 0;
+  const pickVendor = (value) => {
+    const v = vendors.find((x) => x.code === value) || vendors.find((x) => vendorNameOf(x) === value);
+    setHeader((h) => ({
+      ...h,
+      vendor_name: v ? vendorNameOf(v) : value,
+      vendor_code: v ? v.code : "",
+      price_field: v && PRICE_FIELD_BY_CATEGORY[v.category] ? PRICE_FIELD_BY_CATEGORY[v.category] : h.price_field,
+      v_bizno: v ? (v.bizNo || "") : "", v_ceo: v ? (v.ceo || "") : "", v_address: v ? (v.address || "") : "",
+    }));
+  };
+  const pickItem = (uid, itemId) => {
+    const it = items.find((x) => x.id === itemId);
+    if (!it) { updateLine(uid, { item_id: "" }); return; }
+    updateLine(uid, {
+      item_id: it.id, category: it.category || "강판", name: it.name || "",
+      spec: it.spec || "", unit: it.unit || "EA", unit_price: priceOf(it),
+    });
+  };
+  // 가격유형(거래처 구분) 변경 시 품목 연결된 라인의 단가 재산출
+  useEffect(() => {
+    setLines((arr) => arr.map((l) => {
+      if (!l.item_id) return l;
+      const it = items.find((x) => x.id === l.item_id);
+      return it ? { ...l, unit_price: Number(it[header.price_field]) || 0 } : l;
+    }));
+  }, [header.price_field]); // eslint-disable-line
+
+  // 거래처별 미수금 누적 (0부 §2-5): 기초미수금 + 다른 명세표 합계 − 입금
+  const vendorBalance = useMemo(() => {
+    const code = header.vendor_code, name = header.vendor_name;
+    const v = vendors.find((x) => x.code === code) || vendors.find((x) => vendorNameOf(x) === name);
+    const base = v ? Number(v.baseReceivable) || 0 : 0;
+    const others = statements.filter((s) => s.id !== editId && s.status !== "취소" && (code ? s.vendor_code === code : s.vendor_name === name));
+    const prior = base + others.reduce((a, s) => a + (Number(s.total) || 0) - (Number(s.paid) || 0), 0);
+    const current = prior + (totals.total || 0) - (Number(header.paid) || 0);
+    return { base, prior, current, hasVendor: Boolean(v) };
+  }, [vendors, statements, header.vendor_code, header.vendor_name, header.paid, editId, totals.total]);
   const addLine = () => setLines((arr) => [...arr, blankLine()]);
   const removeLine = (uid) => setLines((arr) => (arr.length > 1 ? arr.filter((l) => l.uid !== uid) : arr));
 
@@ -232,8 +283,7 @@ export function StatementManagement({ isMaster = false, myUid = "", myName = "" 
     for (const l of lines) {
       if (!대분류목록.includes(l.category)) return "대분류를 확인해주세요.";
       if (!l.name.trim()) return "품목명을 입력해주세요.";
-      if (코일대분류.has(l.category) && !String(l.color).trim()) return `${l.name}: 색상을 입력해주세요.`;
-      if (!l.thickness && 코일대분류.has(l.category)) return `${l.name}: 두께를 입력해주세요.`;
+      if (isCoilCategory(l.category) && !String(l.color).trim()) return `${l.name}: 색상을 입력해주세요.`;
       const isM = String(l.unit).toUpperCase() === "M";
       const qtyVal = isM ? Number(l.sum_qty) : Number(l.qty);
       if (!(qtyVal > 0)) return `${l.name}: 수량(합계수량)이 0 또는 음수입니다.`;
@@ -257,7 +307,8 @@ export function StatementManagement({ isMaster = false, myUid = "", myName = "" 
       const record = {
         ...header, doc_no, status: statusOverride || header.status,
         lines: cleanLines, supply: totals.supply, vat: totals.tax, total: totals.total,
-        unpaid: totals.unpaid, author_uid: editId ? header.author_uid || myUid : myUid,
+        unpaid: totals.unpaid, prior_balance: vendorBalance.prior, current_balance: vendorBalance.current,
+        author_uid: editId ? header.author_uid || myUid : myUid,
         author_name: editId ? header.author_name || myName : myName,
         site_address: header.site_address.trim().replace(/\s+/g, " "),
         created_at: editId ? header.created_at || todayStr() : todayStr(),
@@ -274,8 +325,6 @@ export function StatementManagement({ isMaster = false, myUid = "", myName = "" 
   };
 
   const exportExcel = async () => {
-    const XLSX = await importExternal("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm").catch(() => null);
-    if (!XLSX) { alert("엑셀 모듈 로드 실패"); return; }
     const rows = [];
     visibleRows.forEach((s) => (s.lines || []).forEach((l) => rows.push({
       문서번호: s.doc_no, 작성일: s.date, 거래처: s.vendor_name, 현장주소: s.site_address,
@@ -323,7 +372,7 @@ export function StatementManagement({ isMaster = false, myUid = "", myName = "" 
                   <td className="px-3 py-2.5 font-medium whitespace-nowrap">{s.vendor_name}</td>
                   <td className="px-3 py-2.5 text-slate-600 min-w-[200px]">{s.site_address}</td>
                   <td className="px-3 py-2.5 text-right font-semibold whitespace-nowrap">{fmtWon(s.total)}</td>
-                  <td className={`px-3 py-2.5 text-right whitespace-nowrap ${Number(s.unpaid) > 0 ? "text-rose-600 font-medium" : "text-slate-400"}`}>{fmtWon(s.unpaid)}</td>
+                  <td className={`px-3 py-2.5 text-right whitespace-nowrap ${Number(s.current_balance ?? s.unpaid) > 0 ? "text-rose-600 font-medium" : "text-slate-400"}`}>{fmtWon(s.current_balance ?? s.unpaid)}</td>
                   <td className="px-3 py-2.5">
                     <span className={`px-2 py-0.5 rounded-full text-xs ${s.status === "완료" ? "bg-emerald-50 text-emerald-700" : s.status === "취소" ? "bg-slate-100 text-slate-500" : "bg-amber-50 text-amber-700"}`}>{s.status || "작성중"}</span>
                   </td>
@@ -345,8 +394,8 @@ export function StatementManagement({ isMaster = false, myUid = "", myName = "" 
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="거래처명">
-                <input list="vendor-list" value={header.vendor_name} onChange={(e) => setHeader((h) => ({ ...h, vendor_name: e.target.value }))} className="ipt" placeholder="거래처명" />
-                <datalist id="vendor-list">{vendorNames.map((n) => <option key={n} value={n} />)}</datalist>
+                <input list="vendor-list" value={header.vendor_name} onChange={(e) => pickVendor(e.target.value)} className="ipt" placeholder="거래처명 (등록분 자동완성)" />
+                <datalist id="vendor-list">{vendors.map((v) => <option key={v.code} value={vendorNameOf(v)}>{v.code} · {v.category}</option>)}</datalist>
               </Field>
               <Field label="작성일"><input type="date" value={header.date} onChange={(e) => setHeader((h) => ({ ...h, date: e.target.value }))} className="ipt" /></Field>
               <Field label="현장주소" full>
@@ -358,6 +407,11 @@ export function StatementManagement({ isMaster = false, myUid = "", myName = "" 
                   {부가세구분목록.map((v) => <option key={v} value={v}>{v}</option>)}
                 </select>
               </Field>
+              <Field label="가격유형 (거래처 구분 자동)">
+                <select value={header.price_field} onChange={(e) => setHeader((h) => ({ ...h, price_field: e.target.value }))} className="ipt">
+                  {PRICE_TYPES.map(([k, lbl]) => <option key={k} value={k}>{lbl}</option>)}
+                </select>
+              </Field>
               <Field label="운반비 (과세)"><input type="number" value={header.freight} onChange={(e) => setHeader((h) => ({ ...h, freight: e.target.value }))} className="ipt" placeholder="0" /></Field>
             </div>
 
@@ -365,7 +419,7 @@ export function StatementManagement({ isMaster = false, myUid = "", myName = "" 
               <div className="overflow-x-auto">
                 <table className="w-full text-xs sm:text-sm">
                   <thead className="bg-slate-50 text-slate-500">
-                    <tr>{["대분류", "품목명", "규격", "색상", "두께", "단위", "길이", "수량", "합계수량", "단가", "공급가액", "세액", ""].map((h) =>
+                    <tr>{["품목", "대분류", "품목명", "규격", "색상", "두께", "단위", "길이", "수량", "합계수량", "단가", "공급가액", "세액", ""].map((h) =>
                       <th key={h} className="px-2 py-2 text-left font-medium whitespace-nowrap">{h}</th>)}</tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -374,12 +428,22 @@ export function StatementManagement({ isMaster = false, myUid = "", myName = "" 
                       const isM = String(l.unit).toUpperCase() === "M";
                       return (
                         <tr key={l.uid} className="align-top">
-                          <td className="px-1.5 py-1.5"><select value={l.category} onChange={(e) => updateLine(l.uid, { category: e.target.value, unit: e.target.value === "절곡" ? "EA" : l.unit })} className="ipt-sm w-24">{대분류목록.map((c) => <option key={c} value={c}>{c}</option>)}</select></td>
+                          <td className="px-1.5 py-1.5">
+                            <select value={l.item_id} onChange={(e) => pickItem(l.uid, e.target.value)} className="ipt-sm w-32" title="등록 품목 불러오기">
+                              <option value="">직접입력</option>
+                              {items.map((it) => <option key={it.id} value={it.id}>{it.name}{it.spec ? ` · ${it.spec}` : ""} ({it.unit})</option>)}
+                            </select>
+                          </td>
+                          <td className="px-1.5 py-1.5"><select value={l.category} onChange={(e) => updateLine(l.uid, { category: e.target.value, unit: e.target.value === "절곡" || e.target.value === "기타절곡" ? "EA" : l.unit })} className="ipt-sm w-24">{대분류목록.map((c) => <option key={c} value={c}>{c}</option>)}</select></td>
                           <td className="px-1.5 py-1.5"><input value={l.name} onChange={(e) => updateLine(l.uid, { name: e.target.value })} className="ipt-sm w-28" /></td>
                           <td className="px-1.5 py-1.5"><input value={l.spec} onChange={(e) => updateLine(l.uid, { spec: e.target.value })} className="ipt-sm w-24" placeholder={isBend ? "225W" : ""} /></td>
-                          <td className="px-1.5 py-1.5"><input value={l.color} onChange={(e) => updateLine(l.uid, { color: e.target.value })} className="ipt-sm w-20" /></td>
+                          <td className="px-1.5 py-1.5"><input value={l.color} onChange={(e) => updateLine(l.uid, { color: e.target.value })} className="ipt-sm w-20" placeholder={isCoilCategory(l.category) ? "코일색상" : ""} /></td>
                           <td className="px-1.5 py-1.5"><input value={l.thickness} onChange={(e) => updateLine(l.uid, { thickness: e.target.value })} className="ipt-sm w-14" /></td>
-                          <td className="px-1.5 py-1.5"><input value={l.unit} onChange={(e) => updateLine(l.uid, { unit: e.target.value })} className="ipt-sm w-14" /></td>
+                          <td className="px-1.5 py-1.5">
+                            <select value={l.unit} onChange={(e) => updateLine(l.uid, { unit: e.target.value })} className="ipt-sm w-16">
+                              {[...new Set([l.unit, ...COMMON_UNITS])].filter(Boolean).map((u) => <option key={u} value={u}>{u}</option>)}
+                            </select>
+                          </td>
                           <td className="px-1.5 py-1.5"><input type="number" disabled={!isM} value={l.length} onChange={(e) => updateLine(l.uid, { length: e.target.value })} className="ipt-sm w-16 disabled:bg-slate-50" /></td>
                           <td className="px-1.5 py-1.5"><input type="number" value={l.qty} onChange={(e) => updateLine(l.uid, { qty: e.target.value })} className="ipt-sm w-16" /></td>
                           <td className="px-1.5 py-1.5"><input type="number" value={l.sum_qty} onChange={(e) => updateLine(l.uid, { sum_qty: e.target.value })} className="ipt-sm w-16" /></td>
@@ -405,11 +469,18 @@ export function StatementManagement({ isMaster = false, myUid = "", myName = "" 
               <div className="flex gap-2">
                 <Field label="입금액"><input type="number" value={header.paid} onChange={(e) => setHeader((h) => ({ ...h, paid: e.target.value }))} className="ipt w-32" placeholder="0" /></Field>
               </div>
-              <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm min-w-[240px]">
+              <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm min-w-[260px]">
                 <Row k="공급가액" v={fmtWon(totals.supply)} />
                 <Row k={`부가세 (${header.vat_type})`} v={fmtWon(totals.tax)} />
                 <Row k="합계금액" v={fmtWon(totals.total)} strong />
-                <Row k="미수금" v={fmtWon(totals.unpaid)} danger={totals.unpaid > 0} />
+                {vendorBalance.hasVendor ? (
+                  <div className="mt-1.5 pt-1.5 border-t border-slate-200">
+                    <Row k="전일잔액" v={fmtWon(vendorBalance.prior)} />
+                    <Row k="현재잔액(미수)" v={fmtWon(vendorBalance.current)} danger={vendorBalance.current > 0} />
+                  </div>
+                ) : (
+                  <Row k="미수금" v={fmtWon(totals.unpaid)} danger={totals.unpaid > 0} />
+                )}
               </div>
             </div>
           </div>
@@ -422,15 +493,23 @@ export function StatementManagement({ isMaster = false, myUid = "", myName = "" 
         </Overlay>
       )}
 
-      {calcLine && (
-        <BendCalculator
-          onClose={() => setCalcLine(null)}
-          onApply={({ spec, unit_price, qty, memo }) => {
-            updateLine(calcLine, { spec, unit_price, qty, sum_qty: Number(qty) || 0, memo });
-            setCalcLine(null);
-          }}
-        />
-      )}
+      {calcLine && (() => {
+        const ln = lines.find((l) => l.uid === calcLine);
+        const it = ln && ln.item_id ? items.find((x) => x.id === ln.item_id) : null;
+        return (
+          <BendCalculator
+            initFactory={it ? (Number(it.factoryPrice) || 0) : ""}
+            initOnline={it ? (Number(it.onlinePrice) || 0) : ""}
+            initPriceType={header.price_field === "onlinePrice" ? "온라인가" : "공장가"}
+            initQty={ln ? ln.qty : ""}
+            onClose={() => setCalcLine(null)}
+            onApply={({ spec, unit_price, qty, memo }) => {
+              updateLine(calcLine, { spec, unit_price, qty, sum_qty: Number(qty) || 0, memo });
+              setCalcLine(null);
+            }}
+          />
+        );
+      })()}
 
       {preview && <StatementPrint statement={preview} onClose={() => setPreview(null)} />}
     </div>
@@ -438,14 +517,14 @@ export function StatementManagement({ isMaster = false, myUid = "", myName = "" 
 }
 
 /* ---------------- 절곡 계산기 모달 ---------------- */
-function BendCalculator({ onClose, onApply }) {
+function BendCalculator({ onClose, onApply, initFactory = "", initOnline = "", initPriceType = "공장가", initQty = "" }) {
   const [dims, setDims] = useState("");
   const [jjam, setJjam] = useState("");
   const [gok, setGok] = useState("");
-  const [qty, setQty] = useState("");
-  const [priceType, setPriceType] = useState("공장가");
-  const [upFactory, setUpFactory] = useState("");
-  const [upOnline, setUpOnline] = useState("");
+  const [qty, setQty] = useState(initQty);
+  const [priceType, setPriceType] = useState(initPriceType);
+  const [upFactory, setUpFactory] = useState(initFactory);
+  const [upOnline, setUpOnline] = useState(initOnline);
 
   const width = bendWidth(dims);
   const unitFactory = bendUnitPrice(width, Number(upFactory) || 0, gok, false);
@@ -497,7 +576,9 @@ function StatementPrint({ statement: s, onClose }) {
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div className="border border-slate-300 rounded-lg p-3">
             <div className="text-[11px] text-slate-400 mb-1">공급받는자</div>
-            <div className="font-semibold">{s.vendor_name}</div>
+            <div className="font-semibold">{s.vendor_name}{s.v_ceo ? ` (${s.v_ceo})` : ""}</div>
+            {s.v_bizno && <div className="text-slate-500 mt-1">사업자번호: {s.v_bizno}</div>}
+            {s.v_address && <div className="text-slate-500">{s.v_address}</div>}
             <div className="text-slate-500 mt-1">현장: {s.site_address}</div>
             <div className="text-slate-500">작성일: {s.date} · 문서번호: {s.doc_no}</div>
           </div>
@@ -534,8 +615,18 @@ function StatementPrint({ statement: s, onClose }) {
             <Row k="공급가액" v={fmtWon(s.supply)} />
             <Row k={`부가세 (${s.vat_type})`} v={fmtWon(s.vat)} />
             <Row k="합계금액" v={fmtWon(s.total)} strong />
-            <Row k="입금액" v={fmtWon(s.paid)} />
-            <Row k="미수금" v={fmtWon(s.unpaid)} danger={Number(s.unpaid) > 0} />
+            {s.current_balance != null && s.vendor_code ? (
+              <div className="mt-1 pt-1 border-t border-slate-300">
+                <Row k="전일잔액" v={fmtWon(s.prior_balance)} />
+                <Row k="입금액" v={fmtWon(s.paid)} />
+                <Row k="현재잔액(미수)" v={fmtWon(s.current_balance)} danger={Number(s.current_balance) > 0} />
+              </div>
+            ) : (
+              <>
+                <Row k="입금액" v={fmtWon(s.paid)} />
+                <Row k="미수금" v={fmtWon(s.unpaid)} danger={Number(s.unpaid) > 0} />
+              </>
+            )}
           </div>
         </div>
       </div>
