@@ -63,9 +63,9 @@
 - [x] **코일 재고 저장구조 분리** — `src/coil.jsx` 신규 작성 (`useCoilsStore`/`useStockHistoryStore`/`useCoilMetaStore`)
 - [x] **App.jsx 레거시 코드 제거** — `hnmtCoilSystem`, `CloudStorageModal`, 병합 함수, `seed()` 데모 데이터 삭제
 - [x] **Firestore 규칙 갱신** — `coils`/`stockHistory` 규칙 추가, `hnmtCoilSystem` 규칙 제거, `firestore.rules`로 저장소에 편입
-- [ ] **Firebase 콘솔에 규칙 반영** — 이 저장소는 Firebase 배포 파이프라인이 없어 자동 반영 안 됨. Firebase 콘솔 → Firestore Database → 규칙 탭에서 `firestore.rules` 내용을 직접 붙여넣고 게시해야 실제로 적용됨.
-- [ ] **로컬 동작 확인** — 이 컴퓨터에 Node.js/npm이 없어 `npm run build`/`npm run dev`로 직접 검증 못 함. GitHub에 push하면 Actions가 빌드를 검증하고, 배포된 사이트에서 실제 로그인 후 코일관리/대시보드 동작을 확인하는 절차가 필요.
-- [ ] **git commit / push** — 로컬에만 반영된 상태. 커밋 후 push할지 사용자 확인 필요(원격 저장소에 반영되는 작업이라 승인 후 진행).
+- [x] **Firebase 콘솔에 규칙 반영** — 사용자가 `firestore.rules` 내용을 콘솔 규칙 탭에 붙여넣고 게시 완료 (2026-07-02)
+- [x] **git commit / push** — `06cf140` 커밋을 `origin/main`에 push 완료 (2026-07-02)
+- [x] **배포 확인** — GitHub Actions 빌드/배포 성공(`06cf140`, 41s). 실사이트에서 커스텀 색상 등록 → `settings/coilMeta.customColors` 반영, 기초재고 등록 → `zoneStock` 반영, 입고 등록 → `coils/{id}` 문서 생성(coil_number `C-260702-79` 등 필드 정상), 출고 등록까지 사용자가 직접 확인 완료 (2026-07-02)
 - [ ] **거래명세표 공급자 정보 채우기** — `statements.jsx`의 `SUPPLIER.사업자등록번호/대표자/연락처` 공란. 실제 사업자등록증 정보 필요.
 - [ ] **`Sales`/`Colors` 화면 처리** — 구현은 됐지만 메뉴에 연결 안 돼 접근 불가. 노출할지 삭제할지 결정 필요.
 - [ ] **CI에 최소 검증 단계 추가 검토** — 현재 `pages.yml`은 빌드 성공 여부만 게이트.
