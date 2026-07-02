@@ -70,7 +70,35 @@
 - [ ] **`Sales`/`Colors` 화면 처리** — 구현은 됐지만 메뉴에 연결 안 돼 접근 불가. 노출할지 삭제할지 결정 필요.
 - [ ] **CI에 최소 검증 단계 추가 검토** — 현재 `pages.yml`은 빌드 성공 여부만 게이트.
 
-## 4. 참고
+## 4. 코일 재고구조 통합 재설계 (진행중, 2026-07-02 착수)
+
+### 배경 — 왜 하는가
+지금은 같은 "코일 롤 한 덩어리"를 두 화면에서 다른 방식으로 저장해 **이중 장부**가 생김:
+- 입고관리: 매입처 입고 → `coils` 문서 (롤 개념 없음)
+- 코일관리 기초등록: 실사 A/B/C 수량 → `zoneStock/baseStock` 숫자 (코일 문서 아님)
+
+또한 출고 완료(`completeOutboundRecord`)가 제품구분(강판/징크)만 매칭하고 색상/제조사/두께는 안 봐서, 다른 색상 재고가 차감될 수 있는 **매칭 버그**가 있음.
+
+### 확정된 목표 설계
+- **`coils` = 재고의 유일한 원천. 코일 1개 = 물리적 롤 1덩어리.**
+- 입고·실사 등록을 **"롤 추가" 하나로 통합** — 매입처는 실사면 비움(`source: 입고|실사`).
+- 롤은 고정 A/B/C 3칸이 아니라 **덩어리 개수만큼 자유롭게** (롤 목록 UI로 재설계 — 사용자 승인 완료).
+- 코일관리 = 색상별로 롤들을 묶어 보여주고, 총합/롤별 수량을 `coils`에서 계산.
+- 출고 = 해당 색상 코일에서 **오래된 롤부터 FIFO 차감**, 색상키 정확 매칭(위 버그 수정).
+- `baseStock`/`zoneStock`/`baseStockDates` **저장 제거** → `coils`에서 파생 계산.
+- `settings/coilMeta`는 색상 카탈로그 설정만 유지(`customColors`/`discontinuedColors`/`deletedBaseStockKeys`).
+- 테스트 단계이므로 기존 데이터는 **전체 초기화 후** 새 구조로 진행(마이그레이션 불필요).
+
+### 체크리스트
+- [x] 목표 설계 문서화 + 커밋
+- [ ] `coils` 스키마 확정(롤 라벨/source 필드) + 색상키 헬퍼 + `coils`에서 baseStock/zoneStock 파생
+- [ ] 코일관리 화면을 롤 목록 기반으로 재설계 (입고/실사 등록 → `coils` 문서 생성으로 통합)
+- [ ] 출고 차감을 `coils` 색상키 FIFO로 정정 (느슨한 제품구분 매칭 버그 수정)
+- [ ] `baseStock`/`zoneStock`/`baseStockDates`를 `coilMeta`에서 제거
+- [ ] 대시보드/재고현황 집계를 `coils` 기준으로 통일
+- [ ] 배포 후 실사이트 테스트 (등록→출고→재고 일관성 확인)
+
+## 5. 참고
 
 - 본 문서는 `src/App.jsx`, `auth.jsx`, `inbound.jsx`, `outbound.jsx`, `reservations.jsx`, `vendors.jsx`, `items.jsx`, `statements.jsx`, `coil.jsx`, `firestore.rules`, `.github/workflows/pages.yml`, `vite.config.js`, `package.json` 코드 스캔(2026-07-02) 기준.
 - 이전 버전(v1)에 있던 구글드라이브 "HN메탈릭 업무 계획서" 연관 서술은 요청에 따라 제거함 — 이번 작업 범위는 Firebase/GitHub 기술 현황에 한정.
