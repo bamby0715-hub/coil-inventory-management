@@ -1267,6 +1267,10 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
       appAlert("*필수입력을 작성해주세요", { title: "필수입력 안내", type: "warning" });
       return;
     }
+    if (meter <= 0) {
+      appAlert("입고 M(코일 길이)을 입력해주세요.", { title: "입고 M 입력 안내", type: "warning" });
+      return;
+    }
     if (editId) {
       setInbound((l) => l.map((r) => r.id === editId ? { ...r, ...form, coil_meter: meter, updated_at: todayStr() } : r));
       const original = inbound.find((r) => r.id === editId);
@@ -1464,12 +1468,13 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
                     <col className="w-[8%]" />
                     <col className="w-[10%]" />
                     <col className="w-[15%]" />
-                    <col className="w-[28%]" />
-                    <col className="w-[20%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[15%]" />
+                    <col className="w-[19%]" />
                     <col className="w-[8%]" />
                   </colgroup>
                   <thead className="bg-slate-50 text-slate-600">
-                    <tr>{["입고일", "구분", "제조사", "색상 / 두께", "매입처", "비고", ""].map((h) => <th key={h} className={`px-3 py-2.5 font-semibold whitespace-nowrap ${h === "비고" ? "text-left" : "text-center"}`}>{h}</th>)}</tr>
+                    <tr>{["입고일", "구분", "제조사", "색상 / 두께", "입고 M", "매입처", "비고", ""].map((h) => <th key={h} className={`px-3 py-2.5 font-semibold whitespace-nowrap ${h === "비고" ? "text-left" : "text-center"}`}>{h}</th>)}</tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                   {group.rows.map((r) => (
@@ -1478,6 +1483,7 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
                       <td className="px-3 py-2.5 text-center">{r.product_type}</td>
                       <td className="px-3 py-2.5 text-center whitespace-nowrap">{r.manufacturer}</td>
                       <td className="px-3 py-2.5 text-center whitespace-nowrap"><span className="font-medium text-slate-700">{r.color_name}</span> <span className="text-slate-400 text-xs ml-1">{r.thickness}T</span></td>
+                      <td className="px-3 py-2.5 text-center whitespace-nowrap font-semibold text-indigo-700">{fmt(r.coil_meter)} M</td>
                       <td className="px-3 py-2.5 text-center leading-relaxed break-words" title={r.purchaser}>{r.purchaser || "-"}</td>
                       <td className="px-3 py-2.5 text-left text-slate-500 leading-relaxed break-words" title={r.memo}>{r.memo || "-"}</td>
                       <td className="px-3 py-2.5 no-print">
@@ -1488,7 +1494,7 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
                       </td>
                   </tr>
                   ))}
-                  {group.rows.length === 0 && <tr><td colSpan={7} className="px-3 py-5 text-center text-xs text-slate-400">등록된 {group.product} 입고 내역이 없습니다.</td></tr>}
+                  {group.rows.length === 0 && <tr><td colSpan={8} className="px-3 py-5 text-center text-xs text-slate-400">등록된 {group.product} 입고 내역이 없습니다.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -1576,7 +1582,14 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
                 </div>
               )}
             </div>
-            <div className="md:col-span-2">
+            <Field label="입고 M (코일 길이)" required>
+              <div className="relative">
+                <input type="number" min="0" step="1" inputMode="decimal" className={`${inputCls} pr-8`}
+                  value={form.coil_meter || ""} onChange={(e) => set("coil_meter", e.target.value)} placeholder="예: 500" />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">M</span>
+              </div>
+            </Field>
+            <div>
               <Field label="선택 코일 정보">
                 <div className="min-h-[42px] px-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center text-sm text-slate-600">
                   {selectedColor ? `${selectedColor.maker} · ${selectedColor.code || "코드없음"} · ${selectedColor.thickness}T` : "코일 색상을 선택하면 자동 표시됩니다."}
