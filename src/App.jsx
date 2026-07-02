@@ -13,7 +13,7 @@ import { StatementManagement } from "./statements.jsx";
 import { useInboundStore } from "./inbound.jsx";
 import { useOutboundStore } from "./outbound.jsx";
 import { useReservationsStore } from "./reservations.jsx";
-import { useCoilsStore, useStockHistoryStore, useCoilMetaStore } from "./coil.jsx";
+import { useCoilsStore, useStockHistoryStore, useCoilMetaStore, deriveCoilStock, coilStockKey, nextRollLabel } from "./coil.jsx";
 
 /* =========================================================================
    HN메탈릭 코일 재고관리 시스템 (v2)
@@ -179,6 +179,94 @@ const downloadJson = (data, fileName) => {
   a.download = fileName;
   a.click();
   URL.revokeObjectURL(url);
+};
+
+/* =========================================================================
+   코일 재고 쓰기 헬퍼 — coils 가 재고의 유일한 원천.
+   · 기초재고(실사) 슬롯 A/B/C = 실사 코일 1개씩. id 는 결정적(base|key|label)이라
+     수정하면 덮어쓰기, 0으로 지우면 삭제된다.
+   · 입고 코일은 별도(source:입고, roll_label=코일번호)로 총재고에 합산되지만
+     A/B/C 슬롯 편집과는 섞이지 않는다.
+   ========================================================================= */
+const coilStatusOf = (current, initial) => {
+  const cur = Number(current) || 0;
+  if (cur <= 0) return "사용완료";
+  const ratio = initial ? cur / initial : 1;
+  return ratio <= 0.2 ? "부족" : "정상";
+};
+const baseCoilId = (key, label) => `base|${key}|${label}`;
+const makeBaseCoil = ({ key, product, maker, code, color, thickness, label, meter, date }) => {
+  const m = Number(meter) || 0;
+  const day = date || todayStr();
+  return {
+    id: baseCoilId(key, label),
+    coil_number: makeCoilNo(day, product, maker, color, thickness),
+    product_type: product, manufacturer: maker, color_code: code || "", color_name: color, thickness,
+    roll_label: label, source: "실사",
+    initial_meter: m, current_meter: m, total_outbound_meter: 0, current_roll_count: m > 0 ? 1 : 0,
+    status: coilStatusOf(m, m), inbound_date: day, purchaser: "", memo: "",
+    created_at: day, updated_at: todayStr(),
+  };
+};
+// 색상키의 실사 슬롯(A/B/C)을 draft 값으로 통째 교체. zones = {A,B,C 문자열}
+const replaceBaseRolls = (list, item, zones, date) => {
+  const kept = list.filter((c) => !(c.source === "실사" && coilStockKey(c) === item.key));
+  const added = ["A", "B", "C"]
+    .filter((label) => (Number(zones[label]) || 0) > 0)
+    .map((label) => makeBaseCoil({
+      key: item.key, product: item.product, maker: item.maker, code: item.code,
+      color: item.color, thickness: item.thickness, label, meter: zones[label], date,
+    }));
+  return [...added, ...kept];
+};
+// 색상키 코일들에서 미터 차감(선호 롤 우선 → 오래된 순). { coils, shortfall } 반환.
+const deductCoilsByKey = (list, key, meter, preferLabel = "") => {
+  let remain = Number(meter) || 0;
+  const pool = list
+    .filter((c) => coilStockKey(c) === key && (Number(c.current_meter) || 0) > 0)
+    .sort((a, b) => {
+      if (preferLabel) {
+        const ap = a.roll_label === preferLabel, bp = b.roll_label === preferLabel;
+        if (ap !== bp) return ap ? -1 : 1;
+      }
+      return String(a.inbound_date || a.created_at || "").localeCompare(String(b.inbound_date || b.created_at || ""));
+    });
+  const updates = {};
+  for (const c of pool) {
+    if (remain <= 0) break;
+    const cur = Number(c.current_meter) || 0;
+    const take = Math.min(cur, remain);
+    const nextMeter = cur - take;
+    updates[c.id] = {
+      current_meter: nextMeter,
+      total_outbound_meter: (Number(c.total_outbound_meter) || 0) + take,
+      current_roll_count: nextMeter <= 0 ? 0 : (c.current_roll_count || 1),
+      status: coilStatusOf(nextMeter, c.initial_meter),
+      updated_at: todayStr(),
+    };
+    remain -= take;
+  }
+  const coils = list.map((c) => updates[c.id] ? { ...c, ...updates[c.id] } : c);
+  return { coils, shortfall: remain };
+};
+// 출고 취소/축소 시 재고 복원 — 해당 색상의 첫 코일(가장 오래된)에 되돌린다.
+const restoreCoilsByKey = (list, key, meter) => {
+  const m = Number(meter) || 0;
+  if (m <= 0) return list;
+  const idx = list.findIndex((c) => coilStockKey(c) === key);
+  if (idx < 0) return list;
+  return list.map((c, i) => {
+    if (i !== idx) return c;
+    const nextMeter = (Number(c.current_meter) || 0) + m;
+    return {
+      ...c,
+      current_meter: nextMeter,
+      total_outbound_meter: Math.max(0, (Number(c.total_outbound_meter) || 0) - m),
+      current_roll_count: nextMeter > 0 ? (c.current_roll_count || 1) : 0,
+      status: coilStatusOf(nextMeter, c.initial_meter),
+      updated_at: todayStr(),
+    };
+  });
 };
 
 /* =========================================================================
@@ -375,9 +463,11 @@ export default function CoilInventory() {
   const [reservations, setReservations] = useReservationsStore();
   const [stockHistory, setStockHistory] = useStockHistoryStore();
   const {
-    baseStock, setBaseStock, customColors, setCustomColors, discontinuedColors, setDiscontinuedColors,
-    zoneStock, setZoneStock, baseStockDates, setBaseStockDates, deletedBaseStockKeys, setDeletedBaseStockKeys,
+    customColors, setCustomColors, discontinuedColors, setDiscontinuedColors,
+    deletedBaseStockKeys, setDeletedBaseStockKeys,
   } = useCoilMetaStore();
+  // 재고(baseStock/zoneStock/baseStockDates)는 저장하지 않고 coils 에서 계산한다.
+  const { baseStock, zoneStock, baseStockDates, rollsByKey } = useMemo(() => deriveCoilStock(coils), [coils]);
   useEffect(() => {
     const masterKeys = new Set(COLOR_MASTER.map((item) =>
       `${item.product}|${item.maker}|${item.code}|${item.color}|${item.thickness}`
@@ -426,7 +516,7 @@ export default function CoilInventory() {
 
   if (!authed) return <AuthGate auth={auth} />;
 
-  const ctx = { coils, setCoils, inbound, setInbound, outbound, setOutbound, reservations, setReservations, baseStock, setBaseStock, stockHistory, setStockHistory, customColors, setCustomColors, discontinuedColors, setDiscontinuedColors, zoneStock, setZoneStock, baseStockDates, setBaseStockDates, deletedBaseStockKeys, setDeletedBaseStockKeys };
+  const ctx = { coils, setCoils, rollsByKey, inbound, setInbound, outbound, setOutbound, reservations, setReservations, baseStock, stockHistory, setStockHistory, customColors, setCustomColors, discontinuedColors, setDiscontinuedColors, zoneStock, baseStockDates, deletedBaseStockKeys, setDeletedBaseStockKeys };
   const goto = (k) => { setMenu(k); setDrawer(false); };
   const openQuick = (kind) => { setQuickAction(kind); setMenu(kind); setDrawer(false); };
   const openOutboundDetail = (id = "") => {
@@ -444,10 +534,7 @@ export default function CoilInventory() {
     setInbound([]);
     setOutbound([]);
     setReservations([]);
-    setBaseStock({});
     setStockHistory([]);
-    setZoneStock({});
-    setBaseStockDates({});
     localStorage.removeItem("hnmt-coil-inboundTodos");
     setQuickAction(null);
   };
@@ -1092,7 +1179,7 @@ const blankInbound = () => ({
 });
 
 function Inbound({ ctx, quickOpen, clearQuick }) {
-  const { inbound, setInbound, coils, setCoils, baseStock, setBaseStock, stockHistory, setStockHistory, customColors, setCustomColors, discontinuedColors, setDiscontinuedColors, deletedBaseStockKeys } = ctx;
+  const { inbound, setInbound, coils, setCoils, baseStock, stockHistory, setStockHistory, customColors, setCustomColors, discontinuedColors, setDiscontinuedColors, deletedBaseStockKeys } = ctx;
   const [q, setQ] = useState("");
   const [searchQ, setSearchQ] = useState("");
   const [purchaserFilter, setPurchaserFilter] = useState("전체");
@@ -1196,6 +1283,7 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
       setCoils((l) => [{
         id: coilId, coil_number: coilNo, product_type: form.product_type, manufacturer: form.manufacturer,
         color_name: form.color_name, color_code: form.color_code, thickness: form.thickness, purchaser: form.purchaser,
+        roll_label: coilNo, source: "입고",
         initial_meter: meter, current_meter: meter, total_outbound_meter: 0, current_roll_count: 1,
         status: "정상", memo: form.memo, inbound_date: form.inbound_date, created_at: todayStr(), updated_at: todayStr(),
       }, ...l]);
@@ -1519,17 +1607,16 @@ function Inbound({ ctx, quickOpen, clearQuick }) {
         </div>
       </Modal>
 
-      <ColorStockModal open={colorStockOpen} onClose={() => setColorStockOpen(false)} values={baseStock} setValues={setBaseStock} history={stockHistory} setHistory={setStockHistory} customColors={customColors} setCustomColors={setCustomColors} discontinued={discontinuedColors} setDiscontinued={setDiscontinuedColors} />
+      <ColorStockModal open={colorStockOpen} onClose={() => setColorStockOpen(false)} values={baseStock} setCoils={setCoils} history={stockHistory} setHistory={setStockHistory} customColors={customColors} setCustomColors={setCustomColors} discontinued={discontinuedColors} setDiscontinued={setDiscontinuedColors} />
     </div>
   );
 }
 
 function CoilManagement({ ctx }) {
   const {
-    baseStock, setBaseStock, stockHistory, setStockHistory,
+    coils, setCoils, baseStock, stockHistory, setStockHistory,
     customColors, setCustomColors, discontinuedColors, setDiscontinuedColors,
-    zoneStock, setZoneStock,
-    baseStockDates, setBaseStockDates,
+    zoneStock, baseStockDates,
     deletedBaseStockKeys, setDeletedBaseStockKeys,
     reservations,
   } = ctx;
@@ -1704,12 +1791,12 @@ function CoilManagement({ ctx }) {
   const registerStock = (item) => {
     const zones = { A: "", B: "", C: "", ...(zoneDraft[item.key] || {}) };
     const meter = ["A", "B", "C"].reduce((sum, zone) => sum + (Number(zones[zone]) || 0), 0);
-    setZoneStock((current) => ({ ...current, [item.key]: zones }));
-    setBaseStock((current) => ({ ...current, [item.key]: meter }));
+    const date = todayStr();
+    setCoils((list) => replaceBaseRolls(list, item, zones, date));
     setStockHistory((current) => [{
       id: `${item.key}-${Date.now()}`,
       key: item.key,
-      registered_at: todayStr(),
+      registered_at: date,
       created_at: new Date().toISOString(),
       product: item.product,
       maker: item.maker,
@@ -1769,9 +1856,9 @@ function CoilManagement({ ctx }) {
       };
     });
     const recordsByKey = Object.fromEntries(records.map((record) => [record.key, record]));
-    setZoneStock((current) => ({ ...current, ...Object.fromEntries(records.map((r) => [r.key, r.zones])) }));
-    setBaseStock((current) => ({ ...current, ...Object.fromEntries(records.map((r) => [r.key, r.meter])) }));
-    setBaseStockDates((current) => ({ ...current, ...Object.fromEntries(records.map((r) => [r.key, r.registered_at])) }));
+    const itemsByKey = Object.fromEntries(targetItems.map((item) => [item.key, item]));
+    setCoils((list) => records.reduce(
+      (acc, r) => replaceBaseRolls(acc, itemsByKey[r.key], r.zones, r.registered_at), list));
     setZoneDraft((current) => ({ ...current, ...Object.fromEntries(records.map((r) => [r.key, r.zones])) }));
     setStockHistory((current) => [...records].reverse().concat(current));
     setHistoryDraft((current) => [...records].reverse().concat(current));
@@ -1824,9 +1911,7 @@ function CoilManagement({ ctx }) {
       submessage: "PDF 기본 색상은 영구 유지되며 선택삭제 대상에서 제외됩니다.",
     })) return;
     const removeKeys = (current) => Object.fromEntries(Object.entries(current).filter(([key]) => !deletable.includes(key)));
-    setBaseStock(removeKeys);
-    setZoneStock(removeKeys);
-    setBaseStockDates(removeKeys);
+    setCoils((list) => list.filter((c) => !deletable.includes(coilStockKey(c))));
     setBaseDraft(removeKeys);
     setZoneDraft(removeKeys);
     setStockHistory((current) => current.filter((record) => !deletable.includes(record.key)));
@@ -1859,9 +1944,7 @@ function CoilManagement({ ctx }) {
       delete next[item.key];
       return next;
     };
-    setBaseStock(removeKey);
-    setZoneStock(removeKey);
-    setBaseStockDates(removeKey);
+    setCoils((list) => list.filter((c) => coilStockKey(c) !== item.key));
     setBaseDraft(removeKey);
     setZoneDraft(removeKey);
     setStockHistory((current) => current.filter((record) => record.key !== item.key));
@@ -2321,7 +2404,7 @@ function CoilManagement({ ctx }) {
   );
 }
 
-function ColorStockModal({ open, onClose, values, setValues, history, setHistory, customColors, setCustomColors, discontinued, setDiscontinued }) {
+function ColorStockModal({ open, onClose, values, setCoils, history, setHistory, customColors, setCustomColors, discontinued, setDiscontinued }) {
   const [product, setProduct] = useState("강판");
   const [draft, setDraft] = useState({});
   const [adding, setAdding] = useState(false);
@@ -2360,12 +2443,11 @@ function ColorStockModal({ open, onClose, values, setValues, history, setHistory
       product: color.product, maker: color.maker, color: color.color, code: color.code, thickness: color.thickness,
     }));
     const nextHistory = [...additions, ...history];
-    const latestByKey = {};
-    nextHistory.forEach((item) => {
-      const current = latestByKey[item.key];
-      if (!current || item.registered_at > current.registered_at) latestByKey[item.key] = item;
-    });
-    setValues(Object.fromEntries(Object.values(latestByKey).map((item) => [item.key, item.meter])));
+    // 재고표는 색상당 단일 값 → 실사 슬롯 A 코일로 저장
+    setCoils((list) => entries.reduce((acc, { color, key, meter }) =>
+      replaceBaseRolls(acc, {
+        key, product: color.product, maker: color.maker, code: color.code, color: color.color, thickness: color.thickness,
+      }, { A: String(meter), B: "", C: "" }, todayStr()), list));
     setHistory(nextHistory);
     appAlert("코일 재고가 등록되었습니다.", { title: "재고 등록 완료", type: "success" });
   };
@@ -2495,7 +2577,7 @@ const blankOutbound = () => ({
 function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, initialDetailId, clearInitialDetail }) {
   const {
     outbound, setOutbound, reservations, setReservations, coils, setCoils,
-    baseStock, setBaseStock, stockHistory, setStockHistory, zoneStock, setZoneStock,
+    baseStock, stockHistory, setStockHistory, zoneStock,
     customColors, discontinuedColors, deletedBaseStockKeys,
   } = ctx;
   const [open, setOpen] = useState(false);
@@ -2673,21 +2755,9 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
           return;
         }
         if (delta !== 0) {
-          const nextZones = { ...selectedZones };
-          if (delta > 0) {
-            let remain = delta;
-            ["A", "B", "C"].forEach((zone) => {
-              const zoneMeter = Number(nextZones[zone]) || 0;
-              const used = Math.min(zoneMeter, remain);
-              nextZones[zone] = zoneMeter - used;
-              remain -= used;
-            });
-          } else {
-            nextZones.A = (Number(nextZones.A) || 0) + Math.abs(delta);
-          }
           nextTotal = Math.max(0, current - delta);
-          setZoneStock((values) => ({ ...values, [selectedKey]: nextZones }));
-          setBaseStock((values) => ({ ...values, [selectedKey]: nextTotal }));
+          if (delta > 0) setCoils((list) => deductCoilsByKey(list, selectedKey, delta).coils);
+          else setCoils((list) => restoreCoilsByKey(list, selectedKey, Math.abs(delta)));
           setStockHistory((history) => [{
             id: uid(),
             key: selectedKey,
@@ -2698,7 +2768,6 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
             color: selectedColor.color,
             code: selectedColor.code,
             thickness: selectedColor.thickness,
-            zones: nextZones,
             meter: nextTotal,
             source: "outbound-edit",
           }, ...history]);
@@ -2720,17 +2789,7 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
       };
       setOutbound((list) => [rec, ...list]);
       if (m > 0 && selectedKey) {
-        let remain = m;
-        const nextZones = { ...selectedZones };
-        ["A", "B", "C"].forEach((zone) => {
-          const current = Number(nextZones[zone]) || 0;
-          const used = Math.min(current, remain);
-          nextZones[zone] = current - used;
-          remain -= used;
-        });
-        const nextTotal = Math.max(0, selectedTotal - m);
-        setZoneStock((values) => ({ ...values, [selectedKey]: nextZones }));
-        setBaseStock((values) => ({ ...values, [selectedKey]: nextTotal }));
+        setCoils((list) => deductCoilsByKey(list, selectedKey, m).coils);
         setStockHistory((history) => [{
           id: uid(),
           key: selectedKey,
@@ -2741,8 +2800,7 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
           color: selectedColor.color,
           code: selectedColor.code,
           thickness: selectedColor.thickness,
-          zones: nextZones,
-          meter: nextTotal,
+          meter: Math.max(0, selectedTotal - m),
           source: "outbound-registration",
         }, ...history]);
       }
@@ -2782,20 +2840,8 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
 
     let after = current;
     if (!alreadyDeducted && meter > 0 && key) {
-      let remain = meter;
-      const currentZones = zoneStock[key]
-        ? { A: 0, B: 0, C: 0, ...zoneStock[key] }
-        : { A: current, B: 0, C: 0 };
-      const nextZones = { ...currentZones };
-      ["A", "B", "C"].forEach((zone) => {
-        const zoneMeter = Number(nextZones[zone]) || 0;
-        const used = Math.min(zoneMeter, remain);
-        nextZones[zone] = zoneMeter - used;
-        remain -= used;
-      });
       after = Math.max(0, current - meter);
-      setZoneStock((values) => ({ ...values, [key]: nextZones }));
-      setBaseStock((values) => ({ ...values, [key]: after }));
+      setCoils((list) => deductCoilsByKey(list, key, meter).coils);
       setStockHistory((history) => [{
         id: uid(),
         key,
@@ -2806,7 +2852,6 @@ function Outbound({ ctx, quickOpen, clearQuick, pendingOpen, setPendingOpen, ini
         color: catalogItem.color,
         code: catalogItem.code,
         thickness: catalogItem.thickness,
-        zones: nextZones,
         meter: after,
         source: "outbound-completion",
       }, ...history]);

@@ -110,9 +110,53 @@ function makeRecordCollectionStore(collectionName) {
 export const useCoilsStore = makeRecordCollectionStore("coils");
 export const useStockHistoryStore = makeRecordCollectionStore("stockHistory");
 
-// ---------- coilMeta: 설정성 필드를 문서 하나에 모아 저장 ----------
+/* =========================================================================
+   재고 계산 헬퍼 — coils 가 재고의 유일한 원천(source of truth).
+   코일 1개 = 물리적 롤(덩어리) 1개. baseStock/zoneStock 은 저장하지 않고
+   여기서 coils 로부터 계산해서 쓴다.
+   - 색상키: `${product}|${maker}|${code}|${color}|${thickness}` (앱 전역 공통 포맷)
+   - roll_label: 같은 색상 안에서 덩어리를 구분("A","B","C"...). 단일이면 "A".
+   ========================================================================= */
+export const ROLL_LABELS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+// coils 문서의 필드로부터 색상키 생성 (product_type/manufacturer/color_code/color_name/thickness)
+export const coilStockKey = (coil) =>
+  `${coil.product_type || ""}|${coil.manufacturer || ""}|${coil.color_code || ""}|${coil.color_name || ""}|${coil.thickness || ""}`;
+
+// 이미 쓰인 롤 라벨 목록에서 다음 빈 라벨을 반환 (A→B→C...)
+export const nextRollLabel = (usedLabels = []) => {
+  const used = new Set(usedLabels);
+  return ROLL_LABELS.find((label) => !used.has(label)) || `R${usedLabels.length + 1}`;
+};
+
+// coils 배열 → { baseStock[key]=총M, zoneStock[key]={라벨:M}, baseStockDates[key]=최근일, rollsByKey[key]=[코일...] }
+export const deriveCoilStock = (coils = []) => {
+  const baseStock = {};
+  const zoneStock = {};
+  const baseStockDates = {};
+  const rollsByKey = {};
+  (Array.isArray(coils) ? coils : []).forEach((coil) => {
+    if (!coil) return;
+    const key = coilStockKey(coil);
+    const meter = Number(coil.current_meter) || 0;
+    const label = coil.roll_label || "A";
+    baseStock[key] = (baseStock[key] || 0) + meter;
+    if (!zoneStock[key]) zoneStock[key] = {};
+    zoneStock[key][label] = (zoneStock[key][label] || 0) + meter;
+    const date = coil.inbound_date || coil.created_at || "";
+    if (date && (!baseStockDates[key] || date > baseStockDates[key])) baseStockDates[key] = date;
+    if (!rollsByKey[key]) rollsByKey[key] = [];
+    rollsByKey[key].push(coil);
+  });
+  // 롤 목록은 라벨순 정렬
+  Object.values(rollsByKey).forEach((list) =>
+    list.sort((a, b) => String(a.roll_label || "A").localeCompare(String(b.roll_label || "A"))));
+  return { baseStock, zoneStock, baseStockDates, rollsByKey };
+};
+
+// ---------- coilMeta: 색상 카탈로그 설정만 저장(재고 수량은 coils 에서 계산) ----------
 const COIL_META_DEFAULTS = {
-  baseStock: {}, customColors: [], discontinuedColors: [], zoneStock: {}, baseStockDates: {}, deletedBaseStockKeys: [],
+  customColors: [], discontinuedColors: [], deletedBaseStockKeys: [],
 };
 const coilMetaDoc = (fs, db) => fs.doc(db, "settings", "coilMeta");
 
@@ -158,21 +202,15 @@ export function useCoilMetaStore() {
   const settersRef = useRef(null);
   if (!settersRef.current) {
     settersRef.current = {
-      setBaseStock: makeFieldSetter("baseStock"),
       setCustomColors: makeFieldSetter("customColors"),
       setDiscontinuedColors: makeFieldSetter("discontinuedColors"),
-      setZoneStock: makeFieldSetter("zoneStock"),
-      setBaseStockDates: makeFieldSetter("baseStockDates"),
       setDeletedBaseStockKeys: makeFieldSetter("deletedBaseStockKeys"),
     };
   }
 
   return {
-    baseStock: meta.baseStock,
     customColors: meta.customColors,
     discontinuedColors: meta.discontinuedColors,
-    zoneStock: meta.zoneStock,
-    baseStockDates: meta.baseStockDates,
     deletedBaseStockKeys: meta.deletedBaseStockKeys,
     ...settersRef.current,
   };
