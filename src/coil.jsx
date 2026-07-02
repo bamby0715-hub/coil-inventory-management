@@ -176,6 +176,16 @@ async function writeCoilMetaField(field, value) {
   await fsModule.setDoc(coilMetaDoc(fsModule, db), { [field]: value }, { merge: true });
 }
 
+// 구(舊) 저장방식 잔재 필드 제거 — 재고는 이제 coils 에서 계산하므로 불필요.
+export async function purgeLegacyCoilMetaFields() {
+  const { db, fsModule } = await getDataRuntime();
+  await fsModule.setDoc(coilMetaDoc(fsModule, db), {
+    baseStock: fsModule.deleteField(),
+    zoneStock: fsModule.deleteField(),
+    baseStockDates: fsModule.deleteField(),
+  }, { merge: true });
+}
+
 export function useCoilMetaStore() {
   const [meta, setLocalMeta] = useState(COIL_META_DEFAULTS);
   const ref = useRef(COIL_META_DEFAULTS);

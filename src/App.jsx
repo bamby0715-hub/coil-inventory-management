@@ -13,7 +13,7 @@ import { StatementManagement } from "./statements.jsx";
 import { useInboundStore } from "./inbound.jsx";
 import { useOutboundStore } from "./outbound.jsx";
 import { useReservationsStore } from "./reservations.jsx";
-import { useCoilsStore, useStockHistoryStore, useCoilMetaStore, deriveCoilStock, coilStockKey, nextRollLabel } from "./coil.jsx";
+import { useCoilsStore, useStockHistoryStore, useCoilMetaStore, deriveCoilStock, coilStockKey, nextRollLabel, purgeLegacyCoilMetaFields } from "./coil.jsx";
 
 /* =========================================================================
    HN메탈릭 코일 재고관리 시스템 (v2)
@@ -535,6 +535,7 @@ export default function CoilInventory() {
     setOutbound([]);
     setReservations([]);
     setStockHistory([]);
+    purgeLegacyCoilMetaFields().catch((e) => console.error("coilMeta 잔재 정리 실패:", e?.message || e));
     localStorage.removeItem("hnmt-coil-inboundTodos");
     setQuickAction(null);
   };
