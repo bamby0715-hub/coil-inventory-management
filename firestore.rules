@@ -1,0 +1,144 @@
+rules_version = '2';
+
+// =============================================================================
+// HNMT 코일 시스템 Firestore 보안 규칙
+//  - 인증: Firebase Auth (이메일/비밀번호)
+//  - 프로필: users/{uid}
+//  - 앱 데이터: coils/{id}, stockHistory/{id}, inbound/{id}, outbound/{id},
+//    reservations/{id}, vendors/{code}, items/{id}, statements/{id},
+//    settings/{docId}(coilMeta/vendorMeta/itemMeta 등), counters/{id}
+//
+// 핵심 방어선 (중간 서버가 없으므로 이 규칙이 곧 서버 역할):
+//  ① 남의 프로필 문서를 못 건드린다.
+//  ② 가입자가 자기 role/status 를 스스로 못 올린다 (가입은 담당자/승인대기 고정).
+//  ③ 앱 데이터는 '승인된' 로그인 사용자만 읽고 쓴다.
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isMine(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    // 내 프로필 문서를 읽어 role/status 판정 (get() 1회)
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function isApproved() {
+      return isSignedIn() && myProfile().status == '승인';
+    }
+    function isMaster() {
+      return isSignedIn() && myProfile().role == '마스터' && myProfile().status == '승인';
+    }
+
+    // -------------------------------------------------------------------------
+    // 사용자 프로필
+    // -------------------------------------------------------------------------
+    match /users/{uid} {
+
+      // 가입: 본인 문서만 생성 가능. role/status 는 반드시 기본값으로만.
+      allow create: if isMine(uid)
+        && request.resource.data.role == '담당자'
+        && request.resource.data.status == '승인대기';
+
+      // 읽기: 본인 또는 (승인된) 마스터
+      allow read: if isMine(uid) || isMaster();
+
+      // 본인 수정: 허용하되 role/status 는 절대 못 바꿈 (lastLogin 등만 갱신)
+      allow update: if isMine(uid)
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.status == resource.data.status;
+
+      // 마스터 수정: 승인/정지/권한변경 허용
+      allow update: if isMaster();
+
+      allow delete: if isMaster();
+    }
+
+    // -------------------------------------------------------------------------
+    // 코일 재고 (coils) + 재고이력 (stockHistory) — 건별 개별 문서. 모든 승인 담당자가 공유.
+    //   구 hnmtCoilSystem/sharedState 단일문서 방식을 대체(코일/이력이 계속 쌓여
+    //   1MiB 문서 크기 한계에 걸릴 수 있었음). 한 건 = 문서 1개.
+    // -------------------------------------------------------------------------
+    match /coils/{id} {
+      allow read: if isApproved();
+      allow create: if isApproved();
+      allow update: if isApproved();
+      allow delete: if isApproved();
+    }
+    match /stockHistory/{id} {
+      allow read: if isApproved();
+      allow create: if isApproved();
+      allow update: if isApproved();
+      allow delete: if isApproved();
+    }
+
+    // -------------------------------------------------------------------------
+    // 거래처 (모든 승인 사용자 공유) + 설정(구분/코드순번)
+    // -------------------------------------------------------------------------
+    match /vendors/{code} {
+      allow read: if isApproved();
+      allow create: if isApproved();
+      allow update, delete: if isApproved() &&
+        (resource.data.get('ownerUid', '') == request.auth.uid || isMaster());
+    }
+    match /items/{id} {
+      allow read: if isApproved();
+      allow create: if isApproved();
+      // 수정·품절: 승인된 모든 담당자 가능
+      allow update: if isApproved();
+      // 삭제: 마스터만 가능
+      allow delete: if isMaster();
+    }
+    match /settings/{docId} {
+      allow read, write: if isApproved();
+    }
+
+    // -------------------------------------------------------------------------
+    // 출고 (운영 데이터) — 건별 개별 문서. 모든 승인 담당자가 공유.
+    //   기존 sharedState 한 문서에서 분리(B 구조). 한 건 = 문서 1개.
+    //   삭제는 일상 업무라 승인 담당자 허용. (필요시 owner/마스터로 조이기 가능)
+    // -------------------------------------------------------------------------
+    match /outbound/{id} {
+      allow read: if isApproved();
+      allow create: if isApproved();
+      allow update: if isApproved();
+      allow delete: if isApproved();
+    }
+    match /inbound/{id} {
+      allow read: if isApproved();
+      allow create: if isApproved();
+      allow update: if isApproved();
+      allow delete: if isApproved();
+    }
+    match /reservations/{id} {
+      allow read: if isApproved();
+      allow create: if isApproved();
+      allow update: if isApproved();
+      allow delete: if isApproved();
+    }
+
+    // -------------------------------------------------------------------------
+    // 거래명세표 — 헤더+상세(lines 배열) 1문서. 모든 승인 담당자 공유.
+    //   취소·삭제는 마스터/관리자급으로 좁히고 싶으면 delete 조건 조정.
+    // -------------------------------------------------------------------------
+    match /statements/{id} {
+      allow read: if isApproved();
+      allow create: if isApproved();
+      allow update: if isApproved();
+      allow delete: if isMaster();
+    }
+    // 문서번호 채번 카운터 (counters/stmt_YYYYMMDD) — 트랜잭션 직렬화용
+    match /counters/{id} {
+      allow read, write: if isApproved();
+    }
+
+    // 그 외 경로는 모두 차단
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

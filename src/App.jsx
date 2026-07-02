@@ -13,6 +13,7 @@ import { StatementManagement } from "./statements.jsx";
 import { useInboundStore } from "./inbound.jsx";
 import { useOutboundStore } from "./outbound.jsx";
 import { useReservationsStore } from "./reservations.jsx";
+import { useCoilsStore, useStockHistoryStore, useCoilMetaStore } from "./coil.jsx";
 
 /* =========================================================================
    HN메탈릭 코일 재고관리 시스템 (v2)
@@ -170,19 +171,6 @@ function useStore(key, initialValue) {
   return [value, setValue];
 }
 
-const STORE_KEYS = [
-  "coils", "inbound", "outbound", "reservations", "baseStock", "stockHistory",
-  "customColors", "discontinuedColors", "zoneStock", "baseStockDates", "deletedBaseStockKeys",
-];
-const OBJECT_STORE_KEYS = new Set(["baseStock", "zoneStock", "baseStockDates"]);
-const sheetKeyOf = (item) => `${item.product}|${item.maker}|${item.code || ""}|${item.color}|${item.thickness}`;
-const localStorageKey = (key) => `hnmt-coil-${key}`;
-const safeJsonParse = (value, fallback) => {
-  try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
-};
-const readLocalSnapshot = () => Object.fromEntries(
-  STORE_KEYS.map((key) => [key, safeJsonParse(localStorage.getItem(localStorageKey(key)), OBJECT_STORE_KEYS.has(key) ? {} : [])])
-);
 const downloadJson = (data, fileName) => {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -192,178 +180,6 @@ const downloadJson = (data, fileName) => {
   a.click();
   URL.revokeObjectURL(url);
 };
-
-const byRecordId = (item) => item?.id || "";
-const byColorKey = (item) => sheetKeyOf(item || {});
-const mergeRecordList = (latest = [], local = [], base = [], idOf = byRecordId) => {
-  const baseIds = new Set(base.map(idOf).filter(Boolean));
-  const localById = new Map(local.map((item) => [idOf(item), item]).filter(([id]) => id));
-  const latestById = new Map(latest.map((item) => [idOf(item), item]).filter(([id]) => id));
-  const merged = [];
-  latestById.forEach((item, id) => {
-    if (localById.has(id)) merged.push(localById.get(id));
-    else if (!baseIds.has(id)) merged.push(item);
-  });
-  localById.forEach((item, id) => {
-    if (!latestById.has(id)) merged.push(item);
-  });
-  return merged;
-};
-const mergeObjectMap = (latest = {}, local = {}, base = {}) => {
-  const next = { ...latest };
-  Object.keys(base || {}).forEach((key) => {
-    if (!Object.prototype.hasOwnProperty.call(local || {}, key)) delete next[key];
-    else if (JSON.stringify(local[key]) !== JSON.stringify(base[key])) next[key] = local[key];
-  });
-  Object.keys(local || {}).forEach((key) => {
-    if (!Object.prototype.hasOwnProperty.call(base || {}, key)) next[key] = local[key];
-  });
-  return next;
-};
-const mergePrimitiveList = (latest = [], local = [], base = []) => {
-  const baseSet = new Set(base);
-  const localSet = new Set(local);
-  const next = latest.filter((item) => localSet.has(item) || !baseSet.has(item));
-  local.forEach((item) => {
-    if (!next.includes(item)) next.push(item);
-  });
-  return next;
-};
-const mergeSharedSnapshots = (latest = {}, local = {}, base = {}) => ({
-  ...latest,
-  coils: mergeRecordList(latest.coils, local.coils, base.coils),
-  stockHistory: mergeRecordList(latest.stockHistory, local.stockHistory, base.stockHistory),
-  customColors: mergeRecordList(latest.customColors, local.customColors, base.customColors, byColorKey),
-  discontinuedColors: mergePrimitiveList(latest.discontinuedColors, local.discontinuedColors, base.discontinuedColors),
-  deletedBaseStockKeys: mergePrimitiveList(latest.deletedBaseStockKeys, local.deletedBaseStockKeys, base.deletedBaseStockKeys),
-  baseStock: mergeObjectMap(latest.baseStock, local.baseStock, base.baseStock),
-  zoneStock: mergeObjectMap(latest.zoneStock, local.zoneStock, base.zoneStock),
-  baseStockDates: mergeObjectMap(latest.baseStockDates, local.baseStockDates, base.baseStockDates),
-});
-const FIREBASE_SDK_VERSION = "10.12.5";
-const FIREBASE_COLLECTION = "hnmtCoilSystem";
-const FIREBASE_DOC_ID = "sharedState";
-const importExternal = (url) => new Function("url", "return import(url)")(url);
-const cleanForFirestore = (value) => JSON.parse(JSON.stringify(value || {}));
-const getBundledFirebaseConfigText = () => {
-  const windowConfig = typeof window !== "undefined" ? window.HNMT_FIREBASE_CONFIG : null;
-  if (windowConfig && typeof windowConfig === "object" && Object.keys(windowConfig).length) {
-    return JSON.stringify(windowConfig);
-  }
-  const envConfig = import.meta.env?.VITE_FIREBASE_CONFIG;
-  return typeof envConfig === "string" ? envConfig.trim() : "";
-};
-const firebaseClientId = () => {
-  const key = "hnmt-coil-firebase-client-id";
-  let id = localStorage.getItem(key);
-  if (!id) {
-    id = uid();
-    localStorage.setItem(key, id);
-  }
-  return id;
-};
-const parseFirebaseConfig = (text) => {
-  const raw = String(text || "").trim();
-  if (!raw) throw new Error("Firebase 설정값을 입력해주세요.");
-  try {
-    return JSON.parse(raw);
-  } catch {
-    const objectMatch = raw.match(/\{[\s\S]*\}/);
-    if (!objectMatch) throw new Error("Firebase 설정 객체를 찾을 수 없습니다.");
-    const objectText = objectMatch[0];
-    const config = {};
-    ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId", "measurementId"].forEach((key) => {
-      const match = objectText.match(new RegExp(`${key}\\s*:\\s*["']([^"']+)["']`));
-      if (match) config[key] = match[1];
-    });
-    if (!config.apiKey || !config.projectId || !config.appId) {
-      throw new Error("apiKey, projectId, appId가 포함된 Firebase config를 붙여넣어주세요.");
-    }
-    return config;
-  }
-};
-let firebaseRuntimePromise = null;
-let firebaseRuntimeKey = "";
-const getFirebaseRuntime = async (configText) => {
-  const config = parseFirebaseConfig(configText);
-  const runtimeKey = `${config.projectId}|${config.appId}`;
-  if (firebaseRuntimePromise && firebaseRuntimeKey === runtimeKey) return firebaseRuntimePromise;
-  firebaseRuntimeKey = runtimeKey;
-  firebaseRuntimePromise = (async () => {
-    const appModule = await importExternal(`https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-app.js`);
-    const firestoreModule = await importExternal(`https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-firestore.js`);
-    const app = appModule.getApps().find((item) => item.name === "hnmt-coil") ||
-      appModule.initializeApp(config, "hnmt-coil");
-    // App Check (외부 무단 접근 차단) — index.html의 HNMT_APPCHECK_SITE_KEY가 있을 때만 활성화
-    const appCheckSiteKey = (typeof window !== "undefined" && window.HNMT_APPCHECK_SITE_KEY) || "";
-    if (appCheckSiteKey && !app.__appCheckReady) {
-      try {
-        const appCheckModule = await importExternal(`https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-app-check.js`);
-        appCheckModule.initializeAppCheck(app, {
-          provider: new appCheckModule.ReCaptchaV3Provider(appCheckSiteKey),
-          isTokenAutoRefreshEnabled: true,
-        });
-        app.__appCheckReady = true;
-      } catch (appCheckError) {
-        console.warn("App Check 초기화 실패(공유 기능은 계속 동작):", appCheckError);
-      }
-    }
-    const db = firestoreModule.getFirestore(app);
-    const docRef = firestoreModule.doc(db, FIREBASE_COLLECTION, FIREBASE_DOC_ID);
-    const readSnapshot = (docSnap) => docSnap.exists() ? (docSnap.data()?.snapshot || null) : null;
-    return {
-      async getSharedSnapshot() {
-        return readSnapshot(await firestoreModule.getDoc(docRef));
-      },
-      async saveSharedSnapshot(localSnapshot, baseSnapshot) {
-        const clientId = firebaseClientId();
-        return firestoreModule.runTransaction(db, async (transaction) => {
-          const currentDoc = await transaction.get(docRef);
-          const latestSnapshot = readSnapshot(currentDoc) || {};
-          const mergedSnapshot = mergeSharedSnapshots(latestSnapshot, localSnapshot, baseSnapshot || {});
-          transaction.set(docRef, {
-            snapshot: cleanForFirestore(mergedSnapshot),
-            updatedAt: firestoreModule.serverTimestamp(),
-            updatedBy: clientId,
-          }, { merge: true });
-          return mergedSnapshot;
-        });
-      },
-      async overwriteSharedSnapshot(snapshot) {
-        const cleanSnapshot = cleanForFirestore(snapshot);
-        await firestoreModule.setDoc(docRef, {
-          snapshot: cleanSnapshot,
-          updatedAt: firestoreModule.serverTimestamp(),
-          updatedBy: firebaseClientId(),
-        }, { merge: true });
-        return cleanSnapshot;
-      },
-      subscribe(onData, onError) {
-        return firestoreModule.onSnapshot(docRef, (docSnap) => onData(readSnapshot(docSnap)), onError);
-      },
-    };
-  })();
-  return firebaseRuntimePromise;
-};
-/* ---------- 초기 샘플 데이터 ---------- */
-function seed() {
-  const base = (o) => ({ id: uid(), created_at: o.inbound_date || todayStr(), updated_at: todayStr(), ...o });
-  const coils = [
-    base({ coil_number: "C-20260601-1043", product_type: "강판", manufacturer: "동국", color_name: "차콜", thickness: "0.45", purchaser: "동국제강", initial_meter: 600, current_meter: 380, total_outbound_meter: 220, current_roll_count: 1, status: "정상", memo: "", inbound_date: "2026-06-01" }),
-    base({ coil_number: "C-20260603-7720", product_type: "강판", manufacturer: "포스코", color_name: "백색", thickness: "0.45", purchaser: "포스코강판", initial_meter: 500, current_meter: 500, total_outbound_meter: 0, current_roll_count: 1, status: "정상", memo: "", inbound_date: "2026-06-03" }),
-    base({ coil_number: "C-20260528-3391", product_type: "징크", manufacturer: "동국", color_name: "다크그레이", thickness: "0.5", purchaser: "동국제강", initial_meter: 800, current_meter: 120, total_outbound_meter: 680, current_roll_count: 1, status: "부족", memo: "", inbound_date: "2026-05-28" }),
-    base({ coil_number: "C-20260605-9912", product_type: "징크", manufacturer: "세아", color_name: "메탈실버", thickness: "0.45", purchaser: "세아씨엠", initial_meter: 400, current_meter: 400, total_outbound_meter: 0, current_roll_count: 1, status: "정상", memo: "", inbound_date: "2026-06-05" }),
-  ];
-  const inbound = coils.map((c) => base({
-    inbound_date: c.inbound_date, coil_number: c.coil_number, product_type: c.product_type, manufacturer: c.manufacturer,
-    color_name: c.color_name, thickness: c.thickness, coil_meter: c.initial_meter, purchaser: c.purchaser, memo: "",
-  }));
-  const outbound = [
-    base({ outbound_date: "2026-06-10", arrival_date: "2026-06-12", arrival_time: "10:00", customer: "한빛건설", product_type: "강판", coil_number: "C-20260601-1043", manufacturer: "동국", color_name: "차콜", site_address: "서울 강남구 역삼로 123 역삼 신축현장", outbound_meter: 120, before_meter: 880, after_meter: 760, is_completed: false, completed_at: null, memo: "오전 배송" }),
-    base({ outbound_date: "2026-06-08", arrival_date: "2026-06-09", arrival_time: "14:00", customer: "판교물류", product_type: "징크", coil_number: "C-20260528-3391", manufacturer: "동국", color_name: "다크그레이", site_address: "경기 성남시 분당구 판교로 50 판교 물류센터", outbound_meter: 80, before_meter: 1280, after_meter: 1200, is_completed: true, completed_at: "2026-06-08", memo: "" }),
-  ];
-  return { coils, inbound, outbound };
-}
 
 /* =========================================================================
    공통 UI
@@ -553,29 +369,15 @@ export default function CoilInventory() {
   const [outboundPendingOpen, setOutboundPendingOpen] = useState(false);
   const [outboundDetailId, setOutboundDetailId] = useState("");
 
-  const initial = useMemo(seed, []);
-  const [coils, setCoils] = useStore("coils", initial.coils);
+  const [coils, setCoils] = useCoilsStore();
   const [inbound, setInbound] = useInboundStore();
   const [outbound, setOutbound] = useOutboundStore();
   const [reservations, setReservations] = useReservationsStore();
-  const [baseStock, setBaseStock] = useStore("baseStock", {});
-  const [stockHistory, setStockHistory] = useStore("stockHistory", []);
-  const [customColors, setCustomColors] = useStore("customColors", []);
-  const [discontinuedColors, setDiscontinuedColors] = useStore("discontinuedColors", []);
-  const [zoneStock, setZoneStock] = useStore("zoneStock", {});
-  const [baseStockDates, setBaseStockDates] = useStore("baseStockDates", {});
-  const [deletedBaseStockKeys, setDeletedBaseStockKeys] = useStore("deletedBaseStockKeys", []);
-  const [firebaseConfigText, setFirebaseConfigText] = useStore("firebaseConfigText", "");
-  const [firebaseEnabled, setFirebaseEnabled] = useStore("firebaseEnabled", false);
-  const bundledFirebaseConfigText = useMemo(() => getBundledFirebaseConfigText(), []);
-  const activeFirebaseConfigText = bundledFirebaseConfigText || firebaseConfigText;
-  const activeFirebaseEnabled = Boolean(bundledFirebaseConfigText) || firebaseEnabled;
-  const [cloudOpen, setCloudOpen] = useState(false);
-  const [cloudStatus, setCloudStatus] = useState("");
-  const cloudLoadedRef = useRef(false);
-  const cloudApplyingRef = useRef(false);
-  const cloudBaseSnapshotRef = useRef(null);
-  const firebaseUnsubscribeRef = useRef(null);
+  const [stockHistory, setStockHistory] = useStockHistoryStore();
+  const {
+    baseStock, setBaseStock, customColors, setCustomColors, discontinuedColors, setDiscontinuedColors,
+    zoneStock, setZoneStock, baseStockDates, setBaseStockDates, deletedBaseStockKeys, setDeletedBaseStockKeys,
+  } = useCoilMetaStore();
   useEffect(() => {
     const masterKeys = new Set(COLOR_MASTER.map((item) =>
       `${item.product}|${item.maker}|${item.code}|${item.color}|${item.thickness}`
@@ -622,95 +424,6 @@ export default function CoilInventory() {
     wasAuthedRef.current = authed;
   }, [authed, auth.user]);
 
-  const localSnapshot = useMemo(() => ({
-    coils, baseStock, stockHistory, customColors,
-    discontinuedColors, zoneStock, baseStockDates, deletedBaseStockKeys,
-  }), [coils, baseStock, stockHistory, customColors, discontinuedColors, zoneStock, baseStockDates, deletedBaseStockKeys]);
-
-  const applySnapshot = (snapshot) => {
-    cloudApplyingRef.current = true;
-    if (snapshot.coils) setCoils(snapshot.coils);
-    if (snapshot.baseStock) setBaseStock(snapshot.baseStock);
-    if (snapshot.stockHistory) setStockHistory(snapshot.stockHistory);
-    if (snapshot.customColors) setCustomColors(snapshot.customColors);
-    if (snapshot.discontinuedColors) setDiscontinuedColors(snapshot.discontinuedColors);
-    if (snapshot.zoneStock) setZoneStock(snapshot.zoneStock);
-    if (snapshot.baseStockDates) setBaseStockDates(snapshot.baseStockDates);
-    if (snapshot.deletedBaseStockKeys) setDeletedBaseStockKeys(snapshot.deletedBaseStockKeys);
-    window.setTimeout(() => { cloudApplyingRef.current = false; }, 500);
-  };
-
-  const loadSharedData = async (configText = activeFirebaseConfigText) => {
-    setCloudStatus("Firestore 데이터를 불러오는 중입니다...");
-    const runtime = await getFirebaseRuntime(configText);
-    const sharedSnapshot = await runtime.getSharedSnapshot();
-    if (!sharedSnapshot) {
-      cloudBaseSnapshotRef.current = localSnapshot;
-      cloudLoadedRef.current = true;
-      setCloudStatus("Firestore 문서가 비어 있습니다. 먼저 로컬 데이터를 이전해주세요.");
-      return;
-    }
-    cloudBaseSnapshotRef.current = sharedSnapshot;
-    applySnapshot(sharedSnapshot);
-    cloudLoadedRef.current = true;
-    setCloudStatus("Firestore 데이터 불러오기 완료");
-  };
-
-  const saveSharedData = async (snapshot = localSnapshot, configText = activeFirebaseConfigText) => {
-    setCloudStatus("Firestore에 저장 중입니다...");
-    const runtime = await getFirebaseRuntime(configText);
-    const mergedSnapshot = await runtime.saveSharedSnapshot(snapshot, cloudBaseSnapshotRef.current || {});
-    cloudBaseSnapshotRef.current = mergedSnapshot;
-    setCloudStatus("Firestore 저장 완료");
-  };
-
-  useEffect(() => {
-    if (!authed || !activeFirebaseEnabled || !activeFirebaseConfigText) return;
-    let cancelled = false;
-    cloudLoadedRef.current = false;
-    setCloudStatus("Firestore 실시간 연결 중입니다...");
-    getFirebaseRuntime(activeFirebaseConfigText).then((runtime) => {
-      if (cancelled) return;
-      firebaseUnsubscribeRef.current?.();
-      firebaseUnsubscribeRef.current = runtime.subscribe((sharedSnapshot) => {
-        if (!sharedSnapshot) {
-          cloudBaseSnapshotRef.current = readLocalSnapshot();
-          cloudLoadedRef.current = true;
-          setCloudStatus("Firestore 문서가 비어 있습니다. 로컬 이전을 먼저 실행해주세요.");
-          return;
-        }
-        const previousBase = cloudBaseSnapshotRef.current || {};
-        const currentLocal = readLocalSnapshot();
-        const nextSnapshot = cloudLoadedRef.current
-          ? mergeSharedSnapshots(sharedSnapshot, currentLocal, previousBase)
-          : sharedSnapshot;
-        cloudBaseSnapshotRef.current = sharedSnapshot;
-        applySnapshot(nextSnapshot);
-        cloudLoadedRef.current = true;
-        setCloudStatus("Firestore 실시간 연결됨");
-      }, (error) => {
-        setCloudStatus(error.message || "Firestore 실시간 연결 오류");
-        cloudLoadedRef.current = true;
-      });
-    }).catch((error) => {
-      setCloudStatus(error.message);
-      cloudLoadedRef.current = true;
-    });
-    return () => {
-      cancelled = true;
-      firebaseUnsubscribeRef.current?.();
-      firebaseUnsubscribeRef.current = null;
-    };
-  }, [authed, activeFirebaseEnabled, activeFirebaseConfigText]);
-
-  useEffect(() => {
-    if (!authed || !activeFirebaseEnabled || !activeFirebaseConfigText || !cloudLoadedRef.current || cloudApplyingRef.current) return;
-    const timer = window.setTimeout(() => {
-      saveSharedData(localSnapshot, activeFirebaseConfigText).catch((error) => setCloudStatus(error.message));
-    }, 1400);
-    return () => window.clearTimeout(timer);
-  }, [authed, activeFirebaseEnabled, activeFirebaseConfigText, localSnapshot]);
-
   if (!authed) return <AuthGate auth={auth} />;
 
   const ctx = { coils, setCoils, inbound, setInbound, outbound, setOutbound, reservations, setReservations, baseStock, setBaseStock, stockHistory, setStockHistory, customColors, setCustomColors, discontinuedColors, setDiscontinuedColors, zoneStock, setZoneStock, baseStockDates, setBaseStockDates, deletedBaseStockKeys, setDeletedBaseStockKeys };
@@ -723,32 +436,18 @@ export default function CoilInventory() {
     setDrawer(false);
   };
   const resetAllData = async () => {
-    const resetSnapshot = {
-      ...localSnapshot,
-      coils: [],
-      inbound: [],
-      outbound: [],
-      reservations: [],
-      baseStock: {},
-      stockHistory: [],
-      zoneStock: {},
-      baseStockDates: {},
-    };
-    downloadJson({ exportedAt: new Date().toISOString(), data: localSnapshot }, `HNMT_COIL_before_reset_${todayStr()}.json`);
-    cloudApplyingRef.current = true;
-    try {
-      if (activeFirebaseEnabled && activeFirebaseConfigText) {
-        setCloudStatus("Firestore 운영 데이터를 초기화하는 중입니다...");
-        const runtime = await getFirebaseRuntime(activeFirebaseConfigText);
-        await runtime.overwriteSharedSnapshot(resetSnapshot);
-        setCloudStatus("Firestore 운영 데이터 초기화 완료");
-      }
-    } catch (error) {
-      cloudApplyingRef.current = false;
-      throw error;
-    }
-    cloudBaseSnapshotRef.current = resetSnapshot;
-    applySnapshot(resetSnapshot);
+    downloadJson({
+      exportedAt: new Date().toISOString(),
+      data: { coils, inbound, outbound, reservations, baseStock, stockHistory, zoneStock, baseStockDates },
+    }, `HNMT_COIL_before_reset_${todayStr()}.json`);
+    setCoils([]);
+    setInbound([]);
+    setOutbound([]);
+    setReservations([]);
+    setBaseStock({});
+    setStockHistory([]);
+    setZoneStock({});
+    setBaseStockDates({});
     localStorage.removeItem("hnmt-coil-inboundTodos");
     setQuickAction(null);
   };
@@ -770,12 +469,6 @@ export default function CoilInventory() {
                 담당자 관리
               </button>
             )}
-            {!bundledFirebaseConfigText && (
-              <button onClick={() => setCloudOpen(true)}
-                className={`hidden sm:inline-flex h-10 px-3 rounded-xl border text-xs font-bold items-center justify-center transition ${activeFirebaseEnabled ? "border-indigo-200 bg-indigo-50 text-indigo-600" : "border-slate-200 bg-white text-slate-500 hover:text-indigo-600"}`}>
-                공용저장
-              </button>
-            )}
             <button onClick={() => setDrawer(true)} aria-label="메뉴 열기"
               className="w-11 h-11 md:w-12 md:h-12 rounded-2xl bg-white/25 border border-white/60 backdrop-blur-xl shadow-lg shadow-indigo-200/30 flex items-center justify-center transition hover:bg-white/45 hover:-translate-y-0.5">
               <Menu size={22} className="text-indigo-500/80" />
@@ -788,26 +481,6 @@ export default function CoilInventory() {
       <Drawer open={drawer} onClose={() => setDrawer(false)} menu={menu} goto={goto} onLogout={() => { auth.signOutNow(); setDrawer(false); }} />
       {isMaster && <MasterUserPanel open={userMgmtOpen} onClose={() => setUserMgmtOpen(false)} myUid={auth.user?.uid} />}
       {briefingOpen && <TodayBriefing ctx={ctx} onClose={() => setBriefingOpen(false)} />}
-      <CloudStorageModal
-        open={cloudOpen}
-        onClose={() => setCloudOpen(false)}
-        configText={activeFirebaseConfigText}
-        setConfigText={setFirebaseConfigText}
-        enabled={activeFirebaseEnabled}
-        setEnabled={(value) => { cloudLoadedRef.current = false; setFirebaseEnabled(value); }}
-        status={cloudStatus}
-        snapshot={localSnapshot}
-        onBackup={() => downloadJson({ exportedAt: new Date().toISOString(), data: readLocalSnapshot() }, `HNMT_COIL_backup_${todayStr()}.json`)}
-        onLoad={loadSharedData}
-        onMigrate={async (configText) => {
-          const snapshot = readLocalSnapshot();
-          downloadJson({ exportedAt: new Date().toISOString(), data: snapshot }, `HNMT_COIL_before_firestore_${todayStr()}.json`);
-          await saveSharedData(snapshot, configText || activeFirebaseConfigText);
-          setFirebaseEnabled(true);
-          cloudLoadedRef.current = true;
-        }}
-        onSaveNow={(configText) => saveSharedData(localSnapshot, configText || activeFirebaseConfigText)}
-      />
 
       <main className="max-w-[1400px] mx-auto p-4 md:p-8">
         {menu === "dashboard" && <Dashboard ctx={ctx} openQuick={openQuick} openOutboundDetail={openOutboundDetail} resetAllData={resetAllData} isAdmin={isAdmin} />}
@@ -934,72 +607,6 @@ function Drawer({ open, onClose, menu, goto, onLogout }) {
         </div>
       </div>
     </div>
-  );
-}
-
-function CloudStorageModal({ open, onClose, configText, setConfigText, enabled, setEnabled, status, onBackup, onLoad, onMigrate, onSaveNow }) {
-  const [draftConfig, setDraftConfig] = useState(configText || "");
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    if (open) setDraftConfig(configText || "");
-  }, [open, configText]);
-  const run = async (fn) => {
-    try {
-      setBusy(true);
-      await fn();
-    } catch (error) {
-      appAlert(error.message || "공용 저장 작업에 실패했습니다.", { title: "공용 저장 오류", type: "warning" });
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <Modal open={open} onClose={onClose} title="Firebase Firestore 공용 저장" wide="medium">
-      <div className="space-y-5">
-        <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700 leading-relaxed">
-          기존 브라우저 데이터는 삭제하지 않습니다. 먼저 JSON 백업을 받은 뒤, Firebase config를 연결하면 여러 기기에서 같은 Firestore 데이터를 실시간 공유합니다.
-        </div>
-        <Field label="Firebase 웹앱 config">
-          <textarea className={`${inputCls} min-h-36 font-mono text-xs`} value={draftConfig} onChange={(e) => setDraftConfig(e.target.value)}
-            placeholder={`const firebaseConfig = {\n  apiKey: \"...\",\n  authDomain: \"...\",\n  projectId: \"...\",\n  storageBucket: \"...\",\n  messagingSenderId: \"...\",\n  appId: \"...\"\n};`} />
-        </Field>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => { setConfigText(draftConfig.trim()); setEnabled(Boolean(draftConfig.trim())); }}
-            className="h-10 px-4 rounded-xl border border-indigo-200 bg-indigo-50 text-sm font-bold text-indigo-700">
-            설정 저장
-          </button>
-          <button type="button" onClick={() => setEnabled(!enabled)}
-            disabled={!configText && !draftConfig.trim()}
-            className={`h-10 px-4 rounded-xl border text-sm font-bold disabled:opacity-40 ${enabled ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-500"}`}>
-            {enabled ? "Firestore 사용 중" : "Firestore 꺼짐"}
-          </button>
-          <span className="text-xs text-slate-400">{status || "대기 중"}</span>
-        </div>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <button type="button" onClick={onBackup}
-            className="h-12 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:border-indigo-200">
-            1. 기존 데이터 JSON 백업
-          </button>
-          <button type="button" disabled={busy} onClick={() => run(async () => { const config = draftConfig.trim(); setConfigText(config); await onMigrate(config); })}
-            className="h-12 rounded-xl border border-indigo-200 bg-indigo-600 text-sm font-bold text-white disabled:opacity-50">
-            2. 로컬 데이터를 Firestore로 이전
-          </button>
-          <button type="button" disabled={busy} onClick={() => run(async () => { const config = draftConfig.trim(); setConfigText(config); await onLoad(config || configText); })}
-            className="h-12 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 disabled:opacity-50">
-            Firestore에서 불러오기
-          </button>
-          <button type="button" disabled={busy} onClick={() => run(async () => { const config = draftConfig.trim(); setConfigText(config); await onSaveNow(config); })}
-            className="h-12 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 disabled:opacity-50">
-            현재 화면 데이터 저장
-          </button>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-6 text-slate-500">
-          Firestore 경로는 <b>hnmtCoilSystem/sharedState</b> 문서를 사용합니다.
-          저장 전 최신 문서를 트랜잭션으로 읽고 병합하므로 여러 기기 입력 충돌 위험을 줄입니다.
-          기존 localStorage는 캐시와 백업 용도로 유지됩니다.
-        </div>
-      </div>
-    </Modal>
   );
 }
 

@@ -1,0 +1,76 @@
+# HN메탈릭 코일 재고관리 시스템 — 작업현황 및 다음 작업 지시서
+
+- 문서 버전: v2
+- 작성일: 2026-07-02
+- 대상 저장소: `coil-inventory-management-main`
+- 범위: Firebase / GitHub 관련 작업현황 정리 + 다음 작업 지시
+
+## 1. Firebase 작업현황
+
+### 1.1 인증 (Firebase Auth)
+
+- `auth.jsx`: 이메일/비밀번호 방식. Firebase SDK는 npm 의존성이 아니라 `index.html`에서 CDN(`gstatic.com/firebasejs`)을 동적 `import()`로 로드.
+- 가입 시 `users/{uid}` 문서를 `role: "담당자"`, `status: "승인대기"`로 고정 생성 후 즉시 로그아웃 — 마스터 승인 전에는 앱 진입 불가.
+- `useAuth()` 훅이 `onAuthStateChanged` + `users/{uid}` 문서를 조합해 `loading/signedout/no-profile/pending/suspended/active` 상태를 판정.
+- `MasterUserPanel`: 마스터가 사용자 목록 조회, 역할 변경(담당자/관리자/마스터), 승인/정지 처리.
+- App Check(reCAPTCHA v3)가 `window.HNMT_APPCHECK_SITE_KEY`로 연동되어 있음 (`index.html`).
+
+### 1.2 Firestore 데이터 구조 및 보안 규칙
+
+`Firestore.txt`에 정의된 규칙과 코드가 사용하는 컬렉션이 1:1로 일치함(누락/불일치 없음 확인됨):
+
+| 컬렉션 | 용도 | 권한 |
+|---|---|---|
+| `users/{uid}` | 사용자 프로필/승인상태 | 본인+마스터만 read, role/status는 본인 수정 불가 |
+| `vendors/{code}` | 거래처 | 승인 사용자 read/write, 수정·삭제는 소유자 또는 마스터 |
+| `items/{id}` | 품목 | 승인 사용자 read/create/update, 삭제는 마스터만 |
+| `settings/{docId}` | 채번용 메타(vendorMeta/itemMeta 등) | 승인 사용자 read/write |
+| `inbound/{id}` | 입고 기록 (건별 문서) | 승인 사용자 전체 권한 |
+| `outbound/{id}` | 출고 기록 (건별 문서) | 승인 사용자 전체 권한 |
+| `reservations/{id}` | 예약 (건별 문서) | 승인 사용자 전체 권한 |
+| `statements/{id}` | 거래명세표 (헤더+lines) | 승인 사용자 read/create/update, 삭제는 마스터만 |
+| `counters/{id}` | 문서번호 채번(트랜잭션) | 승인 사용자 read/write |
+| `coils/{id}` | 코일 재고 등록 내역 (건별 문서) | 승인 사용자 전체 권한 |
+| `stockHistory/{id}` | 기초재고 등록/변경 이력 (건별 문서) | 승인 사용자 전체 권한 |
+| `settings/coilMeta` | baseStock/customColors/discontinuedColors/zoneStock/baseStockDates/deletedBaseStockKeys 묶음 | `settings/{docId}` 규칙에 포함 |
+
+### 1.3 저장 구조 마이그레이션 — 완료 (2026-07-02)
+
+- **이전(레거시)**: 코일/기초재고/이력/커스텀색상 전체를 `hnmtCoilSystem/sharedState` 문서 하나에 몰아넣고 클라이언트 3-way 병합(`mergeSharedSnapshots`)하는 방식. Firebase 번들 설정이 있으면 자동으로 항상 켜져서(`activeFirebaseEnabled` 상시 true) 실시간 동기화는 되고 있었지만, **문서 1개에 계속 쌓이는 구조라 Firestore 1MiB 문서 크기 한계에 걸릴 위험**이 있었음(= "나중에 문제 될 것" 리스크).
+- **변경 후**: `src/coil.jsx` 신규 작성.
+  - `useCoilsStore()` / `useStockHistoryStore()` — `inbound`/`outbound`와 동일하게 건별 문서 컬렉션(`coils`, `stockHistory`)으로 분리, `onSnapshot` 구독 + diff 저장.
+  - `useCoilMetaStore()` — baseStock/customColors/discontinuedColors/zoneStock/baseStockDates/deletedBaseStockKeys는 계속 자라지 않는 "설정" 성격이라 `settings/coilMeta` 문서 하나에 필드별로 merge 저장(vendors/items의 settings 패턴과 동일).
+  - `App.jsx`에서 레거시 코드 전량 제거: `hnmtCoilSystem`, `mergeSharedSnapshots`류 병합 함수, `CloudStorageModal`(공용저장 버튼), `getFirebaseRuntime`, `seed()` 데모 데이터. **412줄 삭제, 19줄 추가** (`git diff --stat` 기준).
+  - `resetAllData`(전체 초기화)도 단순화 — 각 setter가 이미 Firestore에 직접 반영되므로 별도 스냅샷 오버라이트 로직 불필요.
+  - 테스트 단계라 기존 `hnmtCoilSystem/sharedState`에 있던 데이터는 별도 마이그레이션 없이 폐기(사용자 확인 완료).
+- **Firestore 규칙 갱신**: `coils/{id}`, `stockHistory/{id}` 규칙 추가, `hnmtCoilSystem/{docId}` 규칙 제거. 저장소 루트에 `firestore.rules` 파일로 새로 커밋(기존엔 저장소 밖 `Firestore.txt`에만 있어서 버전관리가 안 되고 있었음).
+
+## 2. GitHub 작업현황
+
+- 리포지토리: `coil-inventory-management` (https://github.com/bamby0715-hub/coil-inventory-management)
+- **2026-07-02: 로컬에 `git init` + `remote add origin` + `fetch` 완료, `main` 브랜치를 `origin/main`에 연결함.** 연결 시점 확인 결과 로컬 파일과 `origin/main`의 최신 커밋(`2d44976 Update statements.jsx`) 사이에 `SPEC.md`(신규 작성분) 외 차이 없음 — 기존 작업은 이미 전부 push된 상태였음.
+- 배포 워크플로우: `.github/workflows/pages.yml`
+  - 트리거: `main` push 또는 수동 실행
+  - `build` job: Node 24 → `npm install` → `npm run build -- --base=/coil-inventory-management/` → Pages 아티팩트 업로드
+  - `deploy` job: `actions/deploy-pages@v4`로 `github-pages` 환경에 배포, `concurrency: pages`로 중복 실행 취소
+  - `vite.config.js` 자체에는 `base` 설정이 없고 워크플로우 CLI 플래그로만 주입됨 → **로컬 `npm run dev`/`vite build`는 base 플래그 없이 실행되므로 하드코딩된 `/coil-inventory-management/assets/...` 경로가 깨질 수 있음** (로고, 마스코트 이미지 등).
+- CI 단계에 테스트/린트 실행 없음 (빌드 성공 여부만 게이트).
+
+## 3. 작업 지시서 (체크리스트)
+
+- [x] **git 저장소 연결** — `git init` + `remote add origin` + `fetch`, `main`을 `origin/main`에 연결 (2026-07-02)
+- [x] **vite base 경로 고정** — `vite.config.js`에 `base` 지정, `pages.yml`의 중복 `--base` 플래그 제거
+- [x] **코일 재고 저장구조 분리** — `src/coil.jsx` 신규 작성 (`useCoilsStore`/`useStockHistoryStore`/`useCoilMetaStore`)
+- [x] **App.jsx 레거시 코드 제거** — `hnmtCoilSystem`, `CloudStorageModal`, 병합 함수, `seed()` 데모 데이터 삭제
+- [x] **Firestore 규칙 갱신** — `coils`/`stockHistory` 규칙 추가, `hnmtCoilSystem` 규칙 제거, `firestore.rules`로 저장소에 편입
+- [ ] **Firebase 콘솔에 규칙 반영** — 이 저장소는 Firebase 배포 파이프라인이 없어 자동 반영 안 됨. Firebase 콘솔 → Firestore Database → 규칙 탭에서 `firestore.rules` 내용을 직접 붙여넣고 게시해야 실제로 적용됨.
+- [ ] **로컬 동작 확인** — 이 컴퓨터에 Node.js/npm이 없어 `npm run build`/`npm run dev`로 직접 검증 못 함. GitHub에 push하면 Actions가 빌드를 검증하고, 배포된 사이트에서 실제 로그인 후 코일관리/대시보드 동작을 확인하는 절차가 필요.
+- [ ] **git commit / push** — 로컬에만 반영된 상태. 커밋 후 push할지 사용자 확인 필요(원격 저장소에 반영되는 작업이라 승인 후 진행).
+- [ ] **거래명세표 공급자 정보 채우기** — `statements.jsx`의 `SUPPLIER.사업자등록번호/대표자/연락처` 공란. 실제 사업자등록증 정보 필요.
+- [ ] **`Sales`/`Colors` 화면 처리** — 구현은 됐지만 메뉴에 연결 안 돼 접근 불가. 노출할지 삭제할지 결정 필요.
+- [ ] **CI에 최소 검증 단계 추가 검토** — 현재 `pages.yml`은 빌드 성공 여부만 게이트.
+
+## 4. 참고
+
+- 본 문서는 `src/App.jsx`, `auth.jsx`, `inbound.jsx`, `outbound.jsx`, `reservations.jsx`, `vendors.jsx`, `items.jsx`, `statements.jsx`, `coil.jsx`, `firestore.rules`, `.github/workflows/pages.yml`, `vite.config.js`, `package.json` 코드 스캔(2026-07-02) 기준.
+- 이전 버전(v1)에 있던 구글드라이브 "HN메탈릭 업무 계획서" 연관 서술은 요청에 따라 제거함 — 이번 작업 범위는 Firebase/GitHub 기술 현황에 한정.
