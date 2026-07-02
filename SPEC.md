@@ -97,14 +97,18 @@
 - **다 쓴 롤(0M)**은 기본 목록에서 숨김/사용완료 표시.
 
 ### 체크리스트
+**진행 방식**: 레거시 UI가 재고를 5곳(입고·ColorStockModal·코일관리 등록/편집/삭제·출고)에서 제각각 써서, 리스크 관리를 위해 **① 안전한 엔진 먼저**(A/B/C를 롤 슬롯으로 코일에 연결, 화면 유지) → **② 임의개수 롤목록 UI는 다음 단계**로 분리(사용자 승인).
+
 - [x] 목표 설계 문서화 + 커밋
 - [x] 코일관리 롤목록 UX 목업 승인 + 출고 실시간계산 요구 확정
-- [ ] `coils` 스키마 확정(롤 라벨/source 필드) + 색상키 헬퍼 + `coils`에서 baseStock/zoneStock 파생
-- [ ] 코일관리 화면을 롤 목록 기반으로 재설계 (입고/실사 등록 → `coils` 문서 생성으로 통합)
-- [ ] 출고 차감을 `coils` 롤 선택 + 실시간계산 + 색상키 FIFO로 정정 (느슨한 제품구분 매칭 버그 수정)
-- [ ] `baseStock`/`zoneStock`/`baseStockDates`를 `coilMeta`에서 제거
-- [ ] 대시보드/재고현황 집계를 `coils` 기준으로 통일
-- [ ] 배포 후 실사이트 테스트 (등록→출고→재고 일관성 확인)
+- [x] `coils` 스키마(roll_label/source) + 색상키 헬퍼 + `deriveCoilStock`로 baseStock/zoneStock 파생 (`coil.jsx`)
+- [x] 코일관리 기초등록/편집/삭제 → 실사 롤 코일(`base|key|label`) 생성·삭제로 교체 (A/B/C UI 유지)
+- [x] 입고 코일에 roll_label/source 부여 + ColorStockModal도 coils에 기록
+- [x] 출고 차감/복원을 `coils` 색상키 기준으로 정정 (`deductCoilsByKey`/`restoreCoilsByKey`, 제품구분만 매칭하던 버그 수정)
+- [x] `baseStock`/`zoneStock`/`baseStockDates`를 `coilMeta`에서 제거 (파생 전환)
+- [x] 빌드/배포 성공 (`f449951`, Actions success)
+- [ ] **배포 후 실사이트 테스트** — 전체 초기화 → 코일관리 등록 → 입고 → 출고 → 재고 일관성 확인 (사용자)
+- [ ] (다음 단계) 임의개수 롤목록 UI + 출고 시 롤 선택 드롭다운 (엔진 검증 후)
 
 ## 5. 참고
 
